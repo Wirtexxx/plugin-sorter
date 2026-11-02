@@ -52,6 +52,8 @@ VST3/                                VST3/
 - ↩️ **One-click undo.** Every run writes a move log, and *Undo* puts everything back.
 - 📁 **Respects your folders.** Existing vendor folders are reused, whatever their letter case.
 - 🌊 **Leaves Waves alone.** WaveShells are managed by Waves Central and are skipped.
+- 🖼️ **Plugin pictures in FL Studio.** Screenshots of every plugin's interface for FL's
+  browser and plugin picker, the way FL's own plugins look there.
 - 🧩 **Keeps Audio Units working.** AU stay in `Components`, and AU moved by 1.0 can be
   restored with one click.
 - 🎛️ **Plugin-style UI.** Graphite panels, format knobs and a waveform of your developers,
@@ -90,6 +92,29 @@ cd plugin-sorter
 3. Review the list and press **Sort**. macOS asks for an administrator password
    because `/Library/Audio/Plug-Ins` belongs to the system.
 4. Changed your mind? Press **Undo**.
+
+### Pictures in FL Studio
+
+FL Studio shows a picture next to its own plugins in the browser, but third-party ones get
+only a name. The **FL Studio** tab fixes that:
+
+<p align="center">
+  <img src="docs/screenshot-fl.png" width="760" alt="FL Studio tab">
+</p>
+
+1. Open the **FL Studio** tab. It lists the favourites from FL's plugin database
+   (`~/Documents/Image-Line/FL Studio/Presets/Plugin database`).
+2. Press **Add pictures**. For every plugin without a picture the app opens its Audio Unit
+   editor for a moment, takes a screenshot and saves it next to the plugin's `.fst` preset,
+   exactly where FL keeps its own pictures. Plugins that can't be opened get a card instead.
+3. Restart FL Studio.
+
+Drop any image on a tile to use your own, or right-click it to retake the screenshot, switch to
+a card or remove the picture. **Remove mine** deletes everything Plugin Sorter added and
+restores FL's `.nfo` files byte for byte.
+
+> Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
+> Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
 
 ### Command line
 

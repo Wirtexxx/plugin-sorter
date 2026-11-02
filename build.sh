@@ -62,6 +62,7 @@ if [ "${1:-}" = "--screenshot" ]; then
     $(ls App/*.swift | grep -v PluginSorterApp.swift) tools/snapshot.swift -o build/snapshot
   mkdir -p docs
   build/snapshot docs/screenshot.png en
+  build/snapshot docs/screenshot-fl.png en fl
   cp build/icon.png docs/icon.png
 fi
 
