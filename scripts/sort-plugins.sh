@@ -10,7 +10,8 @@ usage() {
   cat <<EOF
 Usage:
   $0                 dry run: show what would be moved
-  sudo $0 --apply    move plugins
+  sudo $0 --apply    move plugins, write a move log to \$HOME
+  sudo $0 --undo LOG move everything from LOG back
 EOF
 }
 
@@ -66,9 +67,24 @@ existing_dir() {
   echo "$name"
 }
 
+undo() {
+  [ -f "$1" ] || { echo "No such log: $1"; exit 1; }
+  tail -r "$1" | while IFS=$'\t' read -r src dst; do
+    if [ -e "$dst" ] && [ ! -e "$src" ]; then
+      mv "$dst" "$src" && echo "restored: ${dst#$ROOT/} -> ${src#$ROOT/}"
+    else
+      echo "skip: ${dst#$ROOT/}"
+    fi
+  done
+  # drop vendor folders that became empty
+  for fmt in $FORMATS; do find "$ROOT/$fmt" -mindepth 1 -maxdepth 1 -type d -empty -delete; done
+  mv "$1" "$1.undone"
+}
+
 MODE="dry"
 case "$1" in
   --apply) MODE="apply" ;;
+  --undo)  undo "$2"; exit ;;
   "")      ;;
   *)       usage; exit 1 ;;
 esac
@@ -77,6 +93,9 @@ if [ "$MODE" = "apply" ] && [ "$EUID" -ne 0 ]; then
   echo "Root required: sudo $0 --apply"; exit 1
 fi
 
+LOG_DIR="$HOME"
+[ -n "$SUDO_USER" ] && LOG_DIR=$(eval echo ~"$SUDO_USER")
+LOG="$LOG_DIR/plugin-sort-$(date +%Y%m%d-%H%M%S).log"
 moved=0
 
 for fmt in $FORMATS; do
@@ -104,7 +123,7 @@ for fmt in $FORMATS; do
 
     echo "  $name -> $folder/"
     if [ "$MODE" = "apply" ]; then
-      mkdir -p "$dir/$folder" && mv "$plug" "$dest"
+      mkdir -p "$dir/$folder" && mv "$plug" "$dest" && printf '%s\t%s\n' "$plug" "$dest" >> "$LOG"
     fi
     moved=$((moved + 1))
   done
@@ -112,7 +131,9 @@ done
 
 echo
 if [ "$MODE" = "apply" ]; then
+  [ -n "$SUDO_USER" ] && [ -f "$LOG" ] && chown "$SUDO_USER" "$LOG"
   echo "Moved: $moved"
+  [ -f "$LOG" ] && echo "Log: $LOG (undo: sudo $0 --undo \"$LOG\")"
 else
   echo "Would move: $moved (dry run, use --apply to move)"
 fi
