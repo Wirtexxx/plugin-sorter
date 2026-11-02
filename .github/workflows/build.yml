@@ -9,6 +9,12 @@ on:
 permissions:
   contents: write
 
+# A push to develop with an open PR triggers both "push" and "pull_request" for the same code.
+# Group them by branch so only the newest one waits for a macOS runner; tags and main always finish.
+concurrency:
+  group: build-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' && github.ref_name != 'main' }}
+
 jobs:
   build:
     runs-on: macos-latest
