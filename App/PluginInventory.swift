@@ -90,9 +90,12 @@ enum PluginInventory {
         return grouped.map { key, items in
             let sorted = items.sorted { $0.format.rawValue < $1.format.rawValue }
             let name = sorted.map { $0.url.deletingPathExtension().lastPathComponent }.min { $0.count < $1.count } ?? key
-            return ManagedPlugin(key: key, name: name,
-                                 vendor: sorted.lazy.map(\.vendor).first { !$0.isEmpty } ?? "",
-                                 bundles: sorted)
+            // Best vendor name first: a vendor folder (already pretty), then the AU's "Vendor: Name",
+            // then whatever the bundle id gives
+            let vendor = (sorted.first { $0.nested && !$0.vendor.isEmpty }
+                ?? sorted.first { $0.format == .au && !$0.vendor.isEmpty }
+                ?? sorted.first { !$0.vendor.isEmpty })?.vendor ?? ""
+            return ManagedPlugin(key: key, name: name, vendor: vendor, bundles: sorted)
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
