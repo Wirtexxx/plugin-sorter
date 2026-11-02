@@ -30,6 +30,7 @@ struct L10n {
         case .cancelled:         return self("status.cancelled")
         case .willMove(let n):   return self("status.willMove", n)
         case .moved(let n):      return self("status.moved", n)
+        case .auRestored(let n): return self("status.auRestored", n)
         case .failed(let error): return self("status.failed", error)
         }
     }
@@ -88,6 +89,19 @@ struct L10n {
             .de: "Zu verschieben: %d",
         ],
         "status.moved": [.en: "Moved: %d", .ru: "Перемещено: %d", .uk: "Переміщено: %d", .de: "Verschoben: %d"],
+        "status.auRestored": [
+            .en: "AU restored: %d",
+            .ru: "AU возвращено: %d",
+            .uk: "AU повернено: %d",
+            .de: "AU wiederhergestellt: %d",
+        ],
+        "au.nested": [
+            .en: "%d Audio Units are in subfolders. macOS only loads them from the Components folder itself.",
+            .ru: "%d Audio Units лежат в подпапках. macOS загружает их только из самой папки Components.",
+            .uk: "%d Audio Units лежать у підтеках. macOS завантажує їх лише з самої теки Components.",
+            .de: "%d Audio Units liegen in Unterordnern. macOS lädt sie nur direkt aus dem Components-Ordner.",
+        ],
+        "button.restoreAU": [.en: "Restore AU", .ru: "Вернуть AU", .uk: "Повернути AU", .de: "AU zurück"],
         "status.failed": [.en: "Error: %@", .ru: "Ошибка: %@", .uk: "Помилка: %@", .de: "Fehler: %@"],
         "note.waves": [
             .en: "Skipped (Waves): %@",

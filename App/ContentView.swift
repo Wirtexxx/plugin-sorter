@@ -16,6 +16,7 @@ struct ContentView: View {
             Chassis()
             VStack(spacing: 6) {
                 topBar
+                if sorter.nestedAU > 0 { auWarning }
                 HStack(spacing: 6) {
                     distributionPanel
                     formatsPanel.frame(width: 280)
@@ -65,7 +66,6 @@ struct ContentView: View {
 
             PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
             PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
-            PowerToggle(title: "AU", isOn: sorter.au) { sorter.au.toggle() }
 
             HStack(spacing: 2) {
                 ForEach(Lang.allCases) { lang in
@@ -85,6 +85,23 @@ struct ContentView: View {
         }
         .disabled(sorter.running)
         .padding(6)
+        .panel()
+    }
+
+    private var auWarning: some View {
+        HStack(spacing: 10) {
+            StatusDot(color: .accentHot)
+            Text(t("au.nested", sorter.nestedAU))
+                .font(.system(size: 12))
+                .foregroundColor(.text)
+                .lineLimit(2)
+            Spacer()
+            Button(t("button.restoreAU").uppercased()) { sorter.restoreAU() }
+                .buttonStyle(PluginButtonStyle(primary: true))
+                .disabled(sorter.running)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 44)
         .panel()
     }
 
@@ -126,7 +143,7 @@ struct ContentView: View {
                 Spacer()
             }
             HStack(spacing: 18) {
-                ForEach(["VST3", "VST", "AU"], id: \.self) { format in
+                ForEach(["VST3", "VST"], id: \.self) { format in
                     Knob(value: count(format), fraction: Double(count(format)) / Double(total), label: format)
                 }
             }

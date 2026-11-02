@@ -24,6 +24,7 @@ enum Status: Equatable {
     case idle, noFormats, undone, cancelled
     case willMove(Int)
     case moved(Int)
+    case auRestored(Int)
     case failed(String)
 }
 
@@ -31,7 +32,8 @@ enum Status: Equatable {
 final class Sorter: ObservableObject {
     @Published var vst3 = true
     @Published var vst = true
-    @Published var au = true
+    /// Audio Units left in subfolders by versions before 1.1, which macOS can't load.
+    @Published var nestedAU = 0
     @Published var moves: [Move] = []
     @Published var notes: [Note] = []
     @Published var status: Status = .idle
@@ -48,7 +50,7 @@ final class Sorter: ObservableObject {
     }
 
     var formats: String {
-        [vst3 ? "VST3" : nil, vst ? "VST" : nil, au ? "Components" : nil]
+        [vst3 ? "VST3" : nil, vst ? "VST" : nil]
             .compactMap { $0 }.joined(separator: " ")
     }
 
@@ -71,6 +73,7 @@ final class Sorter: ObservableObject {
             let result = Self.parse(output)
             self.applied = false
             self.moves = result.moves
+            self.nestedAU = result.nestedAU
             if !keepStatus {
                 self.notes = result.notes
                 self.status = .willMove(result.count)
@@ -97,6 +100,15 @@ final class Sorter: ObservableObject {
         }
     }
 
+    func restoreAU() {
+        run(["--restore-au"], admin: true) { output in
+            let result = Self.parse(output)
+            self.notes = result.notes
+            self.status = .auRestored(result.count)
+            self.preview(keepStatus: true)
+        }
+    }
+
     func refreshLatestLog() {
         let files = (try? FileManager.default.contentsOfDirectory(atPath: logDir)) ?? []
         latestLog = files
@@ -107,11 +119,13 @@ final class Sorter: ObservableObject {
 
     // MARK: - Output parsing
 
-    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int) {
+    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, nestedAU: Int) {
         var format = ""
         var moves: [Move] = []
         var notes: [Note] = []
         var count = 0
+        var nestedAU = 0
+        let number = { (line: String) in Int(String(line.drop { !$0.isNumber }.prefix { $0.isNumber })) ?? 0 }
         let prefixes: [(String, Note.Kind)] = [
             ("skip (Waves): ", .waves), ("unknown vendor: ", .unknown), ("exists: ", .exists),
             ("restored: ", .restored), ("skip: ", .skipped),
@@ -128,9 +142,10 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: kind, text: String(line.dropFirst(prefix.count))))
                 continue lines
             }
-            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") {
-                let digits = line.drop { !$0.isNumber }.prefix { $0.isNumber }
-                count = Int(digits) ?? 0
+            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") || line.hasPrefix("Restored AU: ") {
+                count = number(line)
+            } else if line.hasPrefix("nested AU: ") {
+                nestedAU = number(line)
             } else if line.hasSuffix("/"), let r = line.range(of: " -> ") {
                 let file = String(line[..<r.lowerBound])
                 moves.append(Move(plugin: (file as NSString).deletingPathExtension,
@@ -140,7 +155,7 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: .other, text: line))
             }
         }
-        return (moves, notes, count)
+        return (moves, notes, count, nestedAU)
     }
 
     // MARK: - Running the script
