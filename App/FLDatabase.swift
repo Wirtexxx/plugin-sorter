@@ -179,16 +179,22 @@ enum FLDatabase {
 
     /// Writes Name.png and points Name.nfo at it, the same way FL's stock entries do.
     static func install(_ png: Data, for plugin: FLPlugin, source: FLPlugin.Source, manifest: PictureManifest) throws {
-        let original = try? String(contentsOf: plugin.nfo, encoding: .utf8)
+        // Byte-level I/O: newer Foundation drops a UTF-8 BOM when reading into a String,
+        // which would change FL's files and break the byte-for-byte restore
+        let original = (try? Data(contentsOf: plugin.nfo)).map { String(decoding: $0, as: UTF8.self) }
         let isFirstWrite = manifest[plugin.picture] == nil
         try png.write(to: plugin.picture, options: .atomic)
 
-        let newline = original?.contains("\r\n") == true ? "\r\n" : "\n"
-        var lines = (original ?? "")
+        var body = original ?? ""
+        let hadBOM = body.unicodeScalars.first == "\u{FEFF}"
+        if hadBOM { body = String(body.unicodeScalars.dropFirst()) }
+        let newline = body.contains("\r\n") ? "\r\n" : "\n"
+        var lines = body
             .components(separatedBy: CharacterSet.newlines)
-            .filter { !$0.isEmpty && !$0.replacingOccurrences(of: "\u{FEFF}", with: "").lowercased().hasPrefix("bitmap=") }
+            .filter { !$0.isEmpty && !$0.lowercased().hasPrefix("bitmap=") }
         lines.append("Bitmap=\(plugin.picture.lastPathComponent)")
-        try lines.joined(separator: newline).write(to: plugin.nfo, atomically: true, encoding: .utf8)
+        let text = (hadBOM ? "\u{FEFF}" : "") + lines.joined(separator: newline)
+        try Data(text.utf8).write(to: plugin.nfo, options: .atomic)
 
         let previous = manifest[plugin.picture]?.originalNfo
         manifest[plugin.picture] = PictureManifest.Record(source: source, originalNfo: isFirstWrite ? original : previous)
@@ -199,7 +205,7 @@ enum FLDatabase {
         guard let record = manifest[plugin.picture] else { return }
         try? FileManager.default.removeItem(at: plugin.picture)
         if let original = record.originalNfo {
-            try? original.write(to: plugin.nfo, atomically: true, encoding: .utf8)
+            try? Data(original.utf8).write(to: plugin.nfo, options: .atomic)
         } else {
             try? FileManager.default.removeItem(at: plugin.nfo)
         }

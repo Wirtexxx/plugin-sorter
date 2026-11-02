@@ -87,17 +87,24 @@ struct FLPictureTests {
 
     @Test func existingNfoKeepsItsLinesAndIsRestoredByteForByte() throws {
         let proQ = try plugin("Pro-Q 4")
-        let original = "\u{FEFF}fileversion=2\r\ncolor=$40B6F6\r\nBitmap=old.png"
-        try original.write(to: proQ.nfo, atomically: true, encoding: .utf8)
-        let before = try Data(contentsOf: proQ.nfo)
+        // Compare bytes: Foundation versions differ in whether String I/O keeps a UTF-8 BOM
+        let before = Data([0xEF, 0xBB, 0xBF]) + Data("fileversion=2\r\ncolor=$40B6F6\r\nBitmap=old.png".utf8)
+        try before.write(to: proQ.nfo)
 
         try FLDatabase.install(png, for: proQ, source: .screenshot, manifest: manifest)
         try FLDatabase.install(png, for: proQ, source: .custom, manifest: manifest)  // a second write must not lose the original
-        let written = try String(contentsOf: proQ.nfo, encoding: .utf8)
-        #expect(written == "\u{FEFF}fileversion=2\r\ncolor=$40B6F6\r\nBitmap=Pro-Q 4.png")
+        let expected = Data([0xEF, 0xBB, 0xBF]) + Data("fileversion=2\r\ncolor=$40B6F6\r\nBitmap=Pro-Q 4.png".utf8)
+        #expect(try Data(contentsOf: proQ.nfo) == expected)
 
-        FLDatabase.remove(proQ, manifest: manifest)
+        FLDatabase.remove(proQ, manifest: PictureManifest(url: dir.path("manifest.json")))  // also survives a reload
         #expect(try Data(contentsOf: proQ.nfo) == before)
+    }
+
+    @Test func bomInFrontOfTheBitmapLineIsKept() throws {
+        let ott = try plugin("OTT")
+        try (Data([0xEF, 0xBB, 0xBF]) + Data("Bitmap=old.png".utf8)).write(to: ott.nfo)
+        try FLDatabase.install(png, for: ott, source: .card, manifest: manifest)
+        #expect(try Data(contentsOf: ott.nfo) == Data([0xEF, 0xBB, 0xBF]) + Data("Bitmap=OTT.png".utf8))
     }
 
     @Test func manifestSurvivesReload() throws {
