@@ -1,19 +1,22 @@
 import SwiftUI
 
 enum Tab: String {
-    case sorter, fl
+    case sorter, fl, manager
 }
 
 struct ContentView: View {
     @StateObject private var sorter: Sorter
     @StateObject private var library: FLLibrary
+    @StateObject private var manager: ManagerLibrary
     @AppStorage("language") private var language = Lang.system.rawValue
     @State private var tab: Tab
     @State private var showNotes = false
 
-    init(sorter: Sorter = Sorter(), library: FLLibrary = FLLibrary(), tab: Tab = .sorter) {
+    init(sorter: Sorter = Sorter(), library: FLLibrary = FLLibrary(), manager: ManagerLibrary = ManagerLibrary(),
+         tab: Tab = .sorter) {
         _sorter = StateObject(wrappedValue: sorter)
         _library = StateObject(wrappedValue: library)
+        _manager = StateObject(wrappedValue: manager)
         _tab = State(initialValue: tab)
     }
 
@@ -26,6 +29,8 @@ struct ContentView: View {
                 topBar
                 if tab == .fl {
                     FLView(library: library, t: t)
+                } else if tab == .manager {
+                    ManagerView(library: manager, t: t)
                 } else {
                     if sorter.nestedAU > 0 { auWarning }
                     HStack(spacing: 6) {
@@ -67,6 +72,7 @@ struct ContentView: View {
             HStack(spacing: 2) {
                 tabButton(.sorter, title: t("tab.sorter"))
                 tabButton(.fl, title: t("tab.fl"))
+                tabButton(.manager, title: t("tab.manager"))
             }
             .padding(3)
             .panel(.inset, radius: 4)
@@ -79,7 +85,7 @@ struct ContentView: View {
                     .caption(.text)
                     .lineLimit(1)
                 Spacer()
-                StatusDot(on: tab == .fl ? library.busy || !library.missing.isEmpty : !sorter.moves.isEmpty || sorter.running)
+                StatusDot(on: statusLit)
             }
             .padding(.horizontal, 12)
             .frame(height: 30)
@@ -106,9 +112,17 @@ struct ContentView: View {
             .padding(3)
             .panel(.inset, radius: 4)
         }
-        .disabled(sorter.running || library.busy)
+        .disabled(sorter.running || library.busy || manager.busy)
         .padding(6)
         .panel()
+    }
+
+    private var statusLit: Bool {
+        switch tab {
+        case .sorter:  return !sorter.moves.isEmpty || sorter.running
+        case .fl:      return library.busy || !library.missing.isEmpty
+        case .manager: return manager.busy
+        }
     }
 
     private func tabButton(_ value: Tab, title: String) -> some View {

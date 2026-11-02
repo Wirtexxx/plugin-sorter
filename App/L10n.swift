@@ -44,6 +44,29 @@ struct L10n {
         }
     }
 
+    func managerStatus(_ status: ManagerStatus) -> String {
+        switch status {
+        case .idle:                          return ""
+        case .checked(let ok, let w, let f): return self("mgr.checked", ok, w, f)
+        case .trashed(let n):                return self("mgr.trashed", n)
+        case .cancelled:                     return self("status.cancelled")
+        case .failed(let error):             return self("status.failed", error)
+        }
+    }
+
+    func issue(_ issue: Issue) -> String {
+        switch issue {
+        case .noBinary:                 return self("issue.noBinary")
+        case .wrongArch(let archs):     return self("issue.wrongArch", archs.joined(separator: ", "), PluginInventory.hostArch)
+        case .rosetta:                  return self("issue.rosetta")
+        case .quarantined:              return self("issue.quarantined")
+        case .notRegistered:            return self("issue.notRegistered")
+        case .validationFailed(let why): return self("issue.validation", why)
+        case .loadFailed(let why):      return self("issue.load", why)
+        case .timeout:                  return self("issue.timeout")
+        }
+    }
+
     func note(_ note: Note) -> String {
         switch note.kind {
         case .waves:    return self("note.waves", note.text)
@@ -65,6 +88,93 @@ struct L10n {
         ],
         "tab.sorter": [.en: "Sorter", .ru: "Сортировка", .uk: "Сортування", .de: "Sortieren"],
         "tab.fl": [.en: "FL Studio", .ru: "FL Studio", .uk: "FL Studio", .de: "FL Studio"],
+        "tab.manager": [.en: "Manager", .ru: "Менеджер", .uk: "Менеджер", .de: "Manager"],
+        "mgr.title": [
+            .en: "Check and remove plugins",
+            .ru: "Проверка и удаление плагинов",
+            .uk: "Перевірка та видалення плагінів",
+            .de: "Plugins prüfen und entfernen",
+        ],
+        "mgr.hint": [
+            .en: "Audio Units are checked with Apple's auval, VST, VST3 and CLAP are test-loaded in a separate process. Click a plugin for details. Deleted plugins go to the Trash.",
+            .ru: "Audio Units проверяются утилитой Apple auval, а VST, VST3 и CLAP пробно загружаются в отдельном процессе. Нажмите на плагин, чтобы увидеть подробности. Удалённые плагины попадают в Корзину.",
+            .uk: "Audio Units перевіряються утилітою Apple auval, а VST, VST3 і CLAP пробно завантажуються в окремому процесі. Натисніть на плагін, щоб побачити подробиці. Видалені плагіни потрапляють у Кошик.",
+            .de: "Audio Units werden mit Apples auval geprüft, VST, VST3 und CLAP in einem eigenen Prozess probehalber geladen. Klicke auf ein Plugin für Details. Gelöschte Plugins landen im Papierkorb.",
+        ],
+        "mgr.ok": [.en: "Working", .ru: "Работают", .uk: "Працюють", .de: "Funktionieren"],
+        "mgr.problems": [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"],
+        "mgr.search": [.en: "Search", .ru: "Поиск", .uk: "Пошук", .de: "Suchen"],
+        "mgr.onlyProblems": [.en: "Problems only", .ru: "Только проблемные", .uk: "Лише проблемні", .de: "Nur Probleme"],
+        "mgr.checkAll": [.en: "Check all", .ru: "Проверить все", .uk: "Перевірити всі", .de: "Alle prüfen"],
+        "mgr.check": [.en: "Check", .ru: "Проверить", .uk: "Перевірити", .de: "Prüfen"],
+        "mgr.checking": [.en: "Checking", .ru: "Проверяю", .uk: "Перевіряю", .de: "Prüfe"],
+        "mgr.trash": [.en: "Move to Trash", .ru: "В Корзину", .uk: "У Кошик", .de: "In den Papierkorb"],
+        "mgr.reveal": [.en: "Show in Finder", .ru: "Показать в Finder", .uk: "Показати у Finder", .de: "Im Finder zeigen"],
+        "mgr.cancel": [.en: "Cancel", .ru: "Отмена", .uk: "Скасувати", .de: "Abbrechen"],
+        "mgr.confirm": [
+            .en: "Move “%@” to the Trash?",
+            .ru: "Переместить «%@» в Корзину?",
+            .uk: "Перемістити «%@» у Кошик?",
+            .de: "„%@“ in den Papierkorb legen?",
+        ],
+        "mgr.confirmInfo": [
+            .en: "These files will be moved to the Trash:",
+            .ru: "В Корзину будут перемещены файлы:",
+            .uk: "У Кошик буде переміщено файли:",
+            .de: "Diese Dateien werden in den Papierkorb gelegt:",
+        ],
+        "mgr.unchecked": [.en: "Not checked", .ru: "Не проверен", .uk: "Не перевірено", .de: "Nicht geprüft"],
+        "mgr.works": [.en: "Works", .ru: "Работает", .uk: "Працює", .de: "Funktioniert"],
+        "mgr.checked": [
+            .en: "Working: %d · warnings: %d · problems: %d",
+            .ru: "Работают: %d · предупреждений: %d · проблем: %d",
+            .uk: "Працюють: %d · попереджень: %d · проблем: %d",
+            .de: "OK: %d · Warnungen: %d · Probleme: %d",
+        ],
+        "mgr.trashed": [.en: "Moved to Trash: %d", .ru: "В Корзине: %d", .uk: "У Кошику: %d", .de: "Im Papierkorb: %d"],
+        "issue.noBinary": [
+            .en: "The plugin's binary is missing",
+            .ru: "Нет исполняемого файла плагина",
+            .uk: "Немає виконуваного файлу плагіна",
+            .de: "Die Plugin-Binärdatei fehlt",
+        ],
+        "issue.wrongArch": [
+            .en: "Built for %@ only, this Mac is %@",
+            .ru: "Собран только под %@, а этот Mac — %@",
+            .uk: "Зібраний лише під %@, а цей Mac — %@",
+            .de: "Nur für %@ gebaut, dieser Mac ist %@",
+        ],
+        "issue.rosetta": [
+            .en: "Intel only: works just in hosts running under Rosetta",
+            .ru: "Только Intel: работает лишь в DAW, запущенных через Rosetta",
+            .uk: "Лише Intel: працює тільки в DAW, запущених через Rosetta",
+            .de: "Nur Intel: läuft nur in Hosts unter Rosetta",
+        ],
+        "issue.quarantined": [
+            .en: "Quarantined: macOS may block it",
+            .ru: "В карантине: macOS может его заблокировать",
+            .uk: "У карантині: macOS може його заблокувати",
+            .de: "In Quarantäne: macOS blockiert es möglicherweise",
+        ],
+        "issue.notRegistered": [
+            .en: "Not registered by macOS: an AU must sit directly in Components",
+            .ru: "macOS его не видит: AU должен лежать прямо в Components",
+            .uk: "macOS його не бачить: AU має лежати прямо в Components",
+            .de: "Von macOS nicht registriert: Eine AU muss direkt in Components liegen",
+        ],
+        "issue.validation": [.en: "auval: %@", .ru: "auval: %@", .uk: "auval: %@", .de: "auval: %@"],
+        "issue.load": [
+            .en: "Doesn't load: %@",
+            .ru: "Не загружается: %@",
+            .uk: "Не завантажується: %@",
+            .de: "Lädt nicht: %@",
+        ],
+        "issue.timeout": [
+            .en: "Hung during the check",
+            .ru: "Завис во время проверки",
+            .uk: "Завис під час перевірки",
+            .de: "Hing während der Prüfung",
+        ],
         "fl.title": [
             .en: "Pictures in the FL browser",
             .ru: "Картинки в браузере FL",
