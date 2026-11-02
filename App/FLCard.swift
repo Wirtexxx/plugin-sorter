@@ -3,20 +3,25 @@ import AppKit
 
 /// Fallback picture for plugins whose interface can't be captured.
 struct FLCard: View {
-    static let size = CGSize(width: 256, height: 128)
+    /// Same area as a captured screenshot (see Thumbnail.targetArea)
+    static let size = CGSize(width: 176, height: 100)
 
     let title: String
     let vendor: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(vendor.uppercased()).caption().lineLimit(1)
+                Text(vendor.uppercased())
+                    .font(.system(size: 8, weight: .semibold))
+                    .kerning(1.2)
+                    .foregroundColor(.label)
+                    .lineLimit(1)
                 Spacer()
                 StatusDot()
             }
             Text(title)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 14, weight: .bold))
                 .foregroundColor(.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -24,9 +29,9 @@ struct FLCard: View {
             WaveBars(levels: levels, mirrored: false)
                 .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.4)]),
                                      startPoint: .top, endPoint: .bottom))
-                .frame(height: 38)
+                .frame(height: 28)
         }
-        .padding(14)
+        .padding(10)
         .frame(width: Self.size.width, height: Self.size.height)
         .background(Color.panel)
     }
@@ -56,12 +61,20 @@ struct FLCard: View {
 }
 
 enum Thumbnail {
-    /// FL's stock pictures are small crops of the plugin window, around 250 px wide.
-    static let maxSize = CGSize(width: 256, height: 160)
+    /// FL's stock pictures have a median area of ~18 000 px² (about 187×110), so every
+    /// picture gets that area whatever its proportions and they all weigh the same in the picker.
+    static let targetArea: CGFloat = 18_000
+    static let maxSize = CGSize(width: 230, height: 130)
 
-    static func png(_ image: CGImage, fitting box: CGSize = maxSize) -> Data? {
+    /// Scales to FL's picture size, or to fit `box` when given.
+    static func png(_ image: CGImage, fitting box: CGSize? = nil) -> Data? {
         let w = CGFloat(image.width), h = CGFloat(image.height)
-        let scale = min(box.width / w, box.height / h, 1)
+        let scale: CGFloat
+        if let box = box {
+            scale = min(box.width / w, box.height / h, 1)
+        } else {
+            scale = min((targetArea / (w * h)).squareRoot(), maxSize.width / w, maxSize.height / h, 1)
+        }
         let width = max(Int((w * scale).rounded()), 1)
         let height = max(Int((h * scale).rounded()), 1)
         guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
