@@ -60,8 +60,9 @@ Components/                          Components/
 
 ### Download
 
-1. Grab `PluginSorter.zip` from the [latest release](https://github.com/Wirtexxx/plugin-sorter/releases/latest).
-2. Unzip it and drag **Plugin Sorter.app** to **Applications**.
+1. Download **[PluginSorter.dmg](https://github.com/Wirtexxx/plugin-sorter/releases/latest/download/PluginSorter.dmg)**
+   from the latest release.
+2. Open it and drag **Plugin Sorter** onto the **Applications** folder.
 3. The app is not notarized, so on first launch right-click it → **Open**, or run:
 
    ```bash

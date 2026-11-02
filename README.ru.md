@@ -60,8 +60,9 @@ Components/                          Components/
 
 ### Скачать
 
-1. Скачайте `PluginSorter.zip` из [последнего релиза](https://github.com/Wirtexxx/plugin-sorter/releases/latest).
-2. Распакуйте и перетащите **Plugin Sorter.app** в **Программы**.
+1. Скачайте **[PluginSorter.dmg](https://github.com/Wirtexxx/plugin-sorter/releases/latest/download/PluginSorter.dmg)**
+   из последнего релиза.
+2. Откройте его и перетащите **Plugin Sorter** на папку **Applications**.
 3. Приложение не нотаризовано, поэтому при первом запуске нажмите по нему правой кнопкой → **Открыть**
    или выполните:
 
