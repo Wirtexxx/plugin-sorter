@@ -15,16 +15,17 @@ struct Snapshot {
 
         let sorter = Sorter(demo: true)
         let demo: [(String, String, [String])] = [
-            ("FabFilter", "Pro-Q 4", ["VST3", "AU"]),
-            ("FabFilter", "Pro-L 2", ["VST3", "AU"]),
-            ("FabFilter", "Saturn 2", ["VST3"]),
-            ("Valhalla DSP", "ValhallaSupermassive", ["VST3", "AU"]),
-            ("Valhalla DSP", "ValhallaVintageVerb", ["AU"]),
-            ("Xfer Records", "Serum2", ["VST3", "AU"]),
-            ("Xfer Records", "OTT", ["VST"]),
-            ("iZotope", "Ozone 11 Maximizer", ["VST3", "AU"]),
+            ("FabFilter", "Pro-Q 4", ["VST3"]),
+            ("FabFilter", "Pro-L 2", ["VST3"]),
+            ("FabFilter", "Saturn 2", ["VST3", "VST"]),
+            ("FabFilter", "Timeless 3", ["VST3"]),
+            ("Valhalla DSP", "ValhallaSupermassive", ["VST3"]),
+            ("Valhalla DSP", "ValhallaVintageVerb", ["VST3"]),
+            ("Xfer Records", "Serum2", ["VST3"]),
+            ("Xfer Records", "OTT", ["VST3", "VST"]),
+            ("iZotope", "Ozone 11 Maximizer", ["VST3"]),
             ("oeksound", "soothe2", ["VST3", "VST"]),
-            ("Cableguys", "ShaperBox 3", ["AU"]),
+            ("Cableguys", "ShaperBox 3", ["VST3"]),
         ]
         sorter.moves = demo.flatMap { vendor, plugin, formats in
             formats.map { Move(plugin: plugin, vendor: vendor, format: $0) }

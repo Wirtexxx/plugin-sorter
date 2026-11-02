@@ -5,7 +5,7 @@
 <h1 align="center">Plugin Sorter</h1>
 
 <p align="center">
-  <b>Sort your VST3, VST and Audio Unit plugins into developer folders — in one click.</b>
+  <b>Sort your VST3 and VST plugins into developer folders — in one click.</b>
 </p>
 
 <p align="center">
@@ -28,20 +28,20 @@
 
 ## Why
 
-After a few years of production `/Library/Audio/Plug-Ins/Components` turns into a flat wall of
+After a few years of production `/Library/Audio/Plug-Ins/VST3` turns into a flat wall of
 hundreds of bundles. Plugin Sorter reads who actually made each plugin and tidies everything up:
 
 ```
-Components/                          Components/
-├── FabFilter Pro-Q 4.component      ├── FabFilter/
-├── OTT.component                    │   └── FabFilter Pro-Q 4.component
-├── Serum2.component         ──►     ├── Xfer Records/
-├── soothe2.component                │   ├── OTT.component
-└── ValhallaSupermassive.component   │   └── Serum2.component
+VST3/                                VST3/
+├── FabFilter Pro-Q 4.vst3           ├── FabFilter/
+├── OTT.vst3                         │   └── FabFilter Pro-Q 4.vst3
+├── Serum2.vst3              ──►     ├── Xfer Records/
+├── soothe2.vst3                     │   ├── OTT.vst3
+└── ValhallaSupermassive.vst3        │   └── Serum2.vst3
                                      ├── oeksound/
-                                     │   └── soothe2.component
+                                     │   └── soothe2.vst3
                                      └── Valhalla DSP/
-                                         └── ValhallaSupermassive.component
+                                         └── ValhallaSupermassive.vst3
 ```
 
 ## Features
@@ -52,6 +52,8 @@ Components/                          Components/
 - ↩️ **One-click undo.** Every run writes a move log, and *Undo* puts everything back.
 - 📁 **Respects your folders.** Existing vendor folders are reused, whatever their letter case.
 - 🌊 **Leaves Waves alone.** WaveShells are managed by Waves Central and are skipped.
+- 🧩 **Keeps Audio Units working.** AU stay in `Components`, and AU moved by 1.0 can be
+  restored with one click.
 - 🎛️ **Plugin-style UI.** Graphite panels, format knobs and a waveform of your developers,
   in English, Русский, Українська and Deutsch.
 - ⌨️ **CLI included** for people who live in the terminal.
@@ -84,7 +86,7 @@ cd plugin-sorter
 ### App
 
 1. Open **Plugin Sorter**. It scans your plugin folders right away.
-2. Toggle **VST3 / VST / AU** to pick which folders to process.
+2. Toggle **VST3 / VST** to pick which folders to process.
 3. Review the list and press **Sort**. macOS asks for an administrator password
    because `/Library/Audio/Plug-Ins` belongs to the system.
 4. Changed your mind? Press **Undo**.
@@ -95,11 +97,12 @@ cd plugin-sorter
 ./scripts/sort-plugins.sh                      # dry run: show what would move
 sudo ./scripts/sort-plugins.sh --apply         # move plugins, write ~/plugin-sort-<time>.log
 sudo ./scripts/sort-plugins.sh --undo ~/plugin-sort-20261102-193000.log
+sudo ./scripts/sort-plugins.sh --restore-au    # put AU sorted by 1.0 back into Components
 ```
 
 | Variable              | Default                 | Purpose                         |
 | --------------------- | ----------------------- | ------------------------------- |
-| `PLUGIN_SORT_FORMATS` | `VST3 VST Components`   | Folders to process              |
+| `PLUGIN_SORT_FORMATS` | `VST3 VST`              | Folders to process              |
 | `PLUGIN_SORT_LOG_DIR` | invoking user's home    | Where the move log is written   |
 | `PLUGIN_SORT_OWNER`   | `$SUDO_USER`            | Owner of the move log           |
 
@@ -121,10 +124,12 @@ identifier. Missing your favourite developer? Pull requests are welcome.
 
 ## Good to know
 
-- DAWs scan plugin folders recursively, and hosts identify plugins by their IDs rather than
-  file paths, so existing projects keep loading them.
-- If a host misses an Audio Unit after sorting, compare `auval -a | wc -l` before and after
-  and press **Undo** if the numbers differ.
+- DAWs scan VST and VST3 folders recursively, and hosts identify plugins by their IDs rather
+  than file paths, so existing projects keep loading them.
+- **Audio Units are not sorted.** macOS only registers components that sit directly in
+  `/Library/Audio/Plug-Ins/Components`, so an AU in a subfolder disappears from every host.
+  Version 1.0 did sort them: if your AU vanished, open the app and press **Restore AU**
+  (or run `--restore-au`), then restart your DAW.
 - Plugin installers usually drop updates back into the root folder. Just run Plugin Sorter again.
 
 ## Project structure

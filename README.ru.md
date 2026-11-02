@@ -5,7 +5,7 @@
 <h1 align="center">Plugin Sorter</h1>
 
 <p align="center">
-  <b>Раскладывает VST3, VST и Audio Unit плагины по папкам разработчиков — в один клик.</b>
+  <b>Раскладывает VST3 и VST плагины по папкам разработчиков — в один клик.</b>
 </p>
 
 <p align="center">
@@ -28,20 +28,20 @@
 
 ## Зачем
 
-За пару лет продакшена `/Library/Audio/Plug-Ins/Components` превращается в сплошную стену
+За пару лет продакшена `/Library/Audio/Plug-Ins/VST3` превращается в сплошную стену
 из сотен бандлов. Plugin Sorter определяет, кто на самом деле сделал каждый плагин, и наводит порядок:
 
 ```
-Components/                          Components/
-├── FabFilter Pro-Q 4.component      ├── FabFilter/
-├── OTT.component                    │   └── FabFilter Pro-Q 4.component
-├── Serum2.component         ──►     ├── Xfer Records/
-├── soothe2.component                │   ├── OTT.component
-└── ValhallaSupermassive.component   │   └── Serum2.component
+VST3/                                VST3/
+├── FabFilter Pro-Q 4.vst3           ├── FabFilter/
+├── OTT.vst3                         │   └── FabFilter Pro-Q 4.vst3
+├── Serum2.vst3              ──►     ├── Xfer Records/
+├── soothe2.vst3                     │   ├── OTT.vst3
+└── ValhallaSupermassive.vst3        │   └── Serum2.vst3
                                      ├── oeksound/
-                                     │   └── soothe2.component
+                                     │   └── soothe2.vst3
                                      └── Valhalla DSP/
-                                         └── ValhallaSupermassive.component
+                                         └── ValhallaSupermassive.vst3
 ```
 
 ## Возможности
@@ -52,6 +52,8 @@ Components/                          Components/
 - ↩️ **Откат в один клик.** Каждый запуск пишет лог, и кнопка *Откатить* возвращает всё назад.
 - 📁 **Уважает ваши папки.** Существующие папки разработчиков используются повторно, независимо от регистра.
 - 🌊 **Не трогает Waves.** WaveShell управляется Waves Central и пропускается.
+- 🧩 **Не ломает Audio Units.** AU остаются в `Components`, а AU, разложенные версией 1.0,
+  возвращаются на место одной кнопкой.
 - 🎛️ **Интерфейс в стиле плагинов.** Графитовые панели, ручки форматов и «волна» разработчиков,
   на English, Русском, Українській и Deutsch.
 - ⌨️ **Есть CLI** для тех, кто живёт в терминале.
@@ -85,7 +87,7 @@ cd plugin-sorter
 ### Приложение
 
 1. Откройте **Plugin Sorter**: оно сразу просканирует папки с плагинами.
-2. Переключателями **VST3 / VST / AU** выберите, какие папки обрабатывать.
+2. Переключателями **VST3 / VST** выберите, какие папки обрабатывать.
 3. Проверьте список и нажмите **Сортировать**. macOS попросит пароль администратора,
    потому что `/Library/Audio/Plug-Ins` принадлежит системе.
 4. Передумали? Нажмите **Откатить**.
@@ -96,11 +98,12 @@ cd plugin-sorter
 ./scripts/sort-plugins.sh                      # пробный запуск: что будет перемещено
 sudo ./scripts/sort-plugins.sh --apply         # переместить, лог в ~/plugin-sort-<время>.log
 sudo ./scripts/sort-plugins.sh --undo ~/plugin-sort-20261102-193000.log
+sudo ./scripts/sort-plugins.sh --restore-au    # вернуть AU, разложенные версией 1.0, в Components
 ```
 
 | Переменная            | По умолчанию            | Назначение                      |
 | --------------------- | ----------------------- | ------------------------------- |
-| `PLUGIN_SORT_FORMATS` | `VST3 VST Components`   | Какие папки обрабатывать        |
+| `PLUGIN_SORT_FORMATS` | `VST3 VST`              | Какие папки обрабатывать        |
 | `PLUGIN_SORT_LOG_DIR` | домашняя папка          | Куда писать лог перемещений     |
 | `PLUGIN_SORT_OWNER`   | `$SUDO_USER`            | Владелец файла лога             |
 
@@ -122,10 +125,12 @@ Plugin Sorter пропускает доменные части и берёт п�
 
 ## Полезно знать
 
-- DAW сканируют папки с плагинами рекурсивно и находят плагины по их ID, а не по пути к файлу,
+- DAW сканируют папки VST и VST3 рекурсивно и находят плагины по их ID, а не по пути к файлу,
   поэтому существующие проекты продолжают их загружать.
-- Если после сортировки хост не видит какой-то Audio Unit, сравните `auval -a | wc -l` до и после
-  и нажмите **Откатить**, если числа отличаются.
+- **Audio Units не сортируются.** macOS регистрирует только компоненты, лежащие прямо в
+  `/Library/Audio/Plug-Ins/Components`, поэтому AU в подпапке пропадает из всех хостов.
+  Версия 1.0 их сортировала: если AU пропали, откройте приложение и нажмите **Вернуть AU**
+  (или запустите `--restore-au`), затем перезапустите DAW.
 - Установщики плагинов обычно кладут обновления обратно в корень папки. Просто запустите Plugin Sorter ещё раз.
 
 ## Структура проекта
