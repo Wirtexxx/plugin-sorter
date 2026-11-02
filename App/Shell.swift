@@ -46,9 +46,9 @@ enum Shell {
     }
 
     private static func adminAppleScript(_ args: [String], env: [String: String]) -> String {
-        let vars: [String] = env.map { key, value in key + "=" + quote(value) }
+        let vars: [String] = env.map { key, value in "\(key)=\(quote(value))" }
         let argv: [String] = ([script] + args).map { quote($0) }
-        let cmd: String = "env " + vars.joined(separator: " ") + " /bin/bash " + argv.joined(separator: " ") + " 2>&1"
+        let cmd = "env \(vars.joined(separator: " ")) /bin/bash \(argv.joined(separator: " ")) 2>&1"
         let escaped = cmd.replacingOccurrences(of: "\\", with: "\\\\")
                          .replacingOccurrences(of: "\"", with: "\\\"")
         return "do shell script \"" + escaped + "\" with administrator privileges"

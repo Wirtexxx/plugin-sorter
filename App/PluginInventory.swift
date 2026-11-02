@@ -142,8 +142,16 @@ enum PluginInventory {
         defer { try? handle.close() }
         let b = [UInt8](handle.readData(ofLength: 4096))
         guard b.count >= 8 else { return [] }
-        func be(_ i: Int) -> UInt32 { b[i..<i + 4].reduce(0) { $0 << 8 | UInt32($1) } }
-        func le(_ i: Int) -> UInt32 { (0..<4).reduce(0) { $0 | UInt32(b[i + $1]) << (8 * UInt32($1)) } }
+        func be(_ i: Int) -> UInt32 {
+            var value: UInt32 = 0
+            for n in 0..<4 { value = (value << 8) | UInt32(b[i + n]) }
+            return value
+        }
+        func le(_ i: Int) -> UInt32 {
+            var value: UInt32 = 0
+            for n in 0..<4 { value |= UInt32(b[i + n]) << UInt32(8 * n) }
+            return value
+        }
 
         switch be(0) {
         case 0xCAFE_BABE, 0xCAFE_BABF:

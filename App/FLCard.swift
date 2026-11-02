@@ -64,7 +64,10 @@ struct FLCard: View {
 
     /// Bars seeded by the title so every plugin gets its own stable wave.
     private var levels: [CGFloat] {
-        var seed = title.unicodeScalars.reduce(UInt64(5381)) { ($0 << 5) &+ $0 &+ UInt64($1.value) }
+        var seed: UInt64 = 5381
+        for scalar in title.unicodeScalars {
+            seed = (seed << 5) &+ seed &+ UInt64(scalar.value)
+        }
         return (0..<40).map { i in
             seed = seed &* 6364136223846793005 &+ 1442695040888963407
             let random = CGFloat(seed >> 33) / CGFloat(UInt32.max)
@@ -147,11 +150,21 @@ enum Thumbnail {
                                   space: CGColorSpaceCreateDeviceRGB(),
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return true }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
-        let luma = stride(from: 0, to: pixels.count, by: 4).map {
-            0.3 * Double(pixels[$0]) + 0.59 * Double(pixels[$0 + 1]) + 0.11 * Double(pixels[$0 + 2])
+        // Plain loops with explicit types: older compilers time out type-checking the closure version
+        var luma: [Double] = []
+        luma.reserveCapacity(side * side)
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            let r: Double = Double(pixels[i])
+            let g: Double = Double(pixels[i + 1])
+            let b: Double = Double(pixels[i + 2])
+            luma.append(0.3 * r + 0.59 * g + 0.11 * b)
         }
-        let mean = luma.reduce(0, +) / Double(luma.count)
-        let variance = luma.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(luma.count)
-        return variance.squareRoot() < 4
+        var sum: Double = 0
+        for value in luma { sum += value }
+        let mean: Double = sum / Double(luma.count)
+        var squares: Double = 0
+        for value in luma { squares += (value - mean) * (value - mean) }
+        let deviation: Double = (squares / Double(luma.count)).squareRoot()
+        return deviation < 4
     }
 }

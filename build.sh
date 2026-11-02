@@ -16,7 +16,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/AppIcon.iconset
 
 echo "› Compiling"
 for arch in arm64 x86_64; do
-  swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" App/*.swift -o "build/PluginSorter-$arch"
+  # Warn about slow type-checking locally: CI runs an older compiler that turns it into a hard error
+  swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" \
+    -Xfrontend -warn-long-expression-type-checking=200 \
+    App/*.swift -o "build/PluginSorter-$arch"
 done
 lipo -create build/PluginSorter-arm64 build/PluginSorter-x86_64 -output "$APP/Contents/MacOS/PluginSorter"
 

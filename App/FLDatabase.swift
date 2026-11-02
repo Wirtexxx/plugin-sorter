@@ -70,15 +70,24 @@ enum FST {
     }
 
     private static func u32(_ b: [UInt8], _ i: Int) -> UInt32 {
-        (0..<4).reduce(0) { $0 | UInt32(b[i + $1]) << (8 * UInt32($1)) }
+        var value: UInt32 = 0
+        for n in 0..<4 { value |= UInt32(b[i + n]) << UInt32(8 * n) }
+        return value
     }
 
     private static func u64(_ b: [UInt8], _ i: Int) -> UInt64 {
-        (0..<8).reduce(0) { $0 | UInt64(b[i + $1]) << (8 * UInt64($1)) }
+        var value: UInt64 = 0
+        for n in 0..<8 { value |= UInt64(b[i + n]) << UInt64(8 * n) }
+        return value
     }
 
     private static func utf16(_ bytes: [UInt8]) -> String {
-        let units = stride(from: 0, to: bytes.count - 1, by: 2).map { UInt16(bytes[$0]) | UInt16(bytes[$0 + 1]) << 8 }
+        var units: [UInt16] = []
+        for i in stride(from: 0, to: bytes.count - 1, by: 2) {
+            let low = UInt16(bytes[i])
+            let high = UInt16(bytes[i + 1]) << 8
+            units.append(low | high)
+        }
         return String(decoding: units, as: UTF16.self).trimmingCharacters(in: CharacterSet(charactersIn: "\0"))
     }
 }
