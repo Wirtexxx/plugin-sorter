@@ -13,8 +13,10 @@ struct InstalledEntry: Identifiable {
     /// Plugin files FL loads, as written in the .nfo (ps_file_filename_N).
     let files: [String]
 
-    /// FL's own plugins live inside the app (%FLPath%) and are always there.
-    var isNative: Bool { format == "Fruity" || files.contains { $0.hasPrefix("%FLPath%") } }
+    /// Built in and always there: FL's own plugins (inside the app, %FLPath%) and Apple's Audio Units.
+    var isNative: Bool {
+        format == "Fruity" || files.contains { $0.hasPrefix("%FLPath%") } || (format == "AudioUnit" && vendor == "Apple")
+    }
 
     var shortFormat: String { format == "AudioUnit" ? "AU" : format }
 }
@@ -106,7 +108,8 @@ enum FLFavorites {
         for section in sections {
             let sectionDir = root.appendingPathComponent("Installed/\(section)", isDirectory: true)
             let formats = (try? fm.contentsOfDirectory(at: sectionDir, includingPropertiesForKeys: nil)) ?? []
-            for formatDir in formats where formatDir.hasDirectoryPath {
+            // "New" lists plugins FL just found again under their real format folders
+            for formatDir in formats where formatDir.hasDirectoryPath && formatDir.lastPathComponent != "New" {
                 let files = (try? fm.contentsOfDirectory(at: formatDir, includingPropertiesForKeys: nil)) ?? []
                 for fst in files where fst.pathExtension.lowercased() == "fst" {
                     let nfo = nfoValues(fst.deletingPathExtension().appendingPathExtension("nfo"))

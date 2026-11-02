@@ -75,6 +75,13 @@ struct FavoritesTests {
         #expect(byTitle["My Moved"]?.entry?.name == "Moved")  // renamed, matched by plugin name
     }
 
+    @Test func applesAudioUnitsCountAsBuiltIn() {
+        let delay = InstalledEntry(fst: db.appendingPathComponent("x.fst"), section: "Effects", format: "AudioUnit",
+                                   name: "AUDelay", vendor: "Apple", files: [])
+        #expect(delay.isNative)
+        #expect(FLFavorites.availability(delay, bundleNames: [], audioUnits: ["other|thing"]) == .available)
+    }
+
     @Test func stockFavouritesWithoutVendorMatchByName() throws {
         // FL's stock favourites aren't copies of the scan and their .fst carries no vendor
         try FSTBuilder.make(display: "Fruity Limiter", padding: true)
