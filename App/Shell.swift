@@ -42,7 +42,8 @@ enum Shell {
 
     /// Environment the script needs when it runs as root through osascript, where SUDO_USER is unset.
     static var ownerEnv: [String: String] {
-        ["PLUGIN_SORT_LOG_DIR": NSHomeDirectory(), "PLUGIN_SORT_OWNER": NSUserName()]
+        ["PLUGIN_SORT_LOG_DIR": NSHomeDirectory(), "PLUGIN_SORT_OWNER": NSUserName(),
+         "PLUGIN_SORT_KEEP_FILE": PluginFixes.keepFile.path]
     }
 
     private static func adminAppleScript(_ args: [String], env: [String: String]) -> String {

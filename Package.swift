@@ -16,6 +16,7 @@ let package = Package(
                 "PluginChecker.swift",
                 "Sorter.swift",
                 "Shell.swift",
+                "PluginFixes.swift",
             ]
         ),
         .testTarget(

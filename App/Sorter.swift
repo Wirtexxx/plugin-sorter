@@ -62,7 +62,8 @@ final class Sorter: ObservableObject {
     private var env: [String: String] {
         ["PLUGIN_SORT_FORMATS": formats,
          "PLUGIN_SORT_LOG_DIR": logDir,
-         "PLUGIN_SORT_OWNER": NSUserName()]
+         "PLUGIN_SORT_OWNER": NSUserName(),
+         "PLUGIN_SORT_KEEP_FILE": PluginFixes.keepFile.path]
     }
 
     func preview(keepStatus: Bool = false) {
