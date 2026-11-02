@@ -5,8 +5,12 @@ import AppKit
 /// of the plugin, or over a wave when no screenshot is available.
 /// Every picture has the same size so FL's plugin picker lays them out as an even grid.
 struct FLCard: View {
-    static let size = CGSize(width: 160, height: 100)
-    private static let header: CGFloat = 26
+    /// Size FL draws the picture at. Its stock pictures average about 94×55 on screen.
+    static let size = CGSize(width: 104, height: 64)
+    /// Pixels per point. FL's stock PNGs are stored at 192 dpi, twice its 96 dpi base,
+    /// and FL draws them at half their pixel size; a 72 dpi PNG is drawn pixel for pixel.
+    static let scale: CGFloat = 2
+    private static let header: CGFloat = 17
 
     let title: String
     let vendor: String
@@ -14,23 +18,26 @@ struct FLCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(vendor.uppercased())
-                        .font(.system(size: 6, weight: .semibold))
-                        .kerning(1)
+                        .font(.system(size: 4.5, weight: .semibold))
+                        .kerning(0.5)
                         .foregroundColor(.label)
                         .lineLimit(1)
                     Text(title)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 7.5, weight: .bold))
                         .foregroundColor(.text)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
                 Spacer(minLength: 0)
-                StatusDot()
+                Circle()
+                    .fill(Color.mint)
+                    .frame(width: 3.5, height: 3.5)
+                    .shadow(color: Color.mint.opacity(0.8), radius: 1.5)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 5)
             .frame(height: Self.header)
 
             ZStack {
@@ -43,8 +50,8 @@ struct FLCard: View {
                     WaveBars(levels: levels, mirrored: false)
                         .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.4)]),
                                              startPoint: .top, endPoint: .bottom))
-                        .padding(.horizontal, 8)
-                        .padding(.top, 14)
+                        .padding(.horizontal, 5)
+                        .padding(.top, 9)
                 }
             }
             // Anchor to the top: that's where plugins keep their logo and main controls
@@ -73,9 +80,16 @@ struct FLCard: View {
         let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = view
         view.layoutSubtreeIfNeeded()
-        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        // Render at an exact 2x, independent of the screen the app runs on
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
+                                         pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale),
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+        rep.size = size
         view.cacheDisplay(in: view.bounds, to: rep)
-        return rep.cgImage.flatMap { Thumbnail.png($0, fitting: size) }
+        // Store it at 192 dpi like FL's own pictures, so FL draws it at `size`
+        rep.size = NSSize(width: CGFloat(rep.pixelsWide) * 72 / 192, height: CGFloat(rep.pixelsHigh) * 72 / 192)
+        return rep.representation(using: .png, properties: [:])
     }
 }
 
