@@ -3,6 +3,7 @@
 #
 #   ./build.sh               build into build/
 #   ./build.sh --install     build and copy to /Applications
+#   ./build.sh --screenshot  also render docs/screenshot.png
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -53,7 +54,16 @@ EOF
 
 codesign --force -s - "$APP"
 
-rm -rf build/PluginSorter-* build/icon build/AppIcon.iconset
+if [ "${1:-}" = "--screenshot" ]; then
+  echo "› Rendering screenshot"
+  swiftc -parse-as-library -target "$(uname -m)-apple-macos$TARGET_MACOS" App/Sorter.swift App/L10n.swift App/Theme.swift App/ContentView.swift \
+    tools/snapshot.swift -o build/snapshot
+  mkdir -p docs
+  build/snapshot docs/screenshot.png en
+  cp build/icon.png docs/icon.png
+fi
+
+rm -rf build/PluginSorter-* build/icon build/snapshot build/AppIcon.iconset
 echo "✓ Built: $APP"
 
 if [ "${1:-}" = "--install" ]; then
