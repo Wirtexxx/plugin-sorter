@@ -70,9 +70,17 @@ enum PluginCapture {
         if let component = AudioComponentFindNext(nil, &description),
            AudioComponentInstanceNew(component, &instance) == noErr, let unit = instance {
             AudioUnitInitialize(unit)
-            if let view = cocoaView(unit) {
-                show(view)
-                attempt(view, to: out, tries: 4)
+            if let first = cocoaView(unit) {
+                // Warm-up: one-time welcome hints (FabFilter and others) go to the first editor that opens,
+                // so close it like a host would and capture a fresh one
+                show(first)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    first.removeFromSuperview()
+                    window?.orderOut(nil)
+                    let view = cocoaView(unit) ?? first
+                    show(view)
+                    attempt(view, to: out, tries: 4)
+                }
                 app.run()
             }
         }
