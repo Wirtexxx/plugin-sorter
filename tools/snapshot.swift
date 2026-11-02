@@ -35,11 +35,12 @@ struct Snapshot {
 
         let tab = CommandLine.arguments.count > 3 ? Tab(rawValue: CommandLine.arguments[3]) ?? .sorter : .sorter
         let library = demoLibrary()
+        let manager = demoManager()
 
         let size = NSSize(width: 900, height: 640)
         let root = ZStack {
             Color.chassis
-            ContentView(sorter: sorter, library: library, tab: tab)
+            ContentView(sorter: sorter, library: library, manager: manager, tab: tab)
         }
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -58,6 +59,35 @@ struct Snapshot {
         try! rep.representation(using: .png, properties: [:])!
             .write(to: URL(fileURLWithPath: output))
         print("Saved \(output)")
+    }
+
+    /// Manager tab demo: a few plugins with check results, one broken AU expanded.
+    private static func demoManager() -> ManagerLibrary {
+        let manager = ManagerLibrary(demo: true)
+        let root = PluginInventory.root
+        let demo: [(String, String, String, [(PluginFormat, [Issue]?)])] = [
+            ("FabFilter Pro-Q 4", "FabFilter", "4.13", [(.au, []), (.clap, []), (.vst3, [])]),
+            ("OTT", "Xfer Records", "1.37", [(.au, []), (.vst, []), (.vst3, [])]),
+            ("Serum2", "Xfer Records", "2.0.15", [(.au, [.validationFailed("Error: could not load …/VST3/Serum2.vst3")]), (.vst3, [])]),
+            ("soothe2", "oeksound", "1.4.2", [(.au, []), (.vst3, [])]),
+            ("OldReverb", "Legacy Audio", "1.2", [(.vst, [.wrongArch(["i386"])])]),
+            ("ValhallaSupermassive", "Valhalla DSP", "5.0.0", [(.au, []), (.vst3, [])]),
+            ("kHs Chorus", "Kilohearts", "2.2.4", [(.au, [.quarantined]), (.vst3, nil)]),
+        ]
+        manager.plugins = demo.map { name, vendor, version, formats in
+            let bundles = formats.map { format, _ in
+                PluginBundle(url: root.appendingPathComponent("\(format.folder)/\(name).\(format.fileExtension)"),
+                             format: format, vendor: vendor, version: version, executable: nil,
+                             archs: ["x86_64", "arm64"], quarantined: false, au: nil, nested: false)
+            }
+            for (bundle, (_, issues)) in zip(bundles, formats) {
+                manager.results[bundle.id] = issues.map { .done($0) } ?? .unchecked
+            }
+            return ManagedPlugin(key: name, name: name, vendor: vendor, bundles: bundles)
+        }
+        manager.expanded = ["Serum2"]
+        manager.status = .checked(ok: 4, warnings: 1, failed: 2)
+        return manager
     }
 
     /// FL tab demo: generated cards, plus real screenshots from $PS_SHOTS/<title>.png when given.

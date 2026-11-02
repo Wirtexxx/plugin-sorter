@@ -54,6 +54,8 @@ VST3/                                VST3/
 - 🌊 **Leaves Waves alone.** WaveShells are managed by Waves Central and are skipped.
 - 🖼️ **Plugin pictures in FL Studio.** Screenshots of every plugin's interface for FL's
   browser and plugin picker, the way FL's own plugins look there.
+- 🩺 **Plugin manager.** Checks that every plugin actually loads (Apple's `auval` for AU,
+  a test load for VST, VST3 and CLAP) and moves the ones you don't need to the Trash.
 - 🧩 **Keeps Audio Units working.** AU stay in `Components`, and AU moved by 1.0 can be
   restored with one click.
 - 🎛️ **Plugin-style UI.** Graphite panels, format knobs and a waveform of your developers,
@@ -115,6 +117,26 @@ restores FL's `.nfo` files byte for byte.
 
 > Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
 > Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
+
+### Manager: check and remove plugins
+
+<p align="center">
+  <img src="docs/screenshot-manager.png" width="760" alt="Manager tab">
+</p>
+
+The **Manager** tab lists every plugin in `/Library/Audio/Plug-Ins` with all its formats.
+**Check all** verifies that each one can really be loaded:
+
+| Format | How it's checked |
+| ------ | ---------------- |
+| AU | Apple's `auval -v`, the same validation Logic runs |
+| VST3 | loaded in a helper process, `bundleEntry` + `GetPluginFactory` |
+| VST | loaded in a helper process, `VSTPluginMain` must exist |
+| CLAP | loaded in a helper process, `clap_entry` must exist |
+
+It also flags binaries built for another CPU, Intel-only plugins on Apple Silicon, quarantined
+downloads and Audio Units that macOS can't see. Click a plugin to see the exact reason, and
+use the trash button to move all its formats to the Trash after confirming the file list.
 
 ### Command line
 
