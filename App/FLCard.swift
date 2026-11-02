@@ -89,7 +89,35 @@ struct FLCard: View {
         view.cacheDisplay(in: view.bounds, to: rep)
         // Store it at 192 dpi like FL's own pictures, so FL draws it at `size`
         rep.size = NSSize(width: CGFloat(rep.pixelsWide) * 72 / 192, height: CGFloat(rep.pixelsHigh) * 72 / 192)
-        return rep.representation(using: .png, properties: [:])
+        return rep.representation(using: .png, properties: [:]).map { padded($0) }
+    }
+
+    /// FL Studio ignores the 192 dpi of PNGs smaller than about 10 KB and draws them twice as large,
+    /// which hits cards with plain screenshots. Pad them with a private ancillary chunk, which PNG
+    /// decoders skip by definition, so every card stays the same size in FL's plugin picker.
+    private static func padded(_ png: Data, to minimum: Int = 16_384) -> Data {
+        let overhead = 12
+        guard png.count + overhead < minimum, png.count > 12 else { return png }
+        let body = Data(count: minimum - png.count - overhead)
+        let type = Data("psOr".utf8)
+        var chunk = Data()
+        chunk.append(contentsOf: withUnsafeBytes(of: UInt32(body.count).bigEndian, Array.init))
+        chunk.append(type)
+        chunk.append(body)
+        chunk.append(contentsOf: withUnsafeBytes(of: crc32(type + body).bigEndian, Array.init))
+        // Insert right before the IEND chunk (its 4-byte length, "IEND" and 4-byte CRC)
+        var out = png
+        out.insert(contentsOf: chunk, at: png.count - 12)
+        return out
+    }
+
+    private static func crc32(_ data: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFF_FFFF
+        for byte in data {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 { crc = crc & 1 == 1 ? (crc >> 1) ^ 0xEDB8_8320 : crc >> 1 }
+        }
+        return ~crc
     }
 }
 
