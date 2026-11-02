@@ -36,6 +36,7 @@ final class FLLibrary: ObservableObject {
         guard !demo else { return }
         guard FLDatabase.exists else { plugins = []; return }
         plugins = FLDatabase.scan(manifest)
+        Thumbnails.shared.load()
     }
 
     /// Screenshot for every plugin without a picture, card when that fails.

@@ -113,6 +113,7 @@ struct ManagerRow: View {
     let plugin: ManagedPlugin
     @ObservedObject var library: ManagerLibrary
     let t: L10n
+    @ObservedObject private var thumbnails = Thumbnails.shared
 
     private var isExpanded: Bool { library.expanded.contains(plugin.id) }
 
@@ -120,6 +121,12 @@ struct ManagerRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 LevelDot(level: library.level(of: plugin), running: plugin.bundles.contains { library.state(of: $0) == .running })
+                VendorBadge(vendor: plugin.vendor, size: 26)
+                if let image = thumbnails.image(for: plugin.name, vendor: plugin.vendor) {
+                    PluginThumb(image: image, width: 56, height: 26)
+                } else {
+                    ThumbPlaceholder(width: 56, height: 26)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(plugin.name)
                         .font(.system(size: 12, weight: .semibold))

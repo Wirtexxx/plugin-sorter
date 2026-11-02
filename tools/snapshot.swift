@@ -39,6 +39,11 @@ struct Snapshot {
 
         let mode = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "sorter"
         let tab = Tab(rawValue: mode) ?? .sorter
+        // Real FL pictures only on request: they show other vendors' interfaces, not for the README
+        if ProcessInfo.processInfo.environment["PS_THUMBS"] != nil {
+            Thumbnails.shared.load()
+            RunLoop.main.run(until: Date().addingTimeInterval(2))
+        }
         let library = demoLibrary()
         let manager = demoManager()
 
