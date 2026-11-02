@@ -124,7 +124,8 @@ struct ManagerRow: View {
                 VendorBadge(vendor: plugin.vendor, size: 26)
                 if let image = thumbnails.image(for: plugin.name, vendor: plugin.vendor) {
                     PluginThumb(image: image, width: 56, height: 26)
-                } else {
+                } else if !thumbnails.index.isEmpty {
+                    // Only when previews exist at all, e.g. not for people who don't use FL Studio
                     ThumbPlaceholder(width: 56, height: 26)
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -249,7 +250,7 @@ struct LevelDot: View {
     var body: some View {
         Group {
             if running {
-                ProgressView().controlSize(.small).scaleEffect(0.6)
+                PulseDot()
             } else {
                 StatusDot(color: level?.color ?? .edge, on: level != nil)
             }

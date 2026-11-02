@@ -6,6 +6,23 @@ enum Motion {
     static var reduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 }
 
+/// An LED that pulses while something is being worked on.
+struct PulseDot: View {
+    @State private var on = false
+
+    var body: some View {
+        Circle()
+            .fill(Color.accent)
+            .frame(width: 7, height: 7)
+            .opacity(on ? 1 : 0.25)
+            .shadow(color: Color.accent.opacity(on ? 0.9 : 0), radius: 4)
+            .onAppear {
+                guard !Motion.reduced else { on = true; return }
+                withAnimation(Animation.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { on = true }
+            }
+    }
+}
+
 // MARK: - Developer monogram
 
 /// A coloured square with the developer's initials (FF, VD, XR…). The colour comes from the name,
@@ -60,8 +77,11 @@ final class Thumbnails: ObservableObject {
 
     @Published private(set) var index: [String: URL] = [:]
     private var images: [URL: NSImage] = [:]
+    /// Off for README screenshots, which must not show other vendors' interfaces.
+    var isEnabled = true
 
     func load() {
+        guard isEnabled else { return }
         DispatchQueue.global(qos: .utility).async {
             var index: [String: URL] = [:]
             for plugin in FLDatabase.scan(PictureManifest()) where plugin.hasPicture {
