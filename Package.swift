@@ -17,6 +17,7 @@ let package = Package(
                 "Sorter.swift",
                 "Shell.swift",
                 "PluginFixes.swift",
+                "FLFavorites.swift",
             ]
         ),
         .testTarget(
