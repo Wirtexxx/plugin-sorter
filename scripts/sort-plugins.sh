@@ -4,7 +4,7 @@
 # (com.fabfilter.Pro-Q.3 -> FabFilter).
 
 ROOT="/Library/Audio/Plug-Ins"
-FORMATS="VST3 VST Components"
+FORMATS="${PLUGIN_SORT_FORMATS:-VST3 VST Components}"
 
 usage() {
   cat <<EOF
@@ -12,6 +12,11 @@ Usage:
   $0                 dry run: show what would be moved
   sudo $0 --apply    move plugins, write a move log to \$HOME
   sudo $0 --undo LOG move everything from LOG back
+
+Environment:
+  PLUGIN_SORT_FORMATS  folders to process (default: "VST3 VST Components")
+  PLUGIN_SORT_LOG_DIR  where to write the move log (default: invoking user's home)
+  PLUGIN_SORT_OWNER    user that should own the log (default: \$SUDO_USER)
 EOF
 }
 
@@ -93,8 +98,10 @@ if [ "$MODE" = "apply" ] && [ "$EUID" -ne 0 ]; then
   echo "Root required: sudo $0 --apply"; exit 1
 fi
 
-LOG_DIR="$HOME"
-[ -n "$SUDO_USER" ] && LOG_DIR=$(eval echo ~"$SUDO_USER")
+# The app passes log dir and owner explicitly: osascript runs without SUDO_USER
+OWNER="${PLUGIN_SORT_OWNER:-$SUDO_USER}"
+LOG_DIR="${PLUGIN_SORT_LOG_DIR:-$HOME}"
+[ -z "$PLUGIN_SORT_LOG_DIR" ] && [ -n "$SUDO_USER" ] && LOG_DIR=$(eval echo ~"$SUDO_USER")
 LOG="$LOG_DIR/plugin-sort-$(date +%Y%m%d-%H%M%S).log"
 moved=0
 
@@ -131,7 +138,7 @@ done
 
 echo
 if [ "$MODE" = "apply" ]; then
-  [ -n "$SUDO_USER" ] && [ -f "$LOG" ] && chown "$SUDO_USER" "$LOG"
+  [ -n "$OWNER" ] && [ -f "$LOG" ] && chown "$OWNER" "$LOG"
   echo "Moved: $moved"
   [ -f "$LOG" ] && echo "Log: $LOG (undo: sudo $0 --undo \"$LOG\")"
 else
