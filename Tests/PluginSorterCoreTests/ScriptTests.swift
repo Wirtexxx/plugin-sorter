@@ -73,7 +73,7 @@ struct ScriptTests {
     }
 
     @discardableResult
-    private func run(_ args: [String] = []) throws -> (status: Int32, output: String) {
+    private func run(_ args: [String] = [], extra: [String: String] = [:]) throws -> (status: Int32, output: String) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = [Self.script.path] + args
@@ -82,7 +82,7 @@ struct ScriptTests {
             "PLUGIN_SORT_LOG_DIR": dir.path("logs").path,
             "PLUGIN_SORT_TRASH": dir.path("Trash").path,
             "PLUGIN_SORT_OWNER": "",
-        ]) { $1 }
+        ].merging(extra) { $1 }) { $1 }
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
@@ -157,6 +157,56 @@ struct ScriptTests {
         #expect(FileManager.default.fileExists(atPath: dir.path("Trash/OTT.vst3").path))
         #expect(exists("VST3/Mystery.vst3"))
         #expect(FileManager.default.fileExists(atPath: outside.path))
+    }
+
+    @Test func keepFileProtectsMoreBundles() throws {
+        let keep = dir.path("keep.txt")
+        try "OTT.vst3\n".write(to: keep, atomically: true, encoding: .utf8)
+        let (_, output) = try run(["--apply"], extra: ["PLUGIN_SORT_KEEP_FILE": keep.path])
+        #expect(output.contains("keep: OTT.vst3"))
+        #expect(exists("VST3/OTT.vst3"))
+        #expect(exists("VST3/FabFilter/FabFilter Pro-Q 4.vst3"))
+    }
+
+    @Test func unquarantineClearsTheFlagOnlyInsideRoot() throws {
+        let inside = root.appendingPathComponent("VST3/OTT.vst3")
+        let outside = dir.path("outside.vst3")
+        try makeBundle(outside, id: "com.outside")
+        for url in [inside, outside] {
+            _ = "0083;0;Safari;".withCString { setxattr(url.path, "com.apple.quarantine", $0, strlen($0), 0, 0) }
+        }
+        let (status, output) = try run(["--unquarantine", inside.path, outside.path])
+        #expect(status == 0)
+        #expect(output.contains("unquarantined: VST3/OTT.vst3"))
+        #expect(getxattr(inside.path, "com.apple.quarantine", nil, 0, 0, 0) < 0)
+        #expect(getxattr(outside.path, "com.apple.quarantine", nil, 0, 0, 0) >= 0)
+    }
+
+    @Test func relocateMovesWithinTheTreeOnly() throws {
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("VST3/Xfer Records"), withIntermediateDirectories: true)
+        let src = root.appendingPathComponent("VST3/Serum2.vst3")
+        let nested = root.appendingPathComponent("VST3/Xfer Records/Serum2.vst3")
+        try FileManager.default.moveItem(at: src, to: nested)
+
+        // Refused: outside the tree, existing destination, different bundle type
+        for (from, to) in [(nested.path, dir.path("Serum2.vst3").path),
+                           (nested.path, root.appendingPathComponent("VST3/OTT.vst3").path),
+                           (nested.path, root.appendingPathComponent("VST3/Serum2.vst").path)] {
+            #expect(try run(["--relocate", from, to]).output.contains("skip:"))
+        }
+        #expect(exists("VST3/Xfer Records/Serum2.vst3"))
+
+        let (status, output) = try run(["--relocate", nested.path, src.path])
+        #expect(status == 0)
+        #expect(output.contains("relocated: VST3/Xfer Records/Serum2.vst3 -> VST3/Serum2.vst3"))
+        #expect(exists("VST3/Serum2.vst3"))
+        #expect(!exists("VST3/Xfer Records"))
+    }
+
+    @Test func resetAUNeedsNoRootAndSucceeds() throws {
+        let (status, output) = try run(["--reset-au"])
+        #expect(status == 0)
+        #expect(output.contains("AU cache reset"))
     }
 
     @Test func restoreAUMovesNestedComponentsBack() throws {

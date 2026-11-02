@@ -20,6 +20,9 @@ Usage:
   sudo $0 --undo LOG    move everything from LOG back
   sudo $0 --restore-au  move Audio Units sorted by older versions back to Components
   sudo $0 --trash PATH… move plugin bundles to the user's Trash
+  sudo $0 --unquarantine PATH…  remove the quarantine flag from plugin bundles
+  sudo $0 --relocate SRC DST    move one plugin bundle to another place in the plugin tree
+  $0 --reset-au         make macOS rescan Audio Units
 
 Environment:
   PLUGIN_SORT_FORMATS  folders to process (default: "VST3 VST", Components is ignored)
@@ -27,10 +30,27 @@ Environment:
   PLUGIN_SORT_OWNER    user that should own the log (default: \$SUDO_USER)
   PLUGIN_SORT_ROOT     plugin tree to work on (default: /Library/Audio/Plug-Ins)
   PLUGIN_SORT_TRASH    where --trash moves bundles (default: the owner's ~/.Trash)
+  PLUGIN_SORT_KEEP_FILE  file with bundle names (one per line) to leave in place when sorting
 EOF
 }
 
 lower() { echo "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# Bundles another plugin loads from a fixed path stay where they are: Serum 2's AU wraps its
+# VST3 at VST3/Serum2.vst3. The app adds more to PLUGIN_SORT_KEEP_FILE when it finds them.
+is_kept() {
+  case "$1" in Serum2.vst3) return 0 ;; esac
+  [ -n "$PLUGIN_SORT_KEEP_FILE" ] && [ -f "$PLUGIN_SORT_KEEP_FILE" ] && grep -Fxq -- "$1" "$PLUGIN_SORT_KEEP_FILE"
+}
+
+# True for a plugin bundle path inside $ROOT, the only places the privileged commands may touch
+is_plugin_path() {
+  case "$1" in
+    *"/../"*|*"/./"*) return 1 ;;
+    "$ROOT"/*.vst3|"$ROOT"/*.vst|"$ROOT"/*.component|"$ROOT"/*.clap) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 # Display names for vendor ids (bash 3.2 on macOS has no associative arrays)
 pretty_name() {
@@ -125,12 +145,7 @@ trash_plugins() {
   local trash p name dest
   trash="${PLUGIN_SORT_TRASH:-$(eval echo ~"${OWNER:-$USER}")/.Trash}"
   for p in "$@"; do
-    case "$p" in
-      *"/../"*) echo "skip: $p"; continue ;;
-      "$ROOT"/*.vst3|"$ROOT"/*.vst|"$ROOT"/*.component|"$ROOT"/*.clap) ;;
-      *) echo "skip: $p"; continue ;;
-    esac
-    [ -e "$p" ] || { echo "skip: $p"; continue; }
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
     name="${p##*/}"
     dest="$trash/$name"
     [ -e "$dest" ] && dest="$trash/${name%.*} $(date +%H.%M.%S).${name##*.}"
@@ -138,6 +153,28 @@ trash_plugins() {
     [ -n "$OWNER" ] && chown -R "$OWNER" "$dest"
     echo "trashed: ${p#$ROOT/}"
   done
+  drop_empty_vendor_dirs
+  reset_au_cache
+}
+
+unquarantine_plugins() {
+  local p
+  for p in "$@"; do
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
+    xattr -dr com.apple.quarantine "$p" 2>/dev/null
+    echo "unquarantined: ${p#$ROOT/}"
+  done
+}
+
+# Moves one bundle within the plugin tree, e.g. a VST3 another plugin expects at a fixed path
+relocate_plugin() {
+  local src="$1" dst="$2"
+  if ! is_plugin_path "$src" || ! is_plugin_path "$dst" || [ ! -e "$src" ] || [ -e "$dst" ] \
+     || [ ! -d "$(dirname "$dst")" ] || [ "${src##*.}" != "${dst##*.}" ]; then
+    echo "skip: $src"
+    return 0
+  fi
+  mv "$src" "$dst" && echo "relocated: ${src#$ROOT/} -> ${dst#$ROOT/}"
   drop_empty_vendor_dirs
   reset_au_cache
 }
@@ -165,6 +202,11 @@ case "$1" in
                 restore_au; exit ;;
   --trash)      needs_root && { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
                 shift; trash_plugins "$@"; exit ;;
+  --unquarantine) needs_root && { echo "Root required: sudo $0 --unquarantine PATH…"; exit 1; }
+                shift; unquarantine_plugins "$@"; exit 0 ;;
+  --relocate)   needs_root && { echo "Root required: sudo $0 --relocate SRC DST"; exit 1; }
+                relocate_plugin "$2" "$3"; exit 0 ;;
+  --reset-au)   reset_au_cache; echo "AU cache reset"; exit 0 ;;
   "")           ;;
   *)            usage; exit 1 ;;
 esac
@@ -189,7 +231,7 @@ for fmt in $FORMATS; do
     case "$name" in WaveShell*) echo "  skip (Waves): $name"; continue ;; esac
 
     # Bundles another plugin loads from a fixed path (Serum 2's AU wraps its VST3)
-    case "$name" in Serum2.vst3) echo "  keep: $name"; continue ;; esac
+    if is_kept "$name"; then echo "  keep: $name"; continue; fi
 
     id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plug/Contents/Info.plist" 2>/dev/null)
     vendor=$(vendor_from_id "$id")
