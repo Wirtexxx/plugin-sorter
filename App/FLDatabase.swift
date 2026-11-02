@@ -133,8 +133,15 @@ final class PictureManifest {
     }
 
     subscript(picture: URL) -> Record? {
-        get { records[picture.path] }
-        set { records[picture.path] = newValue; save() }
+        get { records[Self.key(picture)] }
+        set { records[Self.key(picture)] = newValue; save() }
+    }
+
+    /// The same file can be reached through a symlinked folder (/var vs /private/var, a linked Documents),
+    /// so records are keyed by the folder with links resolved. The picture itself may not exist yet.
+    private static func key(_ picture: URL) -> String {
+        picture.deletingLastPathComponent().resolvingSymlinksInPath()
+            .appendingPathComponent(picture.lastPathComponent).path
     }
 
     private func save() {
@@ -151,7 +158,7 @@ enum FLDatabase {
     static var exists: Bool { FileManager.default.fileExists(atPath: root.path) }
 
     /// Every favourite in Effects and Generators, including category subfolders.
-    static func scan(_ manifest: PictureManifest) -> [FLPlugin] {
+    static func scan(_ manifest: PictureManifest, root: URL = FLDatabase.root) -> [FLPlugin] {
         var plugins: [FLPlugin] = []
         for section in ["Effects", "Generators"] {
             let dir = root.appendingPathComponent(section, isDirectory: true)
