@@ -52,7 +52,8 @@ Components/                          Components/
 - ↩️ **One-click undo.** Every run writes a move log, and *Undo* puts everything back.
 - 📁 **Respects your folders.** Existing vendor folders are reused, whatever their letter case.
 - 🌊 **Leaves Waves alone.** WaveShells are managed by Waves Central and are skipped.
-- 🪐 **Cosmic translucent UI** in English, Русский, Українська and Deutsch.
+- 🎛️ **Plugin-style UI.** Graphite panels, format knobs and a waveform of your developers,
+  in English, Русский, Українська and Deutsch.
 - ⌨️ **CLI included** for people who live in the terminal.
 
 ## Install
