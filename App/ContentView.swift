@@ -77,19 +77,7 @@ struct ContentView: View {
             .padding(3)
             .panel(.inset, radius: 4)
 
-            HStack(spacing: 8) {
-                Image(systemName: "folder")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.label)
-                Text(tab == .fl ? "~/DOCUMENTS/IMAGE-LINE/…/PLUGIN DATABASE" : "/LIBRARY/AUDIO/PLUG-INS")
-                    .caption(.text)
-                    .lineLimit(1)
-                Spacer()
-                StatusDot(on: statusLit)
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 30)
-            .panel(.inset, radius: 4)
+            Spacer(minLength: 0)
 
             if tab == .sorter {
                 PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
@@ -115,14 +103,6 @@ struct ContentView: View {
         .disabled(sorter.running || library.busy || manager.busy)
         .padding(6)
         .panel()
-    }
-
-    private var statusLit: Bool {
-        switch tab {
-        case .sorter:  return !sorter.moves.isEmpty || sorter.running
-        case .fl:      return library.busy || !library.missing.isEmpty
-        case .manager: return manager.busy
-        }
     }
 
     private func tabButton(_ value: Tab, title: String) -> some View {
