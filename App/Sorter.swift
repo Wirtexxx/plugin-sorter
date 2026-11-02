@@ -14,7 +14,7 @@ struct VendorGroup: Identifiable {
 }
 
 struct Note: Identifiable {
-    enum Kind { case waves, unknown, exists, restored, skipped, other }
+    enum Kind { case waves, kept, unknown, exists, restored, skipped, other }
     let id = UUID()
     let kind: Kind
     let text: String
@@ -41,7 +41,6 @@ final class Sorter: ObservableObject {
     @Published var applied = false
     @Published var latestLog: String?
 
-    private let script = Bundle.main.path(forResource: "sort-plugins", ofType: "sh") ?? ""
     private let logDir = NSHomeDirectory()
     private let demo: Bool
 
@@ -127,7 +126,7 @@ final class Sorter: ObservableObject {
         var nestedAU = 0
         let number = { (line: String) in Int(String(line.drop { !$0.isNumber }.prefix { $0.isNumber })) ?? 0 }
         let prefixes: [(String, Note.Kind)] = [
-            ("skip (Waves): ", .waves), ("unknown vendor: ", .unknown), ("exists: ", .exists),
+            ("skip (Waves): ", .waves), ("keep: ", .kept), ("unknown vendor: ", .unknown), ("exists: ", .exists),
             ("restored: ", .restored), ("skip: ", .skipped),
         ]
 
@@ -162,56 +161,20 @@ final class Sorter: ObservableObject {
 
     private func run(_ args: [String], admin: Bool, done: @escaping (String) -> Void) {
         running = true
+        let env = self.env
         DispatchQueue.global(qos: .userInitiated).async {
-            let p = Process()
-            if admin {
-                // Shows the standard macOS administrator password dialog
-                p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-                p.arguments = ["-e", self.adminAppleScript(args)]
-            } else {
-                p.executableURL = URL(fileURLWithPath: "/bin/bash")
-                p.arguments = [self.script] + args
-                p.environment = ProcessInfo.processInfo.environment.merging(self.env) { $1 }
-            }
-            let out = Pipe(), err = Pipe()
-            p.standardOutput = out
-            p.standardError = err
-            do { try p.run() } catch {
-                DispatchQueue.main.async {
-                    self.running = false
-                    self.status = .failed(error.localizedDescription)
-                }
-                return
-            }
-            let stdout = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            let stderr = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            p.waitUntilExit()
-
+            let result = Shell.runScript(args, admin: admin, env: env)
             DispatchQueue.main.async {
                 self.running = false
-                if p.terminationStatus == 0 {
-                    // do shell script returns line breaks as \r
-                    done(stdout.replacingOccurrences(of: "\r", with: "\n"))
-                } else if stderr.contains("-128") {
+                if result.succeeded {
+                    done(result.output)
+                } else if result.cancelled {
                     self.status = .cancelled
                 } else {
-                    self.status = .failed(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+                    self.status = .failed(result.error)
                 }
                 self.refreshLatestLog()
             }
         }
-    }
-
-    private func adminAppleScript(_ args: [String]) -> String {
-        let vars: [String] = env.map { key, value in key + "=" + Self.quote(value) }
-        let argv: [String] = ([script] + args).map { Self.quote($0) }
-        let cmd: String = "env " + vars.joined(separator: " ") + " /bin/bash " + argv.joined(separator: " ") + " 2>&1"
-        let escaped = cmd.replacingOccurrences(of: "\\", with: "\\\\")
-                         .replacingOccurrences(of: "\"", with: "\\\"")
-        return "do shell script \"" + escaped + "\" with administrator privileges"
-    }
-
-    private static func quote(_ s: String) -> String {
-        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

@@ -47,6 +47,7 @@ struct L10n {
     func note(_ note: Note) -> String {
         switch note.kind {
         case .waves:    return self("note.waves", note.text)
+        case .kept:     return self("note.kept", note.text)
         case .unknown:  return self("note.unknown", note.text)
         case .exists:   return self("note.exists", note.text)
         case .restored: return self("note.restored", note.text)
@@ -160,6 +161,12 @@ struct L10n {
         ],
         "button.restoreAU": [.en: "Restore AU", .ru: "Вернуть AU", .uk: "Повернути AU", .de: "AU zurück"],
         "status.failed": [.en: "Error: %@", .ru: "Ошибка: %@", .uk: "Помилка: %@", .de: "Fehler: %@"],
+        "note.kept": [
+            .en: "Kept in place (another plugin needs it): %@",
+            .ru: "Оставлен на месте (нужен другому плагину): %@",
+            .uk: "Залишено на місці (потрібен іншому плагіну): %@",
+            .de: "Bleibt an Ort und Stelle (wird von einem anderen Plugin benötigt): %@",
+        ],
         "note.waves": [
             .en: "Skipped (Waves): %@",
             .ru: "Пропущен (Waves): %@",

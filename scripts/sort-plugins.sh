@@ -17,6 +17,7 @@ Usage:
   sudo $0 --apply       move plugins, write a move log to \$HOME
   sudo $0 --undo LOG    move everything from LOG back
   sudo $0 --restore-au  move Audio Units sorted by older versions back to Components
+  sudo $0 --trash PATH… move plugin bundles to the user's Trash
 
 Environment:
   PLUGIN_SORT_FORMATS  folders to process (default: "VST3 VST", Components is ignored)
@@ -115,6 +116,28 @@ restore_au() {
   echo "Restored AU: $restored"
 }
 
+# Moves plugin bundles to the owner's Trash. Only bundles inside $ROOT are accepted.
+trash_plugins() {
+  local trash p name dest
+  trash="$(eval echo ~"${OWNER:-$USER}")/.Trash"
+  for p in "$@"; do
+    case "$p" in
+      *"/../"*) echo "skip: $p"; continue ;;
+      "$ROOT"/*.vst3|"$ROOT"/*.vst|"$ROOT"/*.component|"$ROOT"/*.clap) ;;
+      *) echo "skip: $p"; continue ;;
+    esac
+    [ -e "$p" ] || { echo "skip: $p"; continue; }
+    name="${p##*/}"
+    dest="$trash/$name"
+    [ -e "$dest" ] && dest="$trash/${name%.*} $(date +%H.%M.%S).${name##*.}"
+    mv "$p" "$dest" || continue
+    [ -n "$OWNER" ] && chown -R "$OWNER" "$dest"
+    echo "trashed: ${p#$ROOT/}"
+  done
+  drop_empty_vendor_dirs
+  killall -9 AudioComponentRegistrar 2>/dev/null
+}
+
 nested_au() {
   find "$COMPONENTS" -mindepth 2 -maxdepth 2 -name '*.component' 2>/dev/null | wc -l | tr -d ' '
 }
@@ -130,6 +153,8 @@ case "$1" in
   --undo)       undo "$2"; exit ;;
   --restore-au) [ "$EUID" -eq 0 ] || { echo "Root required: sudo $0 --restore-au"; exit 1; }
                 restore_au; exit ;;
+  --trash)      [ "$EUID" -eq 0 ] || { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
+                shift; trash_plugins "$@"; exit ;;
   "")           ;;
   *)            usage; exit 1 ;;
 esac
@@ -152,6 +177,9 @@ for fmt in $FORMATS; do
 
     # Waves plugins are managed by Waves Central — leave them alone
     case "$name" in WaveShell*) echo "  skip (Waves): $name"; continue ;; esac
+
+    # Bundles another plugin loads from a fixed path (Serum 2's AU wraps its VST3)
+    case "$name" in Serum2.vst3) echo "  keep: $name"; continue ;; esac
 
     id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plug/Contents/Info.plist" 2>/dev/null)
     vendor=$(vendor_from_id "$id")
