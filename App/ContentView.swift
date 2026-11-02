@@ -1,12 +1,20 @@
 import SwiftUI
 
+enum Tab: String {
+    case sorter, fl
+}
+
 struct ContentView: View {
     @StateObject private var sorter: Sorter
+    @StateObject private var library: FLLibrary
     @AppStorage("language") private var language = Lang.system.rawValue
+    @State private var tab: Tab
     @State private var showNotes = false
 
-    init(sorter: Sorter = Sorter()) {
+    init(sorter: Sorter = Sorter(), library: FLLibrary = FLLibrary(), tab: Tab = .sorter) {
         _sorter = StateObject(wrappedValue: sorter)
+        _library = StateObject(wrappedValue: library)
+        _tab = State(initialValue: tab)
     }
 
     private var t: L10n { L10n(lang: Lang(rawValue: language) ?? .en) }
@@ -16,15 +24,19 @@ struct ContentView: View {
             Chassis()
             VStack(spacing: 6) {
                 topBar
-                if sorter.nestedAU > 0 { auWarning }
-                HStack(spacing: 6) {
-                    distributionPanel
-                    formatsPanel.frame(width: 280)
+                if tab == .fl {
+                    FLView(library: library, t: t)
+                } else {
+                    if sorter.nestedAU > 0 { auWarning }
+                    HStack(spacing: 6) {
+                        distributionPanel
+                        formatsPanel.frame(width: 280)
+                    }
+                    .frame(height: 200)
+                    developersPanel
+                    if showNotes && !sorter.notes.isEmpty { notesPanel }
+                    bottomBar
                 }
-                .frame(height: 200)
-                developersPanel
-                if showNotes && !sorter.notes.isEmpty { notesPanel }
-                bottomBar
             }
             .padding(.horizontal, 8)
             .padding(.top, 30)
@@ -52,20 +64,31 @@ struct ContentView: View {
             .padding(.horizontal, 8)
             .help(t("subtitle"))
 
+            HStack(spacing: 2) {
+                tabButton(.sorter, title: t("tab.sorter"))
+                tabButton(.fl, title: t("tab.fl"))
+            }
+            .padding(3)
+            .panel(.inset, radius: 4)
+
             HStack(spacing: 8) {
                 Image(systemName: "folder")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.label)
-                Text("/LIBRARY/AUDIO/PLUG-INS").caption(.text)
+                Text(tab == .fl ? "~/DOCUMENTS/IMAGE-LINE/…/PLUGIN DATABASE" : "/LIBRARY/AUDIO/PLUG-INS")
+                    .caption(.text)
+                    .lineLimit(1)
                 Spacer()
-                StatusDot(on: !sorter.moves.isEmpty || sorter.running)
+                StatusDot(on: tab == .fl ? library.busy || !library.missing.isEmpty : !sorter.moves.isEmpty || sorter.running)
             }
             .padding(.horizontal, 12)
             .frame(height: 30)
             .panel(.inset, radius: 4)
 
-            PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
-            PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
+            if tab == .sorter {
+                PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
+                PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
+            }
 
             HStack(spacing: 2) {
                 ForEach(Lang.allCases) { lang in
@@ -83,9 +106,22 @@ struct ContentView: View {
             .padding(3)
             .panel(.inset, radius: 4)
         }
-        .disabled(sorter.running)
+        .disabled(sorter.running || library.busy)
         .padding(6)
         .panel()
+    }
+
+    private func tabButton(_ value: Tab, title: String) -> some View {
+        let active = tab == value
+        return Button { tab = value } label: {
+            Text(title.uppercased())
+                .caption(active ? .text : .label)
+                .padding(.horizontal, 12)
+                .frame(height: 24)
+                .background(RoundedRectangle(cornerRadius: 3).fill(active ? Color.raised : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     private var auWarning: some View {

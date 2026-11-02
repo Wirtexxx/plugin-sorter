@@ -35,6 +35,15 @@ struct L10n {
         }
     }
 
+    func flStatus(_ status: FLStatus) -> String {
+        switch status {
+        case .idle:                         return ""
+        case .done(let shots, let cards):   return self("fl.done", shots, cards)
+        case .removed(let n):               return self("fl.removed", n)
+        case .failed(let error):            return self("status.failed", error)
+        }
+    }
+
     func note(_ note: Note) -> String {
         switch note.kind {
         case .waves:    return self("note.waves", note.text)
@@ -53,6 +62,53 @@ struct L10n {
             .uk: "Розкладає плагіни по теках розробників",
             .de: "Sortiert Plugins in Herstellerordner",
         ],
+        "tab.sorter": [.en: "Sorter", .ru: "Сортировка", .uk: "Сортування", .de: "Sortieren"],
+        "tab.fl": [.en: "FL Studio", .ru: "FL Studio", .uk: "FL Studio", .de: "FL Studio"],
+        "fl.title": [
+            .en: "Pictures in the FL browser",
+            .ru: "Картинки в браузере FL",
+            .uk: "Картинки в браузері FL",
+            .de: "Bilder im FL-Browser",
+        ],
+        "fl.hint": [
+            .en: "Screenshots come from the AU version of each plugin, plugins that won't open get a card. Drop your own image on any tile or right-click it for more.",
+            .ru: "Скриншоты снимаются с AU-версии плагина, а если он не открылся — рисуется карточка. Перетащите свою картинку на любую плитку или нажмите по ней правой кнопкой.",
+            .uk: "Скриншоти знімаються з AU-версії плагіна, а якщо він не відкрився — малюється картка. Перетягніть свою картинку на будь-яку плитку або натисніть на неї правою кнопкою.",
+            .de: "Screenshots stammen aus der AU-Version jedes Plugins, für Plugins, die sich nicht öffnen, wird eine Karte erstellt. Zieh ein eigenes Bild auf eine Kachel oder klicke sie mit rechts an.",
+        ],
+        "fl.notFound": [
+            .en: "FL Studio plugin database not found in ~/Documents/Image-Line",
+            .ru: "База плагинов FL Studio не найдена в ~/Documents/Image-Line",
+            .uk: "Базу плагінів FL Studio не знайдено в ~/Documents/Image-Line",
+            .de: "FL-Studio-Plugin-Datenbank in ~/Documents/Image-Line nicht gefunden",
+        ],
+        "fl.withPicture": [.en: "With picture", .ru: "С картинкой", .uk: "З картинкою", .de: "Mit Bild"],
+        "fl.missing": [.en: "Without", .ru: "Без картинки", .uk: "Без картинки", .de: "Ohne Bild"],
+        "fl.capturing": [.en: "Capturing", .ru: "Снимаю", .uk: "Знімаю", .de: "Aufnahme"],
+        "fl.noPicture": [.en: "No picture", .ru: "Нет картинки", .uk: "Немає картинки", .de: "Kein Bild"],
+        "fl.showStock": [.en: "FL stock", .ru: "Стоковые FL", .uk: "Стокові FL", .de: "FL-Standard"],
+        "fl.generate": [.en: "Add pictures", .ru: "Добавить картинки", .uk: "Додати картинки", .de: "Bilder hinzufügen"],
+        "fl.removeMine": [.en: "Remove mine", .ru: "Удалить мои", .uk: "Видалити мої", .de: "Meine entfernen"],
+        "fl.retake": [.en: "Retake screenshot", .ru: "Переснять скриншот", .uk: "Перезняти скриншот", .de: "Screenshot neu aufnehmen"],
+        "fl.useCard": [.en: "Use a card", .ru: "Сделать карточку", .uk: "Зробити картку", .de: "Karte verwenden"],
+        "fl.choose": [.en: "Choose image…", .ru: "Выбрать картинку…", .uk: "Вибрати картинку…", .de: "Bild wählen…"],
+        "fl.remove": [.en: "Remove picture", .ru: "Удалить картинку", .uk: "Видалити картинку", .de: "Bild entfernen"],
+        "fl.done": [
+            .en: "Screenshots: %d · cards: %d",
+            .ru: "Скриншотов: %d · карточек: %d",
+            .uk: "Скриншотів: %d · карток: %d",
+            .de: "Screenshots: %d · Karten: %d",
+        ],
+        "fl.restart": [
+            .en: "Restart FL Studio to see the pictures in the browser.",
+            .ru: "Перезапустите FL Studio, чтобы картинки появились в браузере.",
+            .uk: "Перезапустіть FL Studio, щоб картинки з'явилися в браузері.",
+            .de: "Starte FL Studio neu, um die Bilder im Browser zu sehen.",
+        ],
+        "fl.removed": [.en: "Removed: %d", .ru: "Удалено: %d", .uk: "Видалено: %d", .de: "Entfernt: %d"],
+        "badge.screenshot": [.en: "Shot", .ru: "Скрин", .uk: "Скрин", .de: "Shot"],
+        "badge.card": [.en: "Card", .ru: "Карточка", .uk: "Картка", .de: "Karte"],
+        "badge.custom": [.en: "Custom", .ru: "Своя", .uk: "Своя", .de: "Eigenes"],
         "panel.distribution": [.en: "Distribution", .ru: "Распределение", .uk: "Розподіл", .de: "Verteilung"],
         "meter.plugins": [.en: "Plugins", .ru: "Плагины", .uk: "Плагіни", .de: "Plugins"],
         "meter.vendors": [.en: "Developers", .ru: "Разработчики", .uk: "Розробники", .de: "Hersteller"],
