@@ -21,6 +21,8 @@ extension Color {
     static let accentHot = Color(hex: 0xE073FF)
     static let wave = Color(hex: 0x3D6BFF)
     static let mint = Color(hex: 0x3EE28A)
+    static let amber = Color(hex: 0xFFB547)
+    static let danger = Color(hex: 0xFF5C6C)
 }
 
 extension Text {

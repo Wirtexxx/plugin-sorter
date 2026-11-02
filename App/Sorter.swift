@@ -14,7 +14,7 @@ struct VendorGroup: Identifiable {
 }
 
 struct Note: Identifiable {
-    enum Kind { case waves, unknown, exists, restored, skipped, other }
+    enum Kind { case waves, kept, unknown, exists, restored, skipped, other }
     let id = UUID()
     let kind: Kind
     let text: String
@@ -24,6 +24,7 @@ enum Status: Equatable {
     case idle, noFormats, undone, cancelled
     case willMove(Int)
     case moved(Int)
+    case auRestored(Int)
     case failed(String)
 }
 
@@ -31,7 +32,8 @@ enum Status: Equatable {
 final class Sorter: ObservableObject {
     @Published var vst3 = true
     @Published var vst = true
-    @Published var au = true
+    /// Audio Units left in subfolders by versions before 1.1, which macOS can't load.
+    @Published var nestedAU = 0
     @Published var moves: [Move] = []
     @Published var notes: [Note] = []
     @Published var status: Status = .idle
@@ -39,7 +41,6 @@ final class Sorter: ObservableObject {
     @Published var applied = false
     @Published var latestLog: String?
 
-    private let script = Bundle.main.path(forResource: "sort-plugins", ofType: "sh") ?? ""
     private let logDir = NSHomeDirectory()
     private let demo: Bool
 
@@ -48,7 +49,7 @@ final class Sorter: ObservableObject {
     }
 
     var formats: String {
-        [vst3 ? "VST3" : nil, vst ? "VST" : nil, au ? "Components" : nil]
+        [vst3 ? "VST3" : nil, vst ? "VST" : nil]
             .compactMap { $0 }.joined(separator: " ")
     }
 
@@ -71,6 +72,7 @@ final class Sorter: ObservableObject {
             let result = Self.parse(output)
             self.applied = false
             self.moves = result.moves
+            self.nestedAU = result.nestedAU
             if !keepStatus {
                 self.notes = result.notes
                 self.status = .willMove(result.count)
@@ -97,6 +99,15 @@ final class Sorter: ObservableObject {
         }
     }
 
+    func restoreAU() {
+        run(["--restore-au"], admin: true) { output in
+            let result = Self.parse(output)
+            self.notes = result.notes
+            self.status = .auRestored(result.count)
+            self.preview(keepStatus: true)
+        }
+    }
+
     func refreshLatestLog() {
         let files = (try? FileManager.default.contentsOfDirectory(atPath: logDir)) ?? []
         latestLog = files
@@ -107,13 +118,15 @@ final class Sorter: ObservableObject {
 
     // MARK: - Output parsing
 
-    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int) {
+    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, nestedAU: Int) {
         var format = ""
         var moves: [Move] = []
         var notes: [Note] = []
         var count = 0
+        var nestedAU = 0
+        let number = { (line: String) in Int(String(line.drop { !$0.isNumber }.prefix { $0.isNumber })) ?? 0 }
         let prefixes: [(String, Note.Kind)] = [
-            ("skip (Waves): ", .waves), ("unknown vendor: ", .unknown), ("exists: ", .exists),
+            ("skip (Waves): ", .waves), ("keep: ", .kept), ("unknown vendor: ", .unknown), ("exists: ", .exists),
             ("restored: ", .restored), ("skip: ", .skipped),
         ]
 
@@ -128,9 +141,10 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: kind, text: String(line.dropFirst(prefix.count))))
                 continue lines
             }
-            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") {
-                let digits = line.drop { !$0.isNumber }.prefix { $0.isNumber }
-                count = Int(digits) ?? 0
+            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") || line.hasPrefix("Restored AU: ") {
+                count = number(line)
+            } else if line.hasPrefix("nested AU: ") {
+                nestedAU = number(line)
             } else if line.hasSuffix("/"), let r = line.range(of: " -> ") {
                 let file = String(line[..<r.lowerBound])
                 moves.append(Move(plugin: (file as NSString).deletingPathExtension,
@@ -140,63 +154,27 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: .other, text: line))
             }
         }
-        return (moves, notes, count)
+        return (moves, notes, count, nestedAU)
     }
 
     // MARK: - Running the script
 
     private func run(_ args: [String], admin: Bool, done: @escaping (String) -> Void) {
         running = true
+        let env = self.env
         DispatchQueue.global(qos: .userInitiated).async {
-            let p = Process()
-            if admin {
-                // Shows the standard macOS administrator password dialog
-                p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-                p.arguments = ["-e", self.adminAppleScript(args)]
-            } else {
-                p.executableURL = URL(fileURLWithPath: "/bin/bash")
-                p.arguments = [self.script] + args
-                p.environment = ProcessInfo.processInfo.environment.merging(self.env) { $1 }
-            }
-            let out = Pipe(), err = Pipe()
-            p.standardOutput = out
-            p.standardError = err
-            do { try p.run() } catch {
-                DispatchQueue.main.async {
-                    self.running = false
-                    self.status = .failed(error.localizedDescription)
-                }
-                return
-            }
-            let stdout = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            let stderr = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            p.waitUntilExit()
-
+            let result = Shell.runScript(args, admin: admin, env: env)
             DispatchQueue.main.async {
                 self.running = false
-                if p.terminationStatus == 0 {
-                    // do shell script returns line breaks as \r
-                    done(stdout.replacingOccurrences(of: "\r", with: "\n"))
-                } else if stderr.contains("-128") {
+                if result.succeeded {
+                    done(result.output)
+                } else if result.cancelled {
                     self.status = .cancelled
                 } else {
-                    self.status = .failed(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+                    self.status = .failed(result.error)
                 }
                 self.refreshLatestLog()
             }
         }
-    }
-
-    private func adminAppleScript(_ args: [String]) -> String {
-        let vars: [String] = env.map { key, value in key + "=" + Self.quote(value) }
-        let argv: [String] = ([script] + args).map { Self.quote($0) }
-        let cmd: String = "env " + vars.joined(separator: " ") + " /bin/bash " + argv.joined(separator: " ") + " 2>&1"
-        let escaped = cmd.replacingOccurrences(of: "\\", with: "\\\\")
-                         .replacingOccurrences(of: "\"", with: "\\\"")
-        return "do shell script \"" + escaped + "\" with administrator privileges"
-    }
-
-    private static func quote(_ s: String) -> String {
-        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

@@ -4,6 +4,7 @@
 #   ./build.sh               build into build/
 #   ./build.sh --install     build and copy to /Applications
 #   ./build.sh --screenshot  also render docs/screenshot.png
+#   ./build.sh --dmg         also package build/PluginSorter.dmg for releases
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -15,7 +16,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/AppIcon.iconset
 
 echo "› Compiling"
 for arch in arm64 x86_64; do
-  swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" App/*.swift -o "build/PluginSorter-$arch"
+  # Warn about slow type-checking locally: CI runs an older compiler that turns it into a hard error
+  swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" \
+    -Xfrontend -warn-long-expression-type-checking=200 \
+    App/*.swift -o "build/PluginSorter-$arch"
 done
 lipo -create build/PluginSorter-arm64 build/PluginSorter-x86_64 -output "$APP/Contents/MacOS/PluginSorter"
 
@@ -61,11 +65,25 @@ if [ "${1:-}" = "--screenshot" ]; then
     $(ls App/*.swift | grep -v PluginSorterApp.swift) tools/snapshot.swift -o build/snapshot
   mkdir -p docs
   build/snapshot docs/screenshot.png en
+  build/snapshot docs/screenshot-fl.png en fl
+  build/snapshot docs/screenshot-manager.png en manager
   cp build/icon.png docs/icon.png
 fi
 
 rm -rf build/PluginSorter-* build/icon build/snapshot build/AppIcon.iconset
 echo "✓ Built: $APP"
+
+if [ "${1:-}" = "--dmg" ]; then
+  echo "› Packaging DMG"
+  # Classic drag-to-install layout: the app next to a link to /Applications
+  STAGE="build/dmg"
+  mkdir -p "$STAGE"
+  cp -R "$APP" "$STAGE/"
+  ln -s /Applications "$STAGE/Applications"
+  hdiutil create -volname "Plugin Sorter" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov build/PluginSorter.dmg >/dev/null
+  rm -rf "$STAGE"
+  echo "✓ DMG: build/PluginSorter.dmg"
+fi
 
 if [ "${1:-}" = "--install" ]; then
   rm -rf "/Applications/Plugin Sorter.app"

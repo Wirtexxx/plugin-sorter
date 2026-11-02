@@ -1,12 +1,23 @@
 import SwiftUI
 
+enum Tab: String {
+    case sorter, fl, manager
+}
+
 struct ContentView: View {
     @StateObject private var sorter: Sorter
+    @StateObject private var library: FLLibrary
+    @StateObject private var manager: ManagerLibrary
     @AppStorage("language") private var language = Lang.system.rawValue
+    @State private var tab: Tab
     @State private var showNotes = false
 
-    init(sorter: Sorter = Sorter()) {
+    init(sorter: Sorter = Sorter(), library: FLLibrary = FLLibrary(), manager: ManagerLibrary = ManagerLibrary(),
+         tab: Tab = .sorter) {
         _sorter = StateObject(wrappedValue: sorter)
+        _library = StateObject(wrappedValue: library)
+        _manager = StateObject(wrappedValue: manager)
+        _tab = State(initialValue: tab)
     }
 
     private var t: L10n { L10n(lang: Lang(rawValue: language) ?? .en) }
@@ -16,14 +27,21 @@ struct ContentView: View {
             Chassis()
             VStack(spacing: 6) {
                 topBar
-                HStack(spacing: 6) {
-                    distributionPanel
-                    formatsPanel.frame(width: 280)
+                if tab == .fl {
+                    FLView(library: library, t: t)
+                } else if tab == .manager {
+                    ManagerView(library: manager, t: t)
+                } else {
+                    if sorter.nestedAU > 0 { auWarning }
+                    HStack(spacing: 6) {
+                        distributionPanel
+                        formatsPanel.frame(width: 280)
+                    }
+                    .frame(height: 200)
+                    developersPanel
+                    if showNotes && !sorter.notes.isEmpty { notesPanel }
+                    bottomBar
                 }
-                .frame(height: 200)
-                developersPanel
-                if showNotes && !sorter.notes.isEmpty { notesPanel }
-                bottomBar
             }
             .padding(.horizontal, 8)
             .padding(.top, 30)
@@ -51,21 +69,32 @@ struct ContentView: View {
             .padding(.horizontal, 8)
             .help(t("subtitle"))
 
+            HStack(spacing: 2) {
+                tabButton(.sorter, title: t("tab.sorter"))
+                tabButton(.fl, title: t("tab.fl"))
+                tabButton(.manager, title: t("tab.manager"))
+            }
+            .padding(3)
+            .panel(.inset, radius: 4)
+
             HStack(spacing: 8) {
                 Image(systemName: "folder")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.label)
-                Text("/LIBRARY/AUDIO/PLUG-INS").caption(.text)
+                Text(tab == .fl ? "~/DOCUMENTS/IMAGE-LINE/…/PLUGIN DATABASE" : "/LIBRARY/AUDIO/PLUG-INS")
+                    .caption(.text)
+                    .lineLimit(1)
                 Spacer()
-                StatusDot(on: !sorter.moves.isEmpty || sorter.running)
+                StatusDot(on: statusLit)
             }
             .padding(.horizontal, 12)
             .frame(height: 30)
             .panel(.inset, radius: 4)
 
-            PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
-            PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
-            PowerToggle(title: "AU", isOn: sorter.au) { sorter.au.toggle() }
+            if tab == .sorter {
+                PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
+                PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
+            }
 
             HStack(spacing: 2) {
                 ForEach(Lang.allCases) { lang in
@@ -83,8 +112,46 @@ struct ContentView: View {
             .padding(3)
             .panel(.inset, radius: 4)
         }
-        .disabled(sorter.running)
+        .disabled(sorter.running || library.busy || manager.busy)
         .padding(6)
+        .panel()
+    }
+
+    private var statusLit: Bool {
+        switch tab {
+        case .sorter:  return !sorter.moves.isEmpty || sorter.running
+        case .fl:      return library.busy || !library.missing.isEmpty
+        case .manager: return manager.busy
+        }
+    }
+
+    private func tabButton(_ value: Tab, title: String) -> some View {
+        let active = tab == value
+        return Button { tab = value } label: {
+            Text(title.uppercased())
+                .caption(active ? .text : .label)
+                .padding(.horizontal, 12)
+                .frame(height: 24)
+                .background(RoundedRectangle(cornerRadius: 3).fill(active ? Color.raised : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private var auWarning: some View {
+        HStack(spacing: 10) {
+            StatusDot(color: .accentHot)
+            Text(t("au.nested", sorter.nestedAU))
+                .font(.system(size: 12))
+                .foregroundColor(.text)
+                .lineLimit(2)
+            Spacer()
+            Button(t("button.restoreAU").uppercased()) { sorter.restoreAU() }
+                .buttonStyle(PluginButtonStyle(primary: true))
+                .disabled(sorter.running)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 44)
         .panel()
     }
 
@@ -126,7 +193,7 @@ struct ContentView: View {
                 Spacer()
             }
             HStack(spacing: 18) {
-                ForEach(["VST3", "VST", "AU"], id: \.self) { format in
+                ForEach(["VST3", "VST"], id: \.self) { format in
                     Knob(value: count(format), fraction: Double(count(format)) / Double(total), label: format)
                 }
             }
