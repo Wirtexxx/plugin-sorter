@@ -56,8 +56,9 @@ codesign --force -s - "$APP"
 
 if [ "${1:-}" = "--screenshot" ]; then
   echo "› Rendering screenshot"
-  swiftc -parse-as-library -target "$(uname -m)-apple-macos$TARGET_MACOS" App/Sorter.swift App/L10n.swift App/Theme.swift App/ContentView.swift \
-    tools/snapshot.swift -o build/snapshot
+  # every app source except the @main entry point, which the snapshot tool replaces
+  swiftc -parse-as-library -target "$(uname -m)-apple-macos$TARGET_MACOS" \
+    $(ls App/*.swift | grep -v PluginSorterApp.swift) tools/snapshot.swift -o build/snapshot
   mkdir -p docs
   build/snapshot docs/screenshot.png en
   cp build/icon.png docs/icon.png
