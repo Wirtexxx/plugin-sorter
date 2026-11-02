@@ -4,17 +4,26 @@ enum Tab: String {
     case sorter, fl, manager
 }
 
+/// The two sections of the FL Studio tab.
+enum FLMode: String {
+    case pictures, favorites
+}
+
 struct ContentView: View {
     @StateObject private var sorter: Sorter
     @StateObject private var library: FLLibrary
     @StateObject private var manager: ManagerLibrary
+    @StateObject private var favorites: FavoritesLibrary
+    @State private var flMode: FLMode
     @AppStorage("language") private var language = Lang.system.rawValue
     @AppStorage(Skin.key) private var skin = Skin.violet.rawValue
     @State private var tab: Tab
     @State private var showNotes = false
 
     init(sorter: Sorter = Sorter(), library: FLLibrary = FLLibrary(), manager: ManagerLibrary = ManagerLibrary(),
-         tab: Tab = .sorter) {
+         favorites: FavoritesLibrary = FavoritesLibrary(), tab: Tab = .sorter, flMode: FLMode = .pictures) {
+        _favorites = StateObject(wrappedValue: favorites)
+        _flMode = State(initialValue: flMode)
         _sorter = StateObject(wrappedValue: sorter)
         _library = StateObject(wrappedValue: library)
         _manager = StateObject(wrappedValue: manager)
@@ -29,8 +38,14 @@ struct ContentView: View {
             VStack(spacing: 6) {
                 topBar
                 if tab == .fl {
-                    FLView(library: library, t: t)
-                        .transition(.opacity)
+                    Group {
+                        if flMode == .favorites {
+                            FavoritesView(library: favorites, t: t)
+                        } else {
+                            FLView(library: library, t: t)
+                        }
+                    }
+                    .transition(.opacity)
                 } else if tab == .manager {
                     ManagerView(library: manager, t: t)
                         .transition(.opacity)
@@ -91,6 +106,15 @@ struct ContentView: View {
 
             Spacer(minLength: 0)
 
+            if tab == .fl {
+                HStack(spacing: 2) {
+                    modeButton(.pictures, title: t("fl.mode.pictures"))
+                    modeButton(.favorites, title: t("fl.mode.favorites"))
+                }
+                .padding(3)
+                .panel(.inset, radius: 4)
+            }
+
             if tab == .sorter {
                 PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
                 PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
@@ -99,6 +123,19 @@ struct ContentView: View {
         .disabled(sorter.running || library.busy || manager.busy)
         .padding(6)
         .panel()
+    }
+
+    private func modeButton(_ value: FLMode, title: String) -> some View {
+        let active = flMode == value
+        return Button { flMode = value } label: {
+            Text(title.uppercased())
+                .caption(active ? .text : .label)
+                .padding(.horizontal, 12)
+                .frame(height: 24)
+                .background(RoundedRectangle(cornerRadius: 3).fill(active ? Color.raised : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     private func tabButton(_ value: Tab, title: String) -> some View {

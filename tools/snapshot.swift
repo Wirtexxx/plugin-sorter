@@ -38,7 +38,13 @@ struct Snapshot {
         sorter.status = .willMove(sorter.moves.count)
 
         let mode = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "sorter"
-        let tab = Tab(rawValue: mode) ?? .sorter
+        let tab = mode == "favorites" ? .fl : Tab(rawValue: mode) ?? .sorter
+        // Favourites come from the real FL database: local checks only, not for the README
+        let favorites = FavoritesLibrary()
+        if mode == "favorites" {
+            favorites.scan()
+            RunLoop.main.run(until: Date().addingTimeInterval(4))
+        }
         // Real FL pictures only on request: they show other vendors' interfaces, not for the README
         Thumbnails.shared.isEnabled = ProcessInfo.processInfo.environment["PS_THUMBS"] != nil
         if Thumbnails.shared.isEnabled {
@@ -58,7 +64,8 @@ struct Snapshot {
             let size = NSSize(width: 900, height: 640)
             let main = NSHostingView(rootView: ZStack {
                 Color.chassis
-                ContentView(sorter: sorter, library: library, manager: manager, tab: tab)
+                ContentView(sorter: sorter, library: library, manager: manager, favorites: favorites, tab: tab,
+                            flMode: mode == "favorites" ? .favorites : .pictures)
             }
             .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 12)))

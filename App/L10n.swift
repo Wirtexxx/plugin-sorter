@@ -78,6 +78,15 @@ struct L10n {
         }
     }
 
+    func favoritesStatus(_ status: FavoritesStatus) -> String {
+        switch status {
+        case .idle:               return ""
+        case .removed(let n):     return self("fav.status.removed", n)
+        case .restored(let n):    return self("fav.status.restored", n)
+        case .failed(let error):  return self("status.failed", error)
+        }
+    }
+
     func issue(_ issue: Issue) -> String {
         switch issue {
         case .noBinary:                 return self("issue.noBinary")
@@ -111,6 +120,33 @@ struct L10n {
             .de: "Sortiert Plugins in Herstellerordner",
         ],
         "tab.sorter": [.en: "Sorter", .ru: "Сортировка", .uk: "Сортування", .de: "Sortieren"],
+        "fl.mode.pictures": [.en: "Pictures", .ru: "Картинки", .uk: "Картинки", .de: "Bilder"],
+        "fl.mode.favorites": [.en: "Favourites", .ru: "Избранное", .uk: "Обране", .de: "Favoriten"],
+        "fav.title": [.en: "FL Studio favourites", .ru: "Избранное FL Studio", .uk: "Обране FL Studio", .de: "FL-Studio-Favoriten"],
+        "fav.hint": [
+            .en: "Star the plugins you want in FL's browser and plugin picker; format chips pick VST3, AU or CLAP. Removed favourites are kept and can be put back. Restart FL Studio to see changes.",
+            .ru: "Отметьте звездой плагины, которые нужны в браузере и плагин-пикере FL; чипы форматов выбирают VST3, AU или CLAP. Убранное избранное сохраняется, его можно вернуть. Перезапустите FL Studio, чтобы увидеть изменения.",
+            .uk: "Позначте зірочкою плагіни, потрібні в браузері та плагін-пікері FL; чипи форматів обирають VST3, AU чи CLAP. Прибране обране зберігається, його можна повернути. Перезапустіть FL Studio, щоб побачити зміни.",
+            .de: "Markiere die Plugins mit einem Stern, die im FL-Browser und Plugin-Picker erscheinen sollen; die Format-Chips wählen VST3, AU oder CLAP. Entfernte Favoriten werden aufbewahrt und lassen sich zurückholen. Starte FL Studio neu, um die Änderungen zu sehen.",
+        ],
+        "fav.favorites": [.en: "Favourites", .ru: "В избранном", .uk: "В обраному", .de: "Favoriten"],
+        "fav.installed": [.en: "Scanned", .ru: "Найдено FL", .uk: "Знайдено FL", .de: "Gescannt"],
+        "fav.removedCount": [.en: "Deleted", .ru: "Удалённые", .uk: "Видалені", .de: "Gelöscht"],
+        "fav.stale": [
+            .en: "%d deleted plugins are still in favourites",
+            .ru: "Удалённых плагинов в избранном: %d",
+            .uk: "Видалених плагінів в обраному: %d",
+            .de: "%d gelöschte Plugins sind noch Favoriten",
+        ],
+        "fav.removeStale": [.en: "Remove them", .ru: "Убрать их", .uk: "Прибрати їх", .de: "Entfernen"],
+        "fav.onlyFavorites": [.en: "Favourites only", .ru: "Только избранное", .uk: "Лише обране", .de: "Nur Favoriten"],
+        "fav.restore": [.en: "Put back removed", .ru: "Вернуть убранные", .uk: "Повернути прибрані", .de: "Entfernte zurück"],
+        "fav.effect": [.en: "Effect", .ru: "Эффект", .uk: "Ефект", .de: "Effekt"],
+        "fav.generator": [.en: "Instrument", .ru: "Инструмент", .uk: "Інструмент", .de: "Instrument"],
+        "fav.status.removed": [.en: "Removed from favourites: %d", .ru: "Убрано из избранного: %d", .uk: "Прибрано з обраного: %d", .de: "Aus Favoriten entfernt: %d"],
+        "fav.status.restored": [.en: "Put back: %d", .ru: "Возвращено: %d", .uk: "Повернено: %d", .de: "Zurückgeholt: %d"],
+        "badge.removed": [.en: "Deleted", .ru: "Удалён", .uk: "Видалено", .de: "Gelöscht"],
+        "badge.moved": [.en: "Moved", .ru: "Перенесён", .uk: "Перенесено", .de: "Verschoben"],
         "settings.language": [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"],
         "settings.skin": [.en: "Skin", .ru: "Скин", .uk: "Скін", .de: "Skin"],
         "skin.violet": [.en: "Violet", .ru: "Фиолетовый", .uk: "Фіолетовий", .de: "Violett"],
