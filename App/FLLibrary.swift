@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import AVFoundation
 
 enum FLStatus: Equatable {
@@ -54,17 +55,14 @@ final class FLLibrary: ObservableObject {
                     self.current = plugin.title
                     self.progress = Double(n) / Double(targets.count)
                 }
-                var png: Data?
-                var source = FLPlugin.Source.card
+                var shot: NSImage?
                 if screenshots, let component = PluginCapture.match(plugin, in: components),
-                   let shot = PluginCapture.capture(component) {
-                    png = shot
-                    source = .screenshot
+                   let capture = PluginCapture.capture(component) {
+                    shot = NSImage(data: capture)
                 }
-                if png == nil {
-                    png = DispatchQueue.main.sync {
-                        FLCard.png(title: plugin.title, vendor: plugin.info.vendor)
-                    }
+                let source: FLPlugin.Source = shot == nil ? .card : .screenshot
+                let png = DispatchQueue.main.sync {
+                    FLCard.png(title: plugin.title, vendor: plugin.info.vendor, shot: shot)
                 }
                 guard let data = png, (try? FLDatabase.install(data, for: plugin, source: source, manifest: self.manifest)) != nil else { continue }
                 if source == .screenshot { shots += 1 } else { cards += 1 }
@@ -80,7 +78,12 @@ final class FLLibrary: ObservableObject {
 
     func setCustom(_ plugin: FLPlugin, image url: URL) {
         queue.async {
-            guard let png = Thumbnail.png(fromFile: url) else {
+            // Custom images go into the same template as screenshots
+            let image = NSImage(contentsOf: url)
+            let png = image.flatMap { image in
+                DispatchQueue.main.sync { FLCard.png(title: plugin.title, vendor: plugin.info.vendor, shot: image) }
+            }
+            guard let png = png else {
                 DispatchQueue.main.async { self.status = .failed(url.lastPathComponent) }
                 return
             }

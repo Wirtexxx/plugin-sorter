@@ -179,11 +179,11 @@ enum PluginCapture {
            let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber),
                                                [.boundsIgnoreFraming, .bestResolution]),
            !Thumbnail.isBlank(image) {
-            return Thumbnail.png(image)
+            return Thumbnail.png(image, fitting: Thumbnail.captureSize)
         }
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
         view.cacheDisplay(in: view.bounds, to: rep)
         guard let image = rep.cgImage, !Thumbnail.isBlank(image) else { return nil }
-        return Thumbnail.png(image)
+        return Thumbnail.png(image, fitting: Thumbnail.captureSize)
     }
 }

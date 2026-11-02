@@ -1,37 +1,56 @@
 import SwiftUI
 import AppKit
 
-/// Fallback picture for plugins whose interface can't be captured.
+/// The picture FL shows for a plugin: a header with name and developer over a screenshot
+/// of the plugin, or over a wave when no screenshot is available.
+/// Every picture has the same size so FL's plugin picker lays them out as an even grid.
 struct FLCard: View {
-    /// Same area as a captured screenshot (see Thumbnail.targetArea)
-    static let size = CGSize(width: 176, height: 100)
+    static let size = CGSize(width: 160, height: 100)
+    private static let header: CGFloat = 26
 
     let title: String
     let vendor: String
+    var shot: NSImage?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Text(vendor.uppercased())
-                    .font(.system(size: 8, weight: .semibold))
-                    .kerning(1.2)
-                    .foregroundColor(.label)
-                    .lineLimit(1)
-                Spacer()
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(vendor.uppercased())
+                        .font(.system(size: 6, weight: .semibold))
+                        .kerning(1)
+                        .foregroundColor(.label)
+                        .lineLimit(1)
+                    Text(title)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                Spacer(minLength: 0)
                 StatusDot()
             }
-            Text(title)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Spacer(minLength: 0)
-            WaveBars(levels: levels, mirrored: false)
-                .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.4)]),
-                                     startPoint: .top, endPoint: .bottom))
-                .frame(height: 28)
+            .padding(.horizontal, 8)
+            .frame(height: Self.header)
+
+            ZStack {
+                if let shot = shot {
+                    Image(nsImage: shot)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    WaveBars(levels: levels, mirrored: false)
+                        .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.4)]),
+                                             startPoint: .top, endPoint: .bottom))
+                        .padding(.horizontal, 8)
+                        .padding(.top, 14)
+                }
+            }
+            // Anchor to the top: that's where plugins keep their logo and main controls
+            .frame(width: Self.size.width, height: Self.size.height - Self.header, alignment: .top)
+            .clipped()
         }
-        .padding(10)
         .frame(width: Self.size.width, height: Self.size.height)
         .background(Color.panel)
     }
@@ -48,8 +67,8 @@ struct FLCard: View {
     }
 
     /// Renders the card offscreen. Must run on the main thread.
-    static func png(title: String, vendor: String) -> Data? {
-        let view = NSHostingView(rootView: FLCard(title: title, vendor: vendor))
+    static func png(title: String, vendor: String, shot: NSImage? = nil) -> Data? {
+        let view = NSHostingView(rootView: FLCard(title: title, vendor: vendor, shot: shot))
         view.frame = CGRect(origin: .zero, size: size)
         let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = view
@@ -61,20 +80,12 @@ struct FLCard: View {
 }
 
 enum Thumbnail {
-    /// FL's stock pictures have a median area of ~18 000 px² (about 187×110), so every
-    /// picture gets that area whatever its proportions and they all weigh the same in the picker.
-    static let targetArea: CGFloat = 18_000
-    static let maxSize = CGSize(width: 230, height: 130)
+    /// Captures are handed from the helper to the app at this size, plenty for a 160 px card.
+    static let captureSize = CGSize(width: 640, height: 640)
 
-    /// Scales to FL's picture size, or to fit `box` when given.
-    static func png(_ image: CGImage, fitting box: CGSize? = nil) -> Data? {
+    static func png(_ image: CGImage, fitting box: CGSize) -> Data? {
         let w = CGFloat(image.width), h = CGFloat(image.height)
-        let scale: CGFloat
-        if let box = box {
-            scale = min(box.width / w, box.height / h, 1)
-        } else {
-            scale = min((targetArea / (w * h)).squareRoot(), maxSize.width / w, maxSize.height / h, 1)
-        }
+        let scale = min(box.width / w, box.height / h, 1)
         let width = max(Int((w * scale).rounded()), 1)
         let height = max(Int((h * scale).rounded()), 1)
         guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -84,12 +95,6 @@ enum Thumbnail {
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         guard let scaled = ctx.makeImage() else { return nil }
         return NSBitmapImageRep(cgImage: scaled).representation(using: .png, properties: [:])
-    }
-
-    static func png(fromFile url: URL) -> Data? {
-        guard let image = NSImage(contentsOf: url),
-              let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
-        return png(cg)
     }
 
     /// True for empty captures: a single flat colour, usually black or transparent.
