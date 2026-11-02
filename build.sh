@@ -4,6 +4,7 @@
 #   ./build.sh               build into build/
 #   ./build.sh --install     build and copy to /Applications
 #   ./build.sh --screenshot  also render docs/screenshot.png
+#   ./build.sh --dmg         also package build/PluginSorter.dmg for releases
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -66,6 +67,18 @@ fi
 
 rm -rf build/PluginSorter-* build/icon build/snapshot build/AppIcon.iconset
 echo "✓ Built: $APP"
+
+if [ "${1:-}" = "--dmg" ]; then
+  echo "› Packaging DMG"
+  # Classic drag-to-install layout: the app next to a link to /Applications
+  STAGE="build/dmg"
+  mkdir -p "$STAGE"
+  cp -R "$APP" "$STAGE/"
+  ln -s /Applications "$STAGE/Applications"
+  hdiutil create -volname "Plugin Sorter" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov build/PluginSorter.dmg >/dev/null
+  rm -rf "$STAGE"
+  echo "✓ DMG: build/PluginSorter.dmg"
+fi
 
 if [ "${1:-}" = "--install" ]; then
   rm -rf "/Applications/Plugin Sorter.app"
