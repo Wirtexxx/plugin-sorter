@@ -78,8 +78,8 @@ struct Snapshot {
             let picture = fst.deletingPathExtension().appendingPathExtension("png")
             try? FileManager.default.removeItem(at: picture)
             if source != nil {
-                let shot = shots.flatMap { try? Data(contentsOf: $0.appendingPathComponent(title.replacingOccurrences(of: " ", with: "_") + ".png")) }
-                try? (shot ?? FLCard.png(title: title, vendor: vendor))?.write(to: picture)
+                let shot = shots.flatMap { NSImage(contentsOf: $0.appendingPathComponent(title.replacingOccurrences(of: " ", with: "_") + ".png")) }
+                try? FLCard.png(title: title, vendor: vendor, shot: shot)?.write(to: picture)
             }
             return FLPlugin(fst: fst, title: title, info: FSTInfo(name: title, vendor: vendor, path: ""),
                             hasPicture: source != nil, source: source)
