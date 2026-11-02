@@ -4,6 +4,7 @@ enum ManagerStatus: Equatable {
     case idle
     case checked(ok: Int, warnings: Int, failed: Int)
     case trashed(Int)
+    case fixed
     case cancelled
     case failed(String)
 }
@@ -48,7 +49,48 @@ final class ManagerLibrary: ObservableObject {
         plugins.filter { self.level(of: $0) == level }.count
     }
 
-    func scan() {
+    /// Repairs available for a checked bundle's problems.
+    func fixes(for bundle: PluginBundle) -> [Fix] {
+        guard case .done(let issues) = state(of: bundle), !issues.isEmpty else { return [] }
+        return PluginFixes.fixes(for: bundle, issues: issues, installed: plugins.flatMap(\.bundles))
+    }
+
+    /// Runs a repair, then rescans and checks the plugin again so the result shows right away.
+    func apply(_ fix: Fix, for plugin: ManagedPlugin?) {
+        guard !busy else { return }
+        busy = true
+        queue.async {
+            let args: [String]
+            var admin = true
+            switch fix {
+            case .unquarantine(let url):      args = ["--unquarantine", url.path]
+            case .relocate(let from, let to): args = ["--relocate", from.path, to.path]
+            case .resetAUCache:               args = ["--reset-au"]; admin = false
+            }
+            let result = Shell.runScript(args, admin: admin, env: Shell.ownerEnv)
+            let moved = result.output.contains("relocated: ")
+            if moved, PluginFixes.isDependency(fix), case .relocate(_, let to) = fix {
+                // Another plugin needs it exactly there: never sort it away again
+                PluginFixes.keep(to.lastPathComponent)
+            }
+            DispatchQueue.main.async {
+                self.busy = false
+                if result.succeeded {
+                    self.status = .fixed
+                } else {
+                    self.status = result.cancelled ? .cancelled : .failed(result.error)
+                }
+                guard result.succeeded else { return }
+                self.scan {
+                    if let key = plugin?.key, let updated = self.plugins.first(where: { $0.key == key }) {
+                        self.check([updated])
+                    }
+                }
+            }
+        }
+    }
+
+    func scan(then completion: (() -> Void)? = nil) {
         guard !demo else { return }
         queue.async {
             let plugins = PluginInventory.scan()
@@ -57,6 +99,7 @@ final class ManagerLibrary: ObservableObject {
                 // Forget results of bundles that are gone
                 let ids = Set(plugins.flatMap { $0.bundles.map(\.id) })
                 self.results = self.results.filter { ids.contains($0.key) }
+                completion?()
             }
         }
     }

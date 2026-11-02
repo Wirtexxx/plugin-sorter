@@ -49,8 +49,22 @@ struct L10n {
         case .idle:                          return ""
         case .checked(let ok, let w, let f): return self("mgr.checked", ok, w, f)
         case .trashed(let n):                return self("mgr.trashed", n)
+        case .fixed:                         return self("mgr.fixed")
         case .cancelled:                     return self("status.cancelled")
         case .failed(let error):             return self("status.failed", error)
+        }
+    }
+
+    func fix(_ fix: Fix) -> String {
+        switch fix {
+        case .unquarantine:
+            return self("fix.unquarantine")
+        case .relocate(_, let to) where to.pathExtension.lowercased() == PluginFormat.au.fileExtension:
+            return self("fix.toComponents")
+        case .relocate(_, let to):
+            return self("fix.relocate", to.lastPathComponent, to.deletingLastPathComponent().lastPathComponent)
+        case .resetAUCache:
+            return self("fix.resetAU")
         }
     }
 
@@ -132,6 +146,18 @@ struct L10n {
             .de: "OK: %d · Warnungen: %d · Probleme: %d",
         ],
         "mgr.trashed": [.en: "Moved to Trash: %d", .ru: "В Корзине: %d", .uk: "У Кошику: %d", .de: "Im Papierkorb: %d"],
+        "mgr.fixed": [.en: "Fixed, checking again", .ru: "Исправлено, проверяю заново", .uk: "Виправлено, перевіряю знову", .de: "Behoben, prüfe erneut"],
+        "mgr.canFix": [.en: "This can be fixed", .ru: "Это можно исправить", .uk: "Це можна виправити", .de: "Das lässt sich beheben"],
+        "fix.unquarantine": [.en: "Remove quarantine", .ru: "Снять карантин", .uk: "Зняти карантин", .de: "Quarantäne aufheben"],
+        "fix.toComponents": [.en: "Move back to Components", .ru: "Вернуть в Components", .uk: "Повернути в Components", .de: "Zurück nach Components"],
+        "fix.relocate": [.en: "Put %@ back in %@", .ru: "Вернуть %@ в %@", .uk: "Повернути %@ у %@", .de: "%@ zurück nach %@"],
+        "fix.resetAU": [.en: "Reset AU cache", .ru: "Сбросить кеш AU", .uk: "Скинути кеш AU", .de: "AU-Cache zurücksetzen"],
+        "fix.resetAUHelp": [
+            .en: "Makes macOS rescan Audio Units, e.g. after installing or moving plugins",
+            .ru: "macOS заново найдёт Audio Units, например после установки или переноса плагинов",
+            .uk: "macOS заново знайде Audio Units, наприклад після встановлення або перенесення плагінів",
+            .de: "macOS sucht Audio Units neu, z. B. nach dem Installieren oder Verschieben von Plugins",
+        ],
         "issue.noBinary": [
             .en: "The plugin's binary is missing",
             .ru: "Нет исполняемого файла плагина",

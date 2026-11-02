@@ -92,6 +92,10 @@ struct ManagerView: View {
             Text(t.managerStatus(library.status).uppercased()).caption().lineLimit(1)
             Spacer()
             if library.busy { ProgressView().controlSize(.small) }
+            Button(t("fix.resetAU").uppercased()) { library.apply(.resetAUCache, for: nil) }
+                .buttonStyle(PluginButtonStyle())
+                .disabled(library.busy)
+                .help(t("fix.resetAUHelp"))
             Button(t("button.refresh").uppercased()) { library.scan() }
                 .buttonStyle(PluginButtonStyle())
                 .disabled(library.busy)
@@ -130,6 +134,14 @@ struct ManagerRow: View {
                     }
                 }
                 Text(plugin.version).caption().frame(width: 64, alignment: .trailing).lineLimit(1)
+                if !isExpanded && plugin.bundles.contains(where: { !library.fixes(for: $0).isEmpty }) {
+                    // A repair is available: open the details where its button lives
+                    Button { library.expanded.insert(plugin.id) } label: {
+                        Image(systemName: "wrench.and.screwdriver").font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(IconButtonStyle(accent: true))
+                    .help(t("mgr.canFix"))
+                }
                 Button { library.check([plugin]) } label: {
                     Image(systemName: "stethoscope").font(.system(size: 11, weight: .semibold))
                 }
@@ -156,6 +168,17 @@ struct ManagerRow: View {
                                     .lineLimit(1)
                                 ForEach(details(bundle), id: \.self) { line in
                                     Text(line).font(.system(size: 11)).foregroundColor(.label)
+                                }
+                                let fixes = library.fixes(for: bundle)
+                                if !fixes.isEmpty {
+                                    HStack(spacing: 6) {
+                                        ForEach(fixes) { fix in
+                                            Button(t.fix(fix).uppercased()) { library.apply(fix, for: plugin) }
+                                                .buttonStyle(PluginButtonStyle(primary: true))
+                                                .disabled(library.busy)
+                                        }
+                                    }
+                                    .padding(.top, 4)
                                 }
                             }
                             Spacer()
@@ -263,10 +286,11 @@ struct ProgressBar: View {
 
 struct IconButtonStyle: ButtonStyle {
     var destructive = false
+    var accent = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundColor(destructive ? .danger : .text)
+            .foregroundColor(destructive ? .danger : accent ? .accent : .text)
             .frame(width: 26, height: 24)
             .background(RoundedRectangle(cornerRadius: 4).fill(Color.raised).brightness(configuration.isPressed ? -0.08 : 0))
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.edge, lineWidth: 1))
