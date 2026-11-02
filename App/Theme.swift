@@ -17,12 +17,51 @@ extension Color {
     static let edge = Color(hex: 0x3A3A41)
     static let label = Color(hex: 0x8C8C97)
     static let text = Color(hex: 0xDCDCE2)
-    static let accent = Color(hex: 0xA76BFF)
-    static let accentHot = Color(hex: 0xE073FF)
-    static let wave = Color(hex: 0x3D6BFF)
+    // Accent colours follow the skin chosen in Settings
+    static var accent: Color { Color(hex: Skin.current.accent) }
+    static var accentHot: Color { Color(hex: Skin.current.accentHot) }
+    static var wave: Color { Color(hex: Skin.current.wave) }
     static let mint = Color(hex: 0x3EE28A)
     static let amber = Color(hex: 0xFFB547)
     static let danger = Color(hex: 0xFF5C6C)
+}
+
+/// Colour skins, like the ones many plugins offer. Stored under "skin" in UserDefaults.
+enum Skin: String, CaseIterable, Identifiable {
+    case violet, mint, amber, ice
+
+    static let key = "skin"
+    static var current: Skin { Skin(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .violet }
+
+    var id: String { rawValue }
+
+    var accent: UInt32 {
+        switch self {
+        case .violet: return 0xA76BFF
+        case .mint:   return 0x35D8A6
+        case .amber:  return 0xFF9F43
+        case .ice:    return 0x5CB8FF
+        }
+    }
+
+    var accentHot: UInt32 {
+        switch self {
+        case .violet: return 0xE073FF
+        case .mint:   return 0x9BFFD9
+        case .amber:  return 0xFFD166
+        case .ice:    return 0xB4E6FF
+        }
+    }
+
+    /// The lower, mirrored half of the waveform.
+    var wave: UInt32 {
+        switch self {
+        case .violet: return 0x3D6BFF
+        case .mint:   return 0x1F8FFF
+        case .amber:  return 0xFF4F6D
+        case .ice:    return 0x5468FF
+        }
+    }
 }
 
 extension Text {
