@@ -185,9 +185,24 @@ Plugin Sorter пропускает доменные части и берёт п�
 ```
 App/            SwiftUI-приложение: модель, окно, тема, переводы
 scripts/        sort-plugins.sh — движок, работает и сам по себе
+Tests/          тесты на Swift Testing: парсеры, проверки и сам скрипт
 tools/          генераторы иконки и скриншота для README
 build.sh        собирает универсальный Plugin Sorter.app без Xcode
+Package.swift   пакет только для тестов вокруг части App/ без интерфейса
 ```
+
+## Разработка
+
+Всё работает с одними Command Line Tools:
+
+```bash
+swift test                  # парсеры, опись, проверки и sort-plugins.sh на временных папках
+./build.sh --install        # собрать и установить приложение
+./build.sh --screenshot     # перерисовать скриншоты для README
+```
+
+Тесты не трогают `/Library/Audio/Plug-Ins` и базу FL Studio: скрипт работает на временном дереве
+через `PLUGIN_SORT_ROOT`, а бандлы плагинов и `.fst`-пресеты генерируются на лету.
 
 ## Лицензия
 

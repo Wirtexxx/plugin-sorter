@@ -184,9 +184,24 @@ identifier. Missing your favourite developer? Pull requests are welcome.
 ```
 App/            SwiftUI app: model, window, theme, translations
 scripts/        sort-plugins.sh: the engine, usable on its own
+Tests/          Swift Testing suite for the parsers, checks and the script
 tools/          icon and README screenshot renderers
 build.sh        builds a universal Plugin Sorter.app without Xcode
+Package.swift   test-only package around the UI-free part of App/
 ```
+
+## Development
+
+Everything works with just the Command Line Tools:
+
+```bash
+swift test                  # parsers, inventory, checks and sort-plugins.sh on temporary folders
+./build.sh --install        # build and install the app
+./build.sh --screenshot     # re-render the README screenshots
+```
+
+Tests never touch `/Library/Audio/Plug-Ins` or FL Studio's database: the script runs against a
+temporary tree via `PLUGIN_SORT_ROOT`, and plugin bundles and `.fst` presets are generated on the fly.
 
 ## License
 
