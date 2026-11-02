@@ -158,9 +158,11 @@ struct PluginButtonStyle: ButtonStyle {
         let configuration: ButtonStyleConfiguration
         let primary: Bool
         @Environment(\.isEnabled) private var isEnabled
+        @State private var hovered = false
 
         var body: some View {
-            configuration.label
+            let lit = hovered && isEnabled
+            return configuration.label
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(primary ? .white : .text)
                 .padding(.horizontal, 16)
@@ -168,10 +170,14 @@ struct PluginButtonStyle: ButtonStyle {
                 .background(
                     RoundedRectangle(cornerRadius: 4)
                         .fill(primary ? Color.accent : Color.raised)
-                        .brightness(configuration.isPressed ? -0.08 : 0))
+                        .brightness(configuration.isPressed ? -0.08 : lit ? 0.06 : 0))
                 .overlay(RoundedRectangle(cornerRadius: 4)
-                    .stroke(primary ? Color.accentHot.opacity(0.5) : Color.edge, lineWidth: 1))
+                    .stroke(primary ? Color.accentHot.opacity(lit ? 0.9 : 0.5) : lit ? Color.accent.opacity(0.7) : Color.edge,
+                            lineWidth: 1))
+                .shadow(color: primary && lit ? Color.accent.opacity(0.5) : .clear, radius: 6)
                 .opacity(isEnabled ? 1 : 0.35)
+                .onHover { hovered = $0 }
+                .animation(.easeOut(duration: 0.15), value: lit)
         }
     }
 }
@@ -192,6 +198,7 @@ struct PowerToggle: View {
                         .foregroundColor(isOn ? .white : .label)
                 }
                 .frame(width: 15, height: 15)
+                .shadow(color: isOn ? Color.accent.opacity(0.7) : .clear, radius: 4)
                 Text(title).caption(isOn ? .text : .label)
             }
             .padding(.horizontal, 10)
@@ -199,6 +206,7 @@ struct PowerToggle: View {
             .background(RoundedRectangle(cornerRadius: 4).fill(Color.raised))
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.edge, lineWidth: 1))
             .contentShape(Rectangle())
+            .animation(.easeOut(duration: 0.15), value: isOn)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -218,6 +226,8 @@ struct Knob: View {
                 arc(to: max(0, min(1, fraction)))
                     .stroke(Color.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                     .shadow(color: Color.accent.opacity(0.5), radius: 3)
+                    // Turn to the new value like a real knob instead of jumping
+                    .animation(Motion.reduced ? nil : .easeOut(duration: 0.6), value: fraction)
                 Circle()
                     .fill(LinearGradient(gradient: Gradient(colors: [Color(hex: 0x3B3B42), Color(hex: 0x24242A)]),
                                          startPoint: .top, endPoint: .bottom))

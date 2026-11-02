@@ -30,18 +30,23 @@ struct ContentView: View {
                 topBar
                 if tab == .fl {
                     FLView(library: library, t: t)
+                        .transition(.opacity)
                 } else if tab == .manager {
                     ManagerView(library: manager, t: t)
+                        .transition(.opacity)
                 } else {
-                    if sorter.nestedAU > 0 { auWarning }
-                    HStack(spacing: 6) {
-                        distributionPanel
-                        formatsPanel.frame(width: 280)
+                    VStack(spacing: 6) {
+                        if sorter.nestedAU > 0 { auWarning }
+                        HStack(spacing: 6) {
+                            distributionPanel
+                            formatsPanel.frame(width: 280)
+                        }
+                        .frame(height: 200)
+                        developersPanel
+                        if showNotes && !sorter.notes.isEmpty { notesPanel }
+                        bottomBar
                     }
-                    .frame(height: 200)
-                    developersPanel
-                    if showNotes && !sorter.notes.isEmpty { notesPanel }
-                    bottomBar
+                    .transition(.opacity)
                 }
             }
             .padding(.horizontal, 8)
@@ -98,7 +103,9 @@ struct ContentView: View {
 
     private func tabButton(_ value: Tab, title: String) -> some View {
         let active = tab == value
-        return Button { tab = value } label: {
+        return Button {
+            withAnimation(Motion.reduced ? nil : .easeInOut(duration: 0.18)) { tab = value }
+        } label: {
             Text(title.uppercased())
                 .caption(active ? .text : .label)
                 .padding(.horizontal, 12)
