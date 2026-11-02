@@ -1,4 +1,5 @@
-// Renders the main window with demo data for the README: snapshot <out.png> [lang] [sorter|fl]
+// Renders the main window with demo data for the README:
+// snapshot <out.png> [lang] [sorter|fl|manager|settings] [violet|mint|amber|ice]
 import SwiftUI
 import AppKit
 
@@ -12,6 +13,9 @@ struct Snapshot {
         if CommandLine.arguments.count > 2 {
             UserDefaults.standard.set(CommandLine.arguments[2], forKey: "language")
         }
+        // Always set the skin: UserDefaults persist between runs of this tool
+        UserDefaults.standard.set(CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : Skin.violet.rawValue,
+                                  forKey: Skin.key)
 
         let sorter = Sorter(demo: true)
         let demo: [(String, String, [String])] = [
@@ -33,20 +37,28 @@ struct Snapshot {
         sorter.notes = [Note(kind: .waves, text: "WaveShell1-AU 17.1.component")]
         sorter.status = .willMove(sorter.moves.count)
 
-        let tab = CommandLine.arguments.count > 3 ? Tab(rawValue: CommandLine.arguments[3]) ?? .sorter : .sorter
+        let mode = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "sorter"
+        let tab = Tab(rawValue: mode) ?? .sorter
         let library = demoLibrary()
         let manager = demoManager()
 
-        let size = NSSize(width: 900, height: 640)
-        let root = ZStack {
-            Color.chassis
-            ContentView(sorter: sorter, library: library, manager: manager, tab: tab)
+        let view: NSView
+        if mode == "settings" {
+            let settings = NSHostingView(rootView: ZStack { Color.chassis; SettingsView() }
+                .clipShape(RoundedRectangle(cornerRadius: 12)))
+            settings.frame = NSRect(origin: .zero, size: settings.fittingSize)
+            view = settings
+        } else {
+            let size = NSSize(width: 900, height: 640)
+            let main = NSHostingView(rootView: ZStack {
+                Color.chassis
+                ContentView(sorter: sorter, library: library, manager: manager, tab: tab)
+            }
+            .frame(width: size.width, height: size.height)
+            .clipShape(RoundedRectangle(cornerRadius: 12)))
+            main.frame = NSRect(origin: .zero, size: size)
+            view = main
         }
-        .frame(width: size.width, height: size.height)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-        let view = NSHostingView(rootView: root)
-        view.frame = NSRect(origin: .zero, size: size)
         let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = view
         window.appearance = NSAppearance(named: .darkAqua)
