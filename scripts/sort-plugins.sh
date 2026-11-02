@@ -6,7 +6,9 @@
 # Audio Units are never sorted: macOS only registers components that sit directly
 # in Components, so an AU inside a subfolder disappears from every host.
 
-ROOT="/Library/Audio/Plug-Ins"
+# PLUGIN_SORT_ROOT points the script at another tree (used by the tests); no root needed there
+ROOT="${PLUGIN_SORT_ROOT:-/Library/Audio/Plug-Ins}"
+needs_root() { [ -z "$PLUGIN_SORT_ROOT" ] && [ "$EUID" -ne 0 ]; }
 FORMATS="${PLUGIN_SORT_FORMATS:-VST3 VST}"
 COMPONENTS="$ROOT/Components"
 
@@ -23,6 +25,8 @@ Environment:
   PLUGIN_SORT_FORMATS  folders to process (default: "VST3 VST", Components is ignored)
   PLUGIN_SORT_LOG_DIR  where to write the move log (default: invoking user's home)
   PLUGIN_SORT_OWNER    user that should own the log (default: \$SUDO_USER)
+  PLUGIN_SORT_ROOT     plugin tree to work on (default: /Library/Audio/Plug-Ins)
+  PLUGIN_SORT_TRASH    where --trash moves bundles (default: the owner's ~/.Trash)
 EOF
 }
 
@@ -119,7 +123,7 @@ restore_au() {
 # Moves plugin bundles to the owner's Trash. Only bundles inside $ROOT are accepted.
 trash_plugins() {
   local trash p name dest
-  trash="$(eval echo ~"${OWNER:-$USER}")/.Trash"
+  trash="${PLUGIN_SORT_TRASH:-$(eval echo ~"${OWNER:-$USER}")/.Trash}"
   for p in "$@"; do
     case "$p" in
       *"/../"*) echo "skip: $p"; continue ;;
@@ -151,15 +155,15 @@ MODE="dry"
 case "$1" in
   --apply)      MODE="apply" ;;
   --undo)       undo "$2"; exit ;;
-  --restore-au) [ "$EUID" -eq 0 ] || { echo "Root required: sudo $0 --restore-au"; exit 1; }
+  --restore-au) needs_root && { echo "Root required: sudo $0 --restore-au"; exit 1; }
                 restore_au; exit ;;
-  --trash)      [ "$EUID" -eq 0 ] || { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
+  --trash)      needs_root && { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
                 shift; trash_plugins "$@"; exit ;;
   "")           ;;
   *)            usage; exit 1 ;;
 esac
 
-if [ "$MODE" = "apply" ] && [ "$EUID" -ne 0 ]; then
+if [ "$MODE" = "apply" ] && needs_root; then
   echo "Root required: sudo $0 --apply"; exit 1
 fi
 

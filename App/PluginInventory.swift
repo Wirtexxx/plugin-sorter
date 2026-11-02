@@ -43,7 +43,12 @@ struct PluginBundle: Identifiable {
     /// Inside a vendor folder rather than directly in the format folder.
     let nested: Bool
 
-    var displayPath: String { url.path.replacingOccurrences(of: PluginInventory.root.path + "/", with: "") }
+    /// Path from the format folder on, e.g. "VST3/FabFilter/FabFilter Pro-Q 4.vst3".
+    var displayPath: String {
+        let parts = url.pathComponents
+        guard let start = parts.lastIndex(of: format.folder) else { return url.path }
+        return parts[start...].joined(separator: "/")
+    }
 }
 
 /// A plugin with all its formats, e.g. Pro-Q 4 as VST3 + AU + CLAP.
@@ -68,7 +73,7 @@ enum PluginInventory {
         #endif
     }
 
-    static func scan() -> [ManagedPlugin] {
+    static func scan(root: URL = PluginInventory.root) -> [ManagedPlugin] {
         var bundles: [PluginBundle] = []
         for format in PluginFormat.allCases {
             let dir = root.appendingPathComponent(format.folder, isDirectory: true)
@@ -92,14 +97,15 @@ enum PluginInventory {
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    /// Lowercase letters and digits of the file name, minus suffixes some vendors add to the AU ("ValhallaRoomAU64").
-    private static func key(for url: URL) -> String {
-        var key = url.deletingPathExtension().lastPathComponent.lowercased().filter { $0.isLetter || $0.isNumber }
-        for suffix in ["au64", "au"] where key.hasSuffix(suffix) && key.count > suffix.count + 2 {
-            key.removeLast(suffix.count)
+    /// Lowercase letters and digits of the file name, minus the suffix some vendors add to the AU
+    /// ("ValhallaRoomAU64"). Only an uppercase AU counts, so "Plateau" stays "plateau".
+    static func key(for url: URL) -> String {
+        var name = url.deletingPathExtension().lastPathComponent
+        for suffix in ["AU64", "AU"] where name.hasSuffix(suffix) && name.count > suffix.count + 2 {
+            name.removeLast(suffix.count)
             break
         }
-        return key
+        return name.lowercased().filter { $0.isLetter || $0.isNumber }
     }
 
     private static func read(_ url: URL, format: PluginFormat, formatRoot: URL) -> PluginBundle {

@@ -120,11 +120,12 @@ final class PictureManifest {
     private(set) var records: [String: Record] = [:]
     private let url: URL
 
-    init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Plugin Sorter", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        url = dir.appendingPathComponent("fl-pictures.json")
+    static let defaultURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Plugin Sorter/fl-pictures.json")
+
+    init(url: URL = PictureManifest.defaultURL) {
+        self.url = url
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let data = try? Data(contentsOf: url),
            let saved = try? JSONDecoder().decode([String: Record].self, from: data) {
             records = saved
