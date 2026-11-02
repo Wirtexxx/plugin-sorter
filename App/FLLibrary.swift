@@ -28,6 +28,8 @@ final class FLLibrary: ObservableObject {
     var visible: [FLPlugin] { showStock ? plugins : plugins.filter { !$0.isStock } }
     var missing: [FLPlugin] { plugins.filter { !$0.hasPicture } }
     var mine: [FLPlugin] { plugins.filter { $0.source != nil } }
+    /// Screenshots and cards can be redone; custom images are the user's and stay as they are.
+    var retakable: [FLPlugin] { plugins.filter { $0.source == .screenshot || $0.source == .card } }
 
     func scan() {
         guard !demo else { return }

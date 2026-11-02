@@ -88,6 +88,7 @@ struct L10n {
         "fl.noPicture": [.en: "No picture", .ru: "Нет картинки", .uk: "Немає картинки", .de: "Kein Bild"],
         "fl.showStock": [.en: "FL stock", .ru: "Стоковые FL", .uk: "Стокові FL", .de: "FL-Standard"],
         "fl.generate": [.en: "Add pictures", .ru: "Добавить картинки", .uk: "Додати картинки", .de: "Bilder hinzufügen"],
+        "fl.retakeMine": [.en: "Retake mine", .ru: "Переснять мои", .uk: "Перезняти мої", .de: "Meine neu"],
         "fl.removeMine": [.en: "Remove mine", .ru: "Удалить мои", .uk: "Видалити мої", .de: "Meine entfernen"],
         "fl.retake": [.en: "Retake screenshot", .ru: "Переснять скриншот", .uk: "Перезняти скриншот", .de: "Screenshot neu aufnehmen"],
         "fl.useCard": [.en: "Use a card", .ru: "Сделать карточку", .uk: "Зробити картку", .de: "Karte verwenden"],

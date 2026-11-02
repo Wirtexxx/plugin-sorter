@@ -104,9 +104,9 @@ struct FLView: View {
             Button(t("fl.removeMine").uppercased()) { library.remove(library.mine) }
                 .buttonStyle(PluginButtonStyle())
                 .disabled(library.busy || library.mine.isEmpty)
-            Button(t("button.refresh").uppercased()) { library.scan() }
+            Button(t("fl.retakeMine").uppercased()) { library.generate(library.retakable, screenshots: true) }
                 .buttonStyle(PluginButtonStyle())
-                .disabled(library.busy)
+                .disabled(library.busy || library.retakable.isEmpty)
             Button(t("fl.generate").uppercased()) { library.generateMissing() }
                 .buttonStyle(PluginButtonStyle(primary: true))
                 .disabled(library.busy || library.missing.isEmpty)
