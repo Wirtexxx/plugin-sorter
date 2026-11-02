@@ -138,6 +138,11 @@ It also flags binaries built for another CPU, Intel-only plugins on Apple Silico
 downloads and Audio Units that macOS can't see. Click a plugin to see the exact reason, and
 use the trash button to move all its formats to the Trash after confirming the file list.
 
+Many problems come with a one-click fix right under them: **Remove quarantine**, **Move back to
+Components** for an Audio Unit in a subfolder, **Reset AU cache**, and **Put … back** when a plugin
+loads another bundle from a fixed path that was moved (Serum 2's AU loads `VST3/Serum2.vst3`).
+Bundles put back this way are remembered, so sorting never moves them again.
+
 ### Command line
 
 ```bash

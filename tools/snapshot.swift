@@ -68,17 +68,19 @@ struct Snapshot {
         let demo: [(String, String, String, [(PluginFormat, [Issue]?)])] = [
             ("FabFilter Pro-Q 4", "FabFilter", "4.13", [(.au, []), (.clap, []), (.vst3, [])]),
             ("OTT", "Xfer Records", "1.37", [(.au, []), (.vst, []), (.vst3, [])]),
-            ("Serum2", "Xfer Records", "2.0.15", [(.au, [.validationFailed("Error: could not load …/VST3/Serum2.vst3")]), (.vst3, [])]),
+            ("Serum2", "Xfer Records", "2.0.15", [(.au, [.validationFailed("Error: could not load /Library/Audio/Plug-Ins/VST3/Serum2.vst3")]), (.vst3, [])]),
             ("soothe2", "oeksound", "1.4.2", [(.au, []), (.vst3, [])]),
             ("OldReverb", "Legacy Audio", "1.2", [(.vst, [.wrongArch(["i386"])])]),
             ("ValhallaSupermassive", "Valhalla DSP", "5.0.0", [(.au, []), (.vst3, [])]),
             ("kHs Chorus", "Kilohearts", "2.2.4", [(.au, [.quarantined]), (.vst3, nil)]),
         ]
         manager.plugins = demo.map { name, vendor, version, formats in
-            let bundles = formats.map { format, _ in
-                PluginBundle(url: root.appendingPathComponent("\(format.folder)/\(name).\(format.fileExtension)"),
-                             format: format, vendor: vendor, version: version, executable: nil,
-                             archs: ["x86_64", "arm64"], quarantined: false, au: nil, nested: false)
+            let bundles = formats.map { format, _ -> PluginBundle in
+                // VST3s live in vendor folders, as after sorting; that's what broke Serum 2's AU
+                let folder = format == .vst3 ? "\(format.folder)/\(vendor)" : format.folder
+                return PluginBundle(url: root.appendingPathComponent("\(folder)/\(name).\(format.fileExtension)"),
+                                    format: format, vendor: vendor, version: version, executable: nil,
+                                    archs: ["x86_64", "arm64"], quarantined: false, au: nil, nested: format == .vst3)
             }
             for (bundle, (_, issues)) in zip(bundles, formats) {
                 manager.results[bundle.id] = issues.map { .done($0) } ?? .unchecked
