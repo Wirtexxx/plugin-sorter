@@ -8,6 +8,10 @@ enum Entry {
         if CommandLine.arguments.dropFirst().first == "--capture" {
             PluginCapture.runHelper(Array(CommandLine.arguments.dropFirst()))
         }
+        // The Manager tab test-loads VST, VST3 and CLAP plugins in this mode
+        if CommandLine.arguments.dropFirst().first == "--probe" {
+            PluginChecker.runProbe(Array(CommandLine.arguments.dropFirst()))
+        }
         PluginSorterApp.main()
     }
 }
