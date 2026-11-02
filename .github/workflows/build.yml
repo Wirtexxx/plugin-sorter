@@ -26,6 +26,9 @@ jobs:
       - name: Lint script
         run: bash -n scripts/sort-plugins.sh
 
+      - name: Run tests
+        run: swift test
+
       - name: Build app and DMG
         run: ./build.sh --dmg
 
