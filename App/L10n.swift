@@ -5,6 +5,16 @@ enum Lang: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// The language's own name, shown the same whatever language is selected.
+    var nativeName: String {
+        switch self {
+        case .en: return "English"
+        case .ru: return "Русский"
+        case .uk: return "Українська"
+        case .de: return "Deutsch"
+        }
+    }
+
     /// First supported language from the system preferences, English otherwise.
     static var system: Lang {
         for code in Locale.preferredLanguages {
@@ -101,6 +111,12 @@ struct L10n {
             .de: "Sortiert Plugins in Herstellerordner",
         ],
         "tab.sorter": [.en: "Sorter", .ru: "Сортировка", .uk: "Сортування", .de: "Sortieren"],
+        "settings.language": [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"],
+        "settings.skin": [.en: "Skin", .ru: "Скин", .uk: "Скін", .de: "Skin"],
+        "skin.violet": [.en: "Violet", .ru: "Фиолетовый", .uk: "Фіолетовий", .de: "Violett"],
+        "skin.mint": [.en: "Mint", .ru: "Мятный", .uk: "М'ятний", .de: "Minze"],
+        "skin.amber": [.en: "Amber", .ru: "Янтарный", .uk: "Бурштиновий", .de: "Bernstein"],
+        "skin.ice": [.en: "Ice", .ru: "Ледяной", .uk: "Крижаний", .de: "Eis"],
         "tab.fl": [.en: "FL Studio", .ru: "FL Studio", .uk: "FL Studio", .de: "FL Studio"],
         "tab.manager": [.en: "Manager", .ru: "Менеджер", .uk: "Менеджер", .de: "Manager"],
         "mgr.title": [

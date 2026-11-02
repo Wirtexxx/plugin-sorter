@@ -25,6 +25,11 @@ struct PluginSorterApp: App {
                 .frame(minWidth: 860, minHeight: 620)
         }
         .commands { CommandGroup(replacing: .newItem) {} }
+
+        // Plugin Sorter → Settings… (⌘,)
+        Settings {
+            SettingsView()
+        }
     }
 }
 

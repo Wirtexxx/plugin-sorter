@@ -9,6 +9,7 @@ struct ContentView: View {
     @StateObject private var library: FLLibrary
     @StateObject private var manager: ManagerLibrary
     @AppStorage("language") private var language = Lang.system.rawValue
+    @AppStorage(Skin.key) private var skin = Skin.violet.rawValue
     @State private var tab: Tab
     @State private var showNotes = false
 
@@ -46,6 +47,8 @@ struct ContentView: View {
             .padding(.horizontal, 8)
             .padding(.top, 30)
             .padding(.bottom, 8)
+            // Colours are read from the skin while views are built, so rebuild them when it changes
+            .id(skin)
         }
         .background(WindowStyler())
         .onAppear { sorter.refreshLatestLog(); sorter.preview() }
@@ -83,22 +86,6 @@ struct ContentView: View {
                 PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
                 PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
             }
-
-            HStack(spacing: 2) {
-                ForEach(Lang.allCases) { lang in
-                    let active = language == lang.rawValue
-                    Button { language = lang.rawValue } label: {
-                        Text(lang.rawValue.uppercased())
-                            .caption(active ? .text : .label)
-                            .frame(width: 30, height: 24)
-                            .background(RoundedRectangle(cornerRadius: 3).fill(active ? Color.raised : .clear))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .padding(3)
-            .panel(.inset, radius: 4)
         }
         .disabled(sorter.running || library.busy || manager.busy)
         .padding(6)
