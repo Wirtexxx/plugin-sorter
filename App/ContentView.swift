@@ -13,159 +13,224 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            CosmicBackground()
-            VStack(alignment: .leading, spacing: 16) {
-                header
-                controls
-                content
-                if !sorter.notes.isEmpty { notes }
-                footer
+            Chassis()
+            VStack(spacing: 6) {
+                topBar
+                HStack(spacing: 6) {
+                    distributionPanel
+                    formatsPanel.frame(width: 280)
+                }
+                .frame(height: 200)
+                developersPanel
+                if showNotes && !sorter.notes.isEmpty { notesPanel }
+                bottomBar
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 36)
-            .padding(.bottom, 20)
+            .padding(.horizontal, 8)
+            .padding(.top, 30)
+            .padding(.bottom, 8)
         }
         .background(WindowStyler())
         .onAppear { sorter.refreshLatestLog(); sorter.preview() }
         .onChange(of: sorter.formats) { _ in sorter.preview() }
     }
 
-    // MARK: - Sections
+    // MARK: - Top bar
 
-    private var header: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Orb(color: .plasma, size: 42, glow: 0.6)
-                Image(systemName: "folder.fill.badge.gearshape")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
+    private var topBar: some View {
+        HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: -2) {
+                Text("PLUGIN")
+                    .font(.system(size: 9, weight: .heavy))
+                    .kerning(2.5)
+                    .foregroundColor(.label)
+                Text("SORTER")
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .kerning(2)
+                    .foregroundColor(.text)
             }
-            .frame(width: 52, height: 52)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("PLUGIN SORTER")
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .kerning(3)
-                    .foregroundColor(.white)
-                Text(t("subtitle"))
-                    .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.55))
+            .padding(.horizontal, 8)
+            .help(t("subtitle"))
+
+            HStack(spacing: 8) {
+                Image(systemName: "folder")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.label)
+                Text("/LIBRARY/AUDIO/PLUG-INS").caption(.text)
+                Spacer()
+                StatusDot(on: !sorter.moves.isEmpty || sorter.running)
             }
-            Spacer()
-            HStack(spacing: 4) {
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .panel(.inset, radius: 4)
+
+            PowerToggle(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
+            PowerToggle(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
+            PowerToggle(title: "AU", isOn: sorter.au) { sorter.au.toggle() }
+
+            HStack(spacing: 2) {
                 ForEach(Lang.allCases) { lang in
-                    Button(lang.rawValue.uppercased()) { language = lang.rawValue }
-                        .buttonStyle(PlainButtonStyle())
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(language == lang.rawValue ? .white : Color.white.opacity(0.4))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(language == lang.rawValue ? Color.nebula.opacity(0.45) : .clear))
+                    let active = language == lang.rawValue
+                    Button { language = lang.rawValue } label: {
+                        Text(lang.rawValue.uppercased())
+                            .caption(active ? .text : .label)
+                            .frame(width: 30, height: 24)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(active ? Color.raised : .clear))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
             .padding(3)
-            .background(Capsule().fill(Color.white.opacity(0.05)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
+            .panel(.inset, radius: 4)
         }
+        .disabled(sorter.running)
+        .padding(6)
+        .panel()
     }
 
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Chip(title: "VST3", isOn: sorter.vst3) { sorter.vst3.toggle() }
-                Chip(title: "VST", isOn: sorter.vst) { sorter.vst.toggle() }
-                Chip(title: "AU", isOn: sorter.au) { sorter.au.toggle() }
-            }
-            .disabled(sorter.running)
-            HStack(spacing: 10) {
-                Meter(value: sorter.moves.count, label: t("meter.plugins"))
-                Meter(value: sorter.groups.count, label: t("meter.vendors"))
-                Meter(value: Set(sorter.moves.map(\.format)).count, label: t("meter.formats"))
-            }
-        }
-    }
+    // MARK: - Displays
 
-    @ViewBuilder
-    private var content: some View {
-        if sorter.moves.isEmpty && !sorter.running {
-            VStack(spacing: 14) {
-                ZStack {
-                    Orb(color: .nebula, size: 90, glow: 0.5)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundColor(.white)
+    private var distributionPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(t("panel.distribution").uppercased()).caption()
+                Spacer()
+                Text("\(sorter.groups.count) · \(t("meter.vendors").uppercased())").caption()
+            }
+            ZStack {
+                Distribution(groups: sorter.groups)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                if sorter.moves.isEmpty && !sorter.running {
+                    HStack(spacing: 8) {
+                        StatusDot()
+                        Text(t("empty.title").uppercased()).caption(.text)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 26)
+                    .panel(.panel, radius: 4)
                 }
-                Text(t("empty.title"))
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-                Text(t("empty.hint"))
-                    .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.5))
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12, alignment: .top)], spacing: 12) {
-                    ForEach(sorter.groups) { VendorCard(group: $0) }
-                }
-                .padding(1)
-            }
-            .frame(maxHeight: .infinity)
+            .panel(.inset, radius: 4)
         }
+        .padding(12)
+        .panel()
     }
 
-    private var notes: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { showNotes.toggle() }
-            } label: {
+    private var formatsPanel: some View {
+        let total = max(sorter.moves.count, 1)
+        let count = { (format: String) in sorter.moves.filter { $0.format == format }.count }
+        return VStack(spacing: 14) {
+            HStack {
+                Text(t("meter.formats").uppercased()).caption()
+                Spacer()
+            }
+            HStack(spacing: 18) {
+                ForEach(["VST3", "VST", "AU"], id: \.self) { format in
+                    Knob(value: count(format), fraction: Double(count(format)) / Double(total), label: format)
+                }
+            }
+            Spacer(minLength: 0)
+            HStack {
+                Text(t("meter.plugins").uppercased()).caption()
+                Spacer()
+                Text("\(sorter.moves.count)")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.text)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .panel(.inset, radius: 4)
+        }
+        .padding(12)
+        .panel()
+    }
+
+    // MARK: - Developers
+
+    private var developersPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(t("meter.vendors").uppercased()).caption()
+            if sorter.moves.isEmpty && !sorter.running {
+                VStack(spacing: 6) {
+                    Text(t("empty.title"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.text)
+                    Text(t("empty.hint"))
+                        .font(.system(size: 11))
+                        .foregroundColor(.label)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 6, alignment: .top)], spacing: 6) {
+                        ForEach(sorter.groups) { VendorCard(group: $0) }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxHeight: .infinity)
+        .panel()
+    }
+
+    private var notesPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(sorter.notes) { note in
+                    Text(t.note(note))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.label)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+        }
+        .frame(height: 80)
+        .panel()
+    }
+
+    // MARK: - Bottom bar
+
+    private var bottomBar: some View {
+        HStack(spacing: 10) {
+            Button { showNotes.toggle() } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "chevron.right")
-                        .rotationEffect(.degrees(showNotes ? 90 : 0))
-                    Text(t("notes", sorter.notes.count))
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(t("notes", sorter.notes.count).uppercased()).caption(showNotes ? .text : .label)
                 }
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color.white.opacity(0.6))
+                .foregroundColor(showNotes ? .text : .label)
             }
             .buttonStyle(PlainButtonStyle())
-            if showNotes {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 3) {
-                        ForEach(sorter.notes) { note in
-                            Text(t.note(note))
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(Color.white.opacity(0.7))
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                }
-                .frame(maxHeight: 90)
-                .modifier(Glass(radius: 10))
-            }
-        }
-    }
+            .disabled(sorter.notes.isEmpty)
+            .opacity(sorter.notes.isEmpty ? 0.4 : 1)
 
-    private var footer: some View {
-        HStack(spacing: 10) {
-            Button(t("button.undo")) { sorter.undo() }
-                .buttonStyle(GlowButtonStyle())
-                .disabled(sorter.running || sorter.latestLog == nil)
-            Text(t.status(sorter.status))
-                .font(.system(size: 12))
-                .foregroundColor(Color.white.opacity(0.6))
+            Rectangle().fill(Color.edge).frame(width: 1, height: 16)
+
+            Text(t.status(sorter.status).uppercased())
+                .caption()
                 .lineLimit(1)
+
             Spacer()
+
             if sorter.running {
                 ProgressView().controlSize(.small)
             }
-            Button(t("button.refresh")) { sorter.preview() }
-                .buttonStyle(GlowButtonStyle())
+            Button(t("button.undo").uppercased()) { sorter.undo() }
+                .buttonStyle(PluginButtonStyle())
+                .disabled(sorter.running || sorter.latestLog == nil)
+            Button(t("button.refresh").uppercased()) { sorter.preview() }
+                .buttonStyle(PluginButtonStyle())
                 .disabled(sorter.running)
-            Button(sorter.applied ? t("button.done") : t("button.sort")) { sorter.apply() }
-                .buttonStyle(GlowButtonStyle(primary: true))
+            Button((sorter.applied ? t("button.done") : t("button.sort")).uppercased()) { sorter.apply() }
+                .buttonStyle(PluginButtonStyle(primary: true))
                 .keyboardShortcut(.defaultAction)
                 .disabled(sorter.running || sorter.applied || sorter.moves.isEmpty)
         }
+        .padding(.horizontal, 12)
+        .frame(height: 44)
+        .panel()
     }
 }
 
@@ -186,44 +251,37 @@ struct VendorCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Circle()
-                    .fill(RadialGradient(
-                        gradient: Gradient(colors: [Color.white, Color.plasma, Color.nebula]),
-                        center: UnitPoint(x: 0.3, y: 0.3), startRadius: 0, endRadius: 7))
-                    .frame(width: 10, height: 10)
-                    .shadow(color: Color.plasma, radius: 4)
-                Text(group.vendor)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+                StatusDot()
+                Text(group.vendor.uppercased()).caption(.text).lineLimit(1)
                 Spacer()
                 Text("\(group.items.count)")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.nebula.opacity(0.45)))
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(.text)
+                    .frame(minWidth: 20, minHeight: 18)
+                    .panel(.raised, radius: 3)
             }
+            Rectangle().fill(Color.edge.opacity(0.6)).frame(height: 1)
             ForEach(rows, id: \.name) { row in
                 HStack(spacing: 4) {
                     Text(row.name)
                         .font(.system(size: 12))
-                        .foregroundColor(Color.white.opacity(0.8))
+                        .foregroundColor(.text)
                         .lineLimit(1)
                     Spacer()
                     ForEach(row.formats, id: \.self) { format in
                         Text(format)
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundColor(.ion)
-                            .padding(.horizontal, 6)
+                            .font(.system(size: 9, weight: .bold))
+                            .kerning(0.8)
+                            .foregroundColor(.accent)
+                            .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .overlay(Capsule().stroke(Color.ion.opacity(0.4), lineWidth: 1))
+                            .panel(.raised, radius: 3)
                     }
                 }
             }
         }
-        .padding(14)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .modifier(Glass())
+        .panel(.inset, radius: 5)
     }
 }

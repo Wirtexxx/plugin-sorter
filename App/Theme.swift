@@ -2,16 +2,39 @@ import SwiftUI
 import AppKit
 
 extension Color {
-    static let space = Color(red: 0.03, green: 0.02, blue: 0.06)
-    static let deepSpace = Color(red: 0.08, green: 0.03, blue: 0.15)
-    static let nebula = Color(red: 0.48, green: 0.20, blue: 0.97)
-    static let plasma = Color(red: 0.80, green: 0.30, blue: 1.00)
-    static let ion = Color(red: 0.45, green: 0.78, blue: 1.00)
+    init(hex: UInt32, opacity: Double = 1) {
+        self.init(.sRGB,
+                  red: Double((hex >> 16) & 0xFF) / 255,
+                  green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255,
+                  opacity: opacity)
+    }
+
+    static let chassis = Color(hex: 0x17171A)
+    static let panel = Color(hex: 0x27272C)
+    static let inset = Color(hex: 0x1E1E22)
+    static let raised = Color(hex: 0x323238)
+    static let edge = Color(hex: 0x3A3A41)
+    static let label = Color(hex: 0x8C8C97)
+    static let text = Color(hex: 0xDCDCE2)
+    static let accent = Color(hex: 0xA76BFF)
+    static let accentHot = Color(hex: 0xE073FF)
+    static let wave = Color(hex: 0x3D6BFF)
+    static let mint = Color(hex: 0x3EE28A)
+}
+
+extension Text {
+    /// Small uppercase caption used for every label, plugin-UI style.
+    func caption(_ color: Color = .label) -> some View {
+        self.font(.system(size: 10, weight: .semibold))
+            .kerning(1.4)
+            .foregroundColor(color)
+    }
 }
 
 // MARK: - Window
 
-/// Behind-window blur, the base of the translucent look.
+/// Behind-window blur that shows through the gaps between panels.
 struct VisualEffect: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -44,145 +67,76 @@ struct WindowStyler: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {}
 }
 
-// MARK: - Cosmic background
-
-struct Orb: View {
-    let color: Color
-    let size: CGFloat
-    var glow: Double = 0.35
-
-    var body: some View {
-        ZStack {
-            // Halo as a gradient instead of .blur: cheaper and renders offscreen too
-            Circle()
-                .fill(RadialGradient(
-                    gradient: Gradient(colors: [color.opacity(glow), color.opacity(glow * 0.35), color.opacity(0)]),
-                    center: .center,
-                    startRadius: size * 0.35,
-                    endRadius: size * 0.95))
-                .frame(width: size * 1.9, height: size * 1.9)
-            Circle()
-                .fill(RadialGradient(
-                    gradient: Gradient(colors: [Color.white.opacity(0.9), color, color.opacity(0.4), Color.space]),
-                    center: UnitPoint(x: 0.32, y: 0.28),
-                    startRadius: 0,
-                    endRadius: size * 0.78))
-                .frame(width: size, height: size)
-                .overlay(Circle().stroke(color.opacity(0.45), lineWidth: 1))
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-struct Starfield: View {
-    var count = 80
-
-    var body: some View {
-        GeometryReader { geo in
-            ForEach(0..<count, id: \.self) { i in
-                let x = Self.noise(i, 12.9898) * geo.size.width
-                let y = Self.noise(i, 78.233) * geo.size.height
-                let s = 0.6 + Self.noise(i, 39.346) * 1.8
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: s, height: s)
-                    .opacity(0.15 + Self.noise(i, 93.989) * 0.6)
-                    .position(x: x, y: y)
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    /// Deterministic pseudo-random value in 0..<1 so stars don't jump between renders.
-    private static func noise(_ i: Int, _ seed: Double) -> CGFloat {
-        let v = sin(Double(i + 1) * seed) * 43758.5453
-        return CGFloat(v - v.rounded(.down))
-    }
-}
-
-struct CosmicBackground: View {
-    @State private var drift = false
-
+struct Chassis: View {
     var body: some View {
         ZStack {
             VisualEffect()
-            LinearGradient(
-                gradient: Gradient(colors: [Color.space.opacity(0.80), Color.deepSpace.opacity(0.70)]),
-                startPoint: .top, endPoint: .bottom)
-            Starfield()
-            Orb(color: .nebula, size: 340, glow: 0.4)
-                .opacity(0.55)
-                .offset(x: drift ? -250 : -290, y: drift ? -190 : -160)
-            Orb(color: .plasma, size: 220)
-                .opacity(0.45)
-                .offset(x: drift ? 300 : 270, y: drift ? 230 : 260)
-            Orb(color: .ion, size: 90, glow: 0.5)
-                .opacity(0.5)
-                .offset(x: drift ? 230 : 250, y: drift ? -230 : -210)
+            Color.chassis.opacity(0.88)
         }
         .edgesIgnoringSafeArea(.all)
-        .onAppear {
-            withAnimation(Animation.easeInOut(duration: 16).repeatForever(autoreverses: true)) {
-                drift = true
-            }
-        }
     }
 }
 
-// MARK: - Controls
+// MARK: - Building blocks
 
-struct Glass: ViewModifier {
-    var radius: CGFloat = 14
+struct Panel: ViewModifier {
+    var fill: Color = .panel
+    var radius: CGFloat = 6
 
     func body(content: Content) -> some View {
-        content
-            .background(RoundedRectangle(cornerRadius: radius).fill(Color.white.opacity(0.05)))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius).stroke(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.white.opacity(0.20), Color.nebula.opacity(0.25)]),
-                        startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 1))
+        content.background(RoundedRectangle(cornerRadius: radius).fill(fill))
     }
 }
 
-struct GlowButtonStyle: ButtonStyle {
+extension View {
+    func panel(_ fill: Color = .panel, radius: CGFloat = 6) -> some View {
+        modifier(Panel(fill: fill, radius: radius))
+    }
+}
+
+struct StatusDot: View {
+    var color: Color = .mint
+    var on = true
+
+    var body: some View {
+        Circle()
+            .fill(on ? color : Color.edge)
+            .frame(width: 6, height: 6)
+            .shadow(color: on ? color.opacity(0.8) : .clear, radius: 3)
+    }
+}
+
+struct PluginButtonStyle: ButtonStyle {
     var primary = false
 
     func makeBody(configuration: Configuration) -> some View {
-        GlowButton(configuration: configuration, primary: primary)
+        PluginButton(configuration: configuration, primary: primary)
     }
 
-    private struct GlowButton: View {
+    private struct PluginButton: View {
         let configuration: ButtonStyleConfiguration
         let primary: Bool
         @Environment(\.isEnabled) private var isEnabled
 
         var body: some View {
             configuration.label
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 8)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(primary ? .white : .text)
+                .padding(.horizontal, 16)
+                .frame(height: 28)
                 .background(
-                    ZStack {
-                        if primary {
-                            Capsule().fill(LinearGradient(
-                                gradient: Gradient(colors: [Color.nebula, Color.plasma]),
-                                startPoint: .leading, endPoint: .trailing))
-                        } else {
-                            Capsule().fill(Color.white.opacity(0.07))
-                        }
-                    })
-                .overlay(Capsule().stroke(Color.white.opacity(primary ? 0.30 : 0.15), lineWidth: 1))
-                .shadow(color: primary && isEnabled ? Color.plasma.opacity(0.6) : .clear, radius: 12)
-                .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.4)
-                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(primary ? Color.accent : Color.raised)
+                        .brightness(configuration.isPressed ? -0.08 : 0))
+                .overlay(RoundedRectangle(cornerRadius: 4)
+                    .stroke(primary ? Color.accentHot.opacity(0.5) : Color.edge, lineWidth: 1))
+                .opacity(isEnabled ? 1 : 0.35)
         }
     }
 }
 
-struct Chip: View {
+/// Toggle that looks like a plugin's module power button.
+struct PowerToggle: View {
     let title: String
     let isOn: Bool
     let action: () -> Void
@@ -190,42 +144,58 @@ struct Chip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 7) {
-                Circle()
-                    .fill(isOn ? Color.plasma : Color.white.opacity(0.2))
-                    .frame(width: 7, height: 7)
-                    .shadow(color: isOn ? Color.plasma : .clear, radius: 4)
-                Text(title)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .kerning(1.2)
+                ZStack {
+                    Circle().fill(isOn ? Color.accent : Color.inset)
+                    Image(systemName: "power")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundColor(isOn ? .white : .label)
+                }
+                .frame(width: 15, height: 15)
+                Text(title).caption(isOn ? .text : .label)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .foregroundColor(isOn ? .white : Color.white.opacity(0.5))
-            .background(Capsule().fill(isOn ? Color.nebula.opacity(0.30) : Color.white.opacity(0.04)))
-            .overlay(Capsule().stroke(isOn ? Color.plasma.opacity(0.7) : Color.white.opacity(0.12), lineWidth: 1))
-            .contentShape(Capsule())
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 4).fill(Color.raised))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.edge, lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
 }
 
-struct Meter: View {
+/// Read-only knob: an arc shows the share, the cap shows the number.
+struct Knob: View {
     let value: Int
+    let fraction: Double
     let label: String
+    var size: CGFloat = 62
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("\(value)")
-                .font(.system(size: 28, weight: .light, design: .rounded))
-                .foregroundColor(.white)
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .kerning(1.5)
-                .foregroundColor(Color.white.opacity(0.5))
+        VStack(spacing: 8) {
+            ZStack {
+                arc(to: 1).stroke(Color.inset, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                arc(to: max(0, min(1, fraction)))
+                    .stroke(Color.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .shadow(color: Color.accent.opacity(0.5), radius: 3)
+                Circle()
+                    .fill(LinearGradient(gradient: Gradient(colors: [Color(hex: 0x3B3B42), Color(hex: 0x24242A)]),
+                                         startPoint: .top, endPoint: .bottom))
+                    .overlay(Circle().stroke(Color.black.opacity(0.4), lineWidth: 1))
+                    .padding(9)
+                    .shadow(color: Color.black.opacity(0.5), radius: 4, y: 2)
+                Text("\(value)")
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(.text)
+            }
+            .frame(width: size, height: size)
+            Text(label).caption()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .modifier(Glass())
+    }
+
+    /// 270° arc that opens at the bottom, like a real knob scale.
+    private func arc(to fraction: Double) -> some Shape {
+        Circle()
+            .trim(from: 0, to: CGFloat(0.75 * fraction))
+            .rotation(.degrees(135))
     }
 }

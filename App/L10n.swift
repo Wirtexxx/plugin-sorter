@@ -52,6 +52,7 @@ struct L10n {
             .uk: "Розкладає плагіни по теках розробників",
             .de: "Sortiert Plugins in Herstellerordner",
         ],
+        "panel.distribution": [.en: "Distribution", .ru: "Распределение", .uk: "Розподіл", .de: "Verteilung"],
         "meter.plugins": [.en: "Plugins", .ru: "Плагины", .uk: "Плагіни", .de: "Plugins"],
         "meter.vendors": [.en: "Developers", .ru: "Разработчики", .uk: "Розробники", .de: "Hersteller"],
         "meter.formats": [.en: "Formats", .ru: "Форматы", .uk: "Формати", .de: "Formate"],

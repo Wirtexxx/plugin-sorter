@@ -34,7 +34,7 @@ struct Snapshot {
 
         let size = NSSize(width: 900, height: 640)
         let root = ZStack {
-            Color.space
+            Color.chassis
             ContentView(sorter: sorter)
         }
         .frame(width: size.width, height: size.height)
