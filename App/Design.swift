@@ -25,23 +25,20 @@ struct PulseDot: View {
 
 // MARK: - Developer monogram
 
-/// A coloured square with the developer's initials (FF, VD, XR…). The colour comes from the name,
-/// so every developer keeps the same one between launches.
+/// The developer's initials (FF, VD, XR…) in a graphite square, styled like the format chips
+/// so it stays within the panel palette.
 struct VendorBadge: View {
     let vendor: String
     var size: CGFloat = 20
 
     var body: some View {
         Text(Self.initials(vendor))
-            .font(.system(size: size * 0.42, weight: .heavy, design: .rounded))
-            .foregroundColor(.white.opacity(0.92))
+            .font(.system(size: size * 0.42, weight: .bold))
+            .kerning(0.5)
+            .foregroundColor(.text)
             .frame(width: size, height: size)
-            .background(
-                RoundedRectangle(cornerRadius: size * 0.28)
-                    .fill(LinearGradient(gradient: Gradient(colors: [Self.color(vendor, brightness: 0.78),
-                                                                     Self.color(vendor, brightness: 0.55)]),
-                                         startPoint: .top, endPoint: .bottom)))
-            .overlay(RoundedRectangle(cornerRadius: size * 0.28).stroke(Color.white.opacity(0.12), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 3).fill(Color.raised))
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.edge, lineWidth: 1))
     }
 
     /// "Xfer Records" → XR, "Valhalla DSP, LLC" → VD, "FabFilter" → FF, "oeksound" → OE.
@@ -57,15 +54,6 @@ struct VendorBadge: View {
         let capitals = first.filter(\.isUppercase)
         if capitals.count >= 2 { return String(capitals.prefix(2)) }
         return String(first.prefix(2)).uppercased()
-    }
-
-    static func color(_ vendor: String, brightness: Double) -> Color {
-        var hash: UInt64 = 5381
-        for scalar in vendor.lowercased().unicodeScalars {
-            hash = (hash << 5) &+ hash &+ UInt64(scalar.value)
-        }
-        let hue = Double(hash % 360) / 360
-        return Color(hue: hue, saturation: 0.5, brightness: brightness)
     }
 }
 

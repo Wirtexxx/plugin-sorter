@@ -5,8 +5,7 @@ struct Distribution: View {
     let groups: [VendorGroup]
     var barWidth: CGFloat = 5
 
-    /// The wave breathes and a playhead sweeps across it, like a plugin's live display.
-    @State private var breathe = false
+    /// A playhead sweeps across the wave, like a plugin's live display.
     @State private var sweep = false
 
     var body: some View {
@@ -19,20 +18,16 @@ struct Distribution: View {
                         WaveBars(levels: levels, mirrored: false)
                             .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.55)]),
                                                  startPoint: .top, endPoint: .bottom))
-                            .scaleEffect(x: 1, y: breathe ? 1 : 0.86, anchor: .bottom)
                         Rectangle().fill(Color.text.opacity(0.12)).frame(height: 1)
                         WaveBars(levels: levels.map { $0 * 0.8 }, mirrored: true)
                             .fill(LinearGradient(gradient: Gradient(colors: [Color.wave, Color.wave.opacity(0.15)]),
                                                  startPoint: .top, endPoint: .bottom))
-                            .scaleEffect(x: 1, y: breathe ? 1 : 0.86, anchor: .top)
                     }
                     if !groups.isEmpty && !Motion.reduced {
+                        // A crisp line, no glow: the panels stay sharp
                         Rectangle()
-                            .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot.opacity(0), Color.accentHot,
-                                                                             Color.accentHot.opacity(0)]),
-                                                 startPoint: .top, endPoint: .bottom))
-                            .frame(width: 1.5)
-                            .shadow(color: Color.accentHot.opacity(0.9), radius: 4)
+                            .fill(Color.text.opacity(0.55))
+                            .frame(width: 1)
                             .offset(x: sweep ? geo.size.width : 0)
                     }
                 }
@@ -50,8 +45,7 @@ struct Distribution: View {
             }
         }
         .onAppear {
-            guard !Motion.reduced else { breathe = true; return }
-            withAnimation(Animation.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { breathe = true }
+            guard !Motion.reduced else { return }
             withAnimation(Animation.linear(duration: 6).repeatForever(autoreverses: false)) { sweep = true }
         }
     }

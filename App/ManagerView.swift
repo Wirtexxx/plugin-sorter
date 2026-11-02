@@ -121,7 +121,6 @@ struct ManagerRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 LevelDot(level: library.level(of: plugin), running: plugin.bundles.contains { library.state(of: $0) == .running })
-                VendorBadge(vendor: plugin.vendor, size: 26)
                 if let image = thumbnails.image(for: plugin.name, vendor: plugin.vendor) {
                     PluginThumb(image: image, width: 56, height: 26)
                 } else if !thumbnails.index.isEmpty {

@@ -281,7 +281,6 @@ struct ContentView: View {
 
 struct VendorCard: View {
     let group: VendorGroup
-    @ObservedObject private var thumbnails = Thumbnails.shared
 
     /// One row per plugin with all of its formats, in script order.
     private var rows: [(name: String, formats: [String])] {
@@ -307,17 +306,8 @@ struct VendorCard: View {
                     .panel(.raised, radius: 3)
             }
             Rectangle().fill(Color.edge.opacity(0.6)).frame(height: 1)
-            let withThumbs = rows.contains { thumbnails.image(for: $0.name, vendor: group.vendor) != nil }
             ForEach(rows, id: \.name) { row in
                 HStack(spacing: 4) {
-                    // Keep names aligned: rows without a picture get an empty frame of the same size
-                    if let image = thumbnails.image(for: row.name, vendor: group.vendor) {
-                        PluginThumb(image: image, width: 34, height: 16)
-                            .padding(.trailing, 4)
-                    } else if withThumbs {
-                        ThumbPlaceholder(width: 34, height: 16)
-                            .padding(.trailing, 4)
-                    }
                     Text(row.name)
                         .font(.system(size: 12))
                         .foregroundColor(.text)

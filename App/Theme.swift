@@ -170,11 +170,10 @@ struct PluginButtonStyle: ButtonStyle {
                 .background(
                     RoundedRectangle(cornerRadius: 4)
                         .fill(primary ? Color.accent : Color.raised)
-                        .brightness(configuration.isPressed ? -0.08 : lit ? 0.06 : 0))
+                        .brightness(configuration.isPressed ? -0.08 : 0))
                 .overlay(RoundedRectangle(cornerRadius: 4)
                     .stroke(primary ? Color.accentHot.opacity(lit ? 0.9 : 0.5) : lit ? Color.accent.opacity(0.7) : Color.edge,
                             lineWidth: 1))
-                .shadow(color: primary && lit ? Color.accent.opacity(0.5) : .clear, radius: 6)
                 .opacity(isEnabled ? 1 : 0.35)
                 .onHover { hovered = $0 }
                 .animation(.easeOut(duration: 0.15), value: lit)
@@ -198,7 +197,6 @@ struct PowerToggle: View {
                         .foregroundColor(isOn ? .white : .label)
                 }
                 .frame(width: 15, height: 15)
-                .shadow(color: isOn ? Color.accent.opacity(0.7) : .clear, radius: 4)
                 Text(title).caption(isOn ? .text : .label)
             }
             .padding(.horizontal, 10)
