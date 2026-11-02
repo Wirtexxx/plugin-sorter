@@ -100,6 +100,7 @@ drop_empty_vendor_dirs() {
   for fmt in VST3 VST Components; do
     [ -d "$ROOT/$fmt" ] && find "$ROOT/$fmt" -mindepth 1 -maxdepth 1 -type d ! -name '*.*' -empty -delete
   done
+  return 0
 }
 
 # Moves back every component recorded in the move logs (versions before 1.1 sorted AU too)
@@ -115,8 +116,7 @@ restore_au() {
     done < "$log"
   done
   drop_empty_vendor_dirs
-  # make macOS rescan Audio Units
-  killall -9 AudioComponentRegistrar 2>/dev/null
+  reset_au_cache
   echo "Restored AU: $restored"
 }
 
@@ -139,7 +139,13 @@ trash_plugins() {
     echo "trashed: ${p#$ROOT/}"
   done
   drop_empty_vendor_dirs
-  killall -9 AudioComponentRegistrar 2>/dev/null
+  reset_au_cache
+}
+
+# Makes macOS rescan Audio Units. Never fails: the registrar may simply not be running.
+reset_au_cache() {
+  [ -z "$PLUGIN_SORT_ROOT" ] && killall -9 AudioComponentRegistrar 2>/dev/null
+  return 0
 }
 
 nested_au() {
@@ -215,3 +221,4 @@ if [ "$MODE" = "apply" ]; then
 else
   echo "Would move: $moved (dry run, use --apply to move)"
 fi
+exit 0
