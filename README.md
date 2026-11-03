@@ -117,6 +117,14 @@ plugin with all its formats. Each row shows whether it works, whether it's in FL
 - **The star** adds the plugin to FL's browser and plugin picker or removes it; inside the row, each
   format can be picked on its own. **The category** next to it is a menu of FL's category folders.
 - **Click a column title** to sort by name or by size.
+- **Switch to cards** with the button at the top right, next to the gear. Each plugin becomes a small
+  tile with its picture from FL; plugins without one get a generated card, shown only here. A click on
+  a tile opens its details in a panel on the right, as in Finder's preview pane. Close it with the cross,
+  Esc or another click on the tile. The app remembers which view you chose.
+
+<p align="center">
+  <img src="docs/screenshot-cards.png" width="760" alt="Plugins as cards, with one open in the panel">
+</p>
 
 Three jobs sit at the bottom, each showing what's left:
 

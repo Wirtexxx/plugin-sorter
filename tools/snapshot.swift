@@ -1,5 +1,5 @@
 // Renders the main window with demo data for the README:
-// snapshot <out.png> [lang] [main|main-expanded|banner|sheet|settings] [violet|mint|amber|ice]
+// snapshot <out.png> [lang] [main|main-expanded|cards|cards-panel|banner|sheet|settings] [violet|mint|amber|ice]
 import SwiftUI
 import AppKit
 
@@ -51,6 +51,11 @@ struct Snapshot {
             let (favorites, titles) = demoFavorites(for: manager, in: dir)
             model = AppModel(sorter: sorter, manager: manager, favorites: favorites, pictures: demoLibrary(titles, in: dir))
             model.flRoot = dir
+        }
+        // Always set the view: UserDefaults persist between runs of this tool
+        UserDefaults.standard.set(mode.hasPrefix("cards") ? "cards" : "list", forKey: "viewMode")
+        if mode == "cards-panel" {
+            model.expanded = model.rows.first { $0.name == "Serum2" }?.id
         }
         if mode == "banner" {
             model.banner = Banner(source: .favorites(.sorted(12)), isError: false, undo: {})

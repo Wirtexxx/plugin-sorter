@@ -68,6 +68,7 @@ if [ "${1:-}" = "--screenshot" ]; then
   mkdir -p docs
   build/snapshot docs/screenshot.png en main
   build/snapshot docs/screenshot-expanded.png en main-expanded
+  build/snapshot docs/screenshot-cards.png en cards-panel
   cp build/icon.png docs/icon.png
 fi
 
