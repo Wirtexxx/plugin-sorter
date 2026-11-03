@@ -4,6 +4,8 @@ enum ManagerStatus: Equatable {
     case idle
     case checked(ok: Int, warnings: Int, failed: Int)
     case trashed(Int)
+    /// Plugins turned off (`disabled`) or on again.
+    case toggled(disabled: Bool, count: Int)
     case fixed
     case cancelled
     case failed(String)
@@ -102,7 +104,7 @@ final class ManagerLibrary: ObservableObject {
 
     /// The worst result among the plugin's formats, nil until checked.
     func level(of plugin: ManagedPlugin) -> CheckState.Level? {
-        plugin.bundles.compactMap { state(of: $0).level }.max()
+        plugin.activeBundles.compactMap { state(of: $0).level }.max()
     }
 
     func count(_ level: CheckState.Level) -> Int {
@@ -112,7 +114,7 @@ final class ManagerLibrary: ObservableObject {
     /// Repairs available for a checked bundle's problems.
     func fixes(for bundle: PluginBundle) -> [Fix] {
         guard case .done(let issues) = state(of: bundle), !issues.isEmpty else { return [] }
-        return PluginFixes.fixes(for: bundle, issues: issues, installed: plugins.flatMap(\.bundles))
+        return PluginFixes.fixes(for: bundle, issues: issues, installed: plugins.flatMap(\.activeBundles))
     }
 
     /// Runs a repair, then rescans and checks the plugin again so the result shows right away.
@@ -144,7 +146,7 @@ final class ManagerLibrary: ObservableObject {
                 if fix == .resetAUCache {
                     // Saved "not registered" results are out of date now that macOS has looked again
                     self.recheck(self.plugins.map { ManagedPlugin(key: $0.key, name: $0.name, vendor: $0.vendor,
-                                                                  bundles: $0.bundles.filter { $0.format == .au }) })
+                                                                  bundles: $0.activeBundles.filter { $0.format == .au }) })
                 }
                 self.scan {
                     if let key = plugin?.key, let updated = self.plugins.first(where: { $0.key == key }) {
@@ -188,14 +190,14 @@ final class ManagerLibrary: ObservableObject {
         guard !demo else { return }
         let waiting = Set(queued.map(\.id))
         // Problems already certain from the files (an AU in a subfolder) need no check
-        enqueue(CheckCache.pending(plugins.flatMap(\.bundles), saved: saved, forgotten: forgotten)
+        enqueue(CheckCache.pending(plugins.flatMap(\.activeBundles), saved: saved, forgotten: forgotten)
             .filter { !waiting.contains($0.id) && results[$0.id] != .running && PluginChecker.knownIssues($0) == nil })
     }
 
     /// Checks these plugins again even if a saved result exists.
     func recheck(_ targets: [ManagedPlugin]) {
         let waiting = Set(queued.map(\.id))
-        enqueue(targets.flatMap(\.bundles).filter { !waiting.contains($0.id) && results[$0.id] != .running })
+        enqueue(targets.flatMap(\.activeBundles).filter { !waiting.contains($0.id) && results[$0.id] != .running })
     }
 
     /// Forgets every saved result and checks everything again.
@@ -247,6 +249,28 @@ final class ManagerLibrary: ObservableObject {
                     self.results[bundle.id] = nil
                 }
                 self.checkNext()
+            }
+        }
+    }
+
+    /// Turns a plugin off, moving its files to Disabled/ where no host looks, or on again. Nothing is deleted.
+    func setDisabled(_ plugin: ManagedPlugin, _ disabled: Bool) {
+        let targets = disabled ? plugin.activeBundles : plugin.bundles.filter(\.isDisabled)
+        guard !busy, !targets.isEmpty else { return }
+        forget(targets)
+        busy = true
+        queue.async {
+            let result = Shell.runScript([disabled ? "--disable" : "--enable"] + targets.map(\.url.path),
+                                         admin: true, env: Shell.ownerEnv)
+            let done = result.output.split(separator: "\n").filter { $0.hasPrefix(disabled ? "disabled: " : "enabled: ") }.count
+            DispatchQueue.main.async {
+                self.busy = false
+                if result.succeeded {
+                    self.status = .toggled(disabled: disabled, count: done)
+                } else {
+                    self.status = result.cancelled ? .cancelled : .failed(result.error)
+                }
+                self.scan()
             }
         }
     }

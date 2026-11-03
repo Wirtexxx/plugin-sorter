@@ -20,6 +20,8 @@ Usage:
   sudo $0 --undo LOG    move everything from LOG back
   sudo $0 --restore-au  move Audio Units sorted by older versions back to Components
   sudo $0 --trash PATH… move plugin bundles to the user's Trash
+  sudo $0 --disable PATH…  move plugin bundles to Disabled/ so no host sees them, nothing is deleted
+  sudo $0 --enable PATH…   move bundles from Disabled/ back to where they were
   sudo $0 --unquarantine PATH…  remove the quarantine flag from plugin bundles
   sudo $0 --relocate SRC DST    move one plugin bundle to another place in the plugin tree
   $0 --reset-au         make macOS rescan Audio Units
@@ -120,6 +122,12 @@ drop_empty_vendor_dirs() {
   for fmt in VST3 VST Components; do
     [ -d "$ROOT/$fmt" ] && find "$ROOT/$fmt" -mindepth 1 -maxdepth 1 -type d ! -name '*.*' -empty -delete
   done
+  # Disabled/<format>/<vendor>, then Disabled/<format>, then Disabled itself
+  if [ -d "$ROOT/Disabled" ]; then
+    find "$ROOT/Disabled" -mindepth 2 -maxdepth 2 -type d ! -name '*.*' -empty -delete
+    find "$ROOT/Disabled" -mindepth 1 -maxdepth 1 -type d -empty -delete
+    rmdir "$ROOT/Disabled" 2>/dev/null
+  fi
   return 0
 }
 
@@ -170,6 +178,45 @@ trash_plugins() {
     mv "$p" "$dest" || continue
     [ -n "$OWNER" ] && chown -R "$OWNER" "$dest"
     echo "trashed: ${p#$ROOT/}"
+  done
+  drop_empty_vendor_dirs
+  reset_au_cache
+}
+
+# True when a path relative to $ROOT starts in a format folder (VST3/…, Components/…)
+in_format_folder() {
+  case "$1" in VST3/*|VST/*|Components/*|CLAP/*) return 0 ;; *) return 1 ;; esac
+}
+
+# Hosts scan the format folders recursively, so a plugin is switched off by moving it out of them,
+# to $ROOT/Disabled/<same path>. Never overwrites anything.
+disable_plugins() {
+  local p rel dest
+  for p in "$@"; do
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
+    rel="${p#$ROOT/}"
+    in_format_folder "$rel" || { echo "skip: $p"; continue; }
+    dest="$ROOT/Disabled/$rel"
+    [ -e "$dest" ] && { echo "skip: $p"; continue; }
+    mkdir -p "$(dirname "$dest")" && mv "$p" "$dest" || { echo "failed: $rel"; continue; }
+    echo "disabled: $rel"
+  done
+  drop_empty_vendor_dirs
+  reset_au_cache
+}
+
+# Moves bundles from $ROOT/Disabled back to their place; a reinstalled plugin there is never overwritten.
+enable_plugins() {
+  local p rel dest
+  for p in "$@"; do
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
+    case "$p" in "$ROOT/Disabled/"*) ;; *) echo "skip: $p"; continue ;; esac
+    rel="${p#$ROOT/Disabled/}"
+    in_format_folder "$rel" || { echo "skip: $p"; continue; }
+    dest="$ROOT/$rel"
+    [ -e "$dest" ] && { echo "skip: $p"; continue; }
+    mkdir -p "$(dirname "$dest")" && mv "$p" "$dest" || { echo "failed: $rel"; continue; }
+    echo "enabled: $rel"
   done
   drop_empty_vendor_dirs
   reset_au_cache
@@ -227,6 +274,10 @@ case "$1" in
                 restore_au; exit ;;
   --trash)      needs_root && { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
                 shift; trash_plugins "$@"; exit ;;
+  --disable)    needs_root && { echo "Root required: sudo $0 --disable PATH…"; exit 1; }
+                shift; disable_plugins "$@"; exit ;;
+  --enable)     needs_root && { echo "Root required: sudo $0 --enable PATH…"; exit 1; }
+                shift; enable_plugins "$@"; exit ;;
   --unquarantine) needs_root && { echo "Root required: sudo $0 --unquarantine PATH…"; exit 1; }
                 shift; unquarantine_plugins "$@"; exit ;;
   --relocate)   needs_root && { echo "Root required: sudo $0 --relocate SRC DST"; exit 1; }

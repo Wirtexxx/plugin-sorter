@@ -93,6 +93,17 @@ struct CheckQueueTests {
         cache.store([], for: one)
         #expect(CheckCache.pending(bundles, saved: cache.saved(for: bundles), forgotten: [two.id]).isEmpty)
     }
+
+    @Test func disabledBundlesAreNotQueuedForChecks() throws {
+        let dir = try TempDir()
+        try makeBundle(dir.path("Plug-Ins/VST3/A/One.vst3"), id: "com.a.one")
+        try makeBundle(dir.path("Plug-Ins/Disabled/Components/One.component"), id: "com.a.one.au")
+        let plugin = try #require(PluginInventory.scan(root: dir.path("Plug-Ins")).first)
+        #expect(plugin.bundles.count == 2)
+        #expect(plugin.activeBundles.map(\.format) == [.vst3])
+        let pending = CheckCache.pending(plugin.activeBundles, saved: [:], forgotten: [])
+        #expect(pending.map(\.format) == [.vst3])
+    }
 }
 
 @Suite("FL Studio")

@@ -113,4 +113,25 @@ struct CatalogTests {
         #expect(!rows().contains { $0.name == "Fruity Limiter" })
         #expect(rows().count == 4)
     }
+
+    @Test func disabledPluginStaysJoinedToFL() throws {
+        // FL's entry still names the file where it used to be; only that path ties it to "Disk Name"
+        try makeBundle(plugins.appendingPathComponent("Disabled/VST3/Zed/Disk Name.vst3"), id: "com.zed.disk")
+        // The scan reports /private/var/…, where the temporary folder says /var/…
+        let tree = plugins.path.hasPrefix("/var/") ? "/private" + plugins.path : plugins.path
+        try installed("Effects/VST3/Wobbly", name: "Wobbly", vendor: "Other Co",
+                      files: [tree + "/VST3/Zed/Disk Name.vst3"])
+        try favorite("Effects/VST3/Wobbly", as: "Effects/Wobbly")
+        let entries = FLFavorites.installed(root: db)
+        // Whatever the file check says about the old path, the plugin is not gone
+        let removed = Set(entries.map(\.id))
+        let all = PluginCatalog.rows(plugins: PluginInventory.scan(root: plugins), entries: entries,
+                                     favorites: FLFavorites.favorites(root: db, installed: entries), removed: removed)
+        let row = try #require(all.first { $0.name == "Disk Name" })
+        #expect(row.plugin?.isDisabled == true)
+        #expect(!row.isStale)
+        #expect(!row.entries.isEmpty)
+        #expect(row.isFavorite)
+        #expect(!all.contains { $0.name == "Wobbly" })
+    }
 }

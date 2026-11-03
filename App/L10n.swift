@@ -59,6 +59,7 @@ struct L10n {
         case .idle:                          return ""
         case .checked(let ok, let w, let f): return self("mgr.checked", ok, w, f)
         case .trashed(let n):                return self("mgr.trashed", n)
+        case .toggled(let disabled, let n):  return self(disabled ? "mgr.turnedOff" : "mgr.turnedOn", n)
         case .fixed:                         return self("mgr.fixed")
         case .cancelled:                     return self("status.cancelled")
         case .failed(let error):             return self("status.failed", error)
@@ -142,6 +143,7 @@ struct L10n {
         t["filter.problems"] = [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"]
         t["filter.notInFL"] = [.en: "Not in FL", .ru: "Не в FL", .uk: "Не в FL", .de: "Nicht in FL"]
         t["filter.new"] = [.en: "New", .ru: "Новые", .uk: "Нові", .de: "Neu"]
+        t["filter.disabled"] = [.en: "Off", .ru: "Выключены", .uk: "Вимкнені", .de: "Aus"]
         t["filter.duplicates"] = [.en: "Duplicates", .ru: "Дубли", .uk: "Дублі", .de: "Duplikate"]
         t["col.plugin"] = [.en: "Plugin", .ru: "Плагин", .uk: "Плагін", .de: "Plugin"]
         t["col.formats"] = [.en: "Formats", .ru: "Форматы", .uk: "Формати", .de: "Formate"]
@@ -262,6 +264,22 @@ struct L10n {
             .ru: "Данные разработчика: пресеты, библиотеки — не удаляются вместе с плагином",
             .uk: "Дані розробника: пресети, бібліотеки — не видаляються разом із плагіном",
             .de: "Herstellerdaten: Presets, Bibliotheken — werden nicht mit dem Plugin gelöscht",
+        ]
+        t["mgr.turnedOff"] = [.en: "Turned off: %d", .ru: "Выключено: %d", .uk: "Вимкнено: %d", .de: "Ausgeschaltet: %d"]
+        t["mgr.turnedOn"] = [.en: "Turned on: %d", .ru: "Включено: %d", .uk: "Увімкнено: %d", .de: "Eingeschaltet: %d"]
+        t["row.disable"] = [.en: "Turn off", .ru: "Выключить", .uk: "Вимкнути", .de: "Ausschalten"]
+        t["row.enable"] = [.en: "Turn on", .ru: "Включить", .uk: "Увімкнути", .de: "Einschalten"]
+        t["row.disableInfo"] = [
+            .en: "Projects that use this plugin will open without it until you turn it on again. Nothing is deleted.",
+            .ru: "Проекты с этим плагином будут открываться без него, пока вы его не включите. Ничего не удаляется.",
+            .uk: "Проєкти з цим плагіном відкриватимуться без нього, доки ви його не ввімкнете. Нічого не видаляється.",
+            .de: "Projekte mit diesem Plugin öffnen sich ohne es, bis du es wieder einschaltest. Nichts wird gelöscht.",
+        ]
+        t["row.disabledNote"] = [
+            .en: "Turned off: hosts don't see this plugin. Its files wait in the Disabled folder.",
+            .ru: "Выключен: программы не видят этот плагин. Файлы лежат в папке Disabled.",
+            .uk: "Вимкнено: програми не бачать цей плагін. Файли лежать у теці Disabled.",
+            .de: "Ausgeschaltet: Hosts sehen dieses Plugin nicht. Die Dateien liegen im Ordner Disabled.",
         ]
         t["mgr.fixed"] = [.en: "Fixed, checking again", .ru: "Исправлено, проверяю заново", .uk: "Виправлено, перевіряю знову", .de: "Behoben, prüfe erneut"]
         t["fix.unquarantine"] = [.en: "Remove quarantine", .ru: "Снять карантин", .uk: "Зняти карантин", .de: "Quarantäne aufheben"]

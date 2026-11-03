@@ -29,7 +29,11 @@ enum PluginCatalog {
         var byPath: [String: ManagedPlugin] = [:]
         var byName: [String: ManagedPlugin] = [:]
         for plugin in plugins {
-            for bundle in plugin.bundles { byPath[bundle.url.standardizedFileURL.path] = plugin }
+            // A turned-off plugin is still found where FL last saw it
+            for bundle in plugin.bundles {
+                byPath[bundle.url.standardizedFileURL.path] = plugin
+                byPath[bundle.enabledURL.standardizedFileURL.path] = plugin
+            }
             for name in names(of: plugin) { byName[key(plugin.vendor, name)] = byName[key(plugin.vendor, name)] ?? plugin }
         }
 

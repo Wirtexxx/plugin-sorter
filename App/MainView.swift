@@ -154,6 +154,7 @@ struct MainView: View {
             // Places for later features: shown only once they find something
             if model.count(.new) > 0 { filterPill(.new, "filter.new") }
             if model.count(.duplicates) > 0 { filterPill(.duplicates, "filter.duplicates") }
+            if model.count(.disabled) > 0 { filterPill(.disabled, "filter.disabled") }
         }
     }
 

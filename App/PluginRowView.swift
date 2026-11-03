@@ -61,6 +61,7 @@ struct PluginRowView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(Motion.reduced ? nil : .easeOut(duration: 0.2)) {
@@ -164,6 +165,10 @@ struct PluginDetailsView: View {
                         .buttonStyle(PillButtonStyle(primary: true))
                 }
             } else if let plugin = row.plugin {
+                if plugin.isDisabled {
+                    Text(t("row.disabledNote")).font(.system(size: 12)).foregroundColor(.label)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let text = problemText(plugin) {
                     problem(text) { actions(plugin) }
                 } else {
@@ -202,7 +207,7 @@ struct PluginDetailsView: View {
 
     /// The problems of the plugin's formats in plain words, nil when there are none.
     private func problemText(_ plugin: ManagedPlugin) -> String? {
-        let lines = plugin.bundles.flatMap { bundle -> [String] in
+        let lines = plugin.activeBundles.flatMap { bundle -> [String] in
             guard case .done(let issues) = manager.state(of: bundle) else { return [] }
             return issues.map { "\(bundle.format.rawValue): \(t.issue($0))" }
         }
@@ -210,7 +215,7 @@ struct PluginDetailsView: View {
     }
 
     @ViewBuilder private func actions(_ plugin: ManagedPlugin) -> some View {
-        let fixes = plugin.bundles.flatMap(manager.fixes)
+        let fixes = plugin.activeBundles.flatMap(manager.fixes)
         ForEach(fixes) { fix in
             Button(t.fix(fix)) { manager.apply(fix, for: plugin) }
                 .buttonStyle(PillButtonStyle(primary: true))
@@ -221,6 +226,9 @@ struct PluginDetailsView: View {
         Button(t("row.recheck")) { manager.recheck([plugin]) }
             .buttonStyle(PillButtonStyle())
             .disabled(isRunning)
+        Button(t(plugin.isDisabled ? "row.enable" : "row.disable")) { toggleDisabled(plugin) }
+            .buttonStyle(PillButtonStyle())
+            .disabled(manager.busy)
         Button(t("mgr.trash")) { confirmTrash(plugin) }
             .buttonStyle(PillButtonStyle(destructive: true))
             .disabled(manager.busy)
@@ -355,6 +363,22 @@ struct PluginDetailsView: View {
     private func revealButton(_ folder: URL) -> some View {
         Button(t("mgr.reveal")) { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
             .buttonStyle(PillButtonStyle())
+    }
+
+    /// Turning off asks first: open projects lose the plugin. Both ways wait for FL to be closed.
+    private func toggleDisabled(_ plugin: ManagedPlugin) {
+        if plugin.isDisabled {
+            model.whenFLClosed { manager.setDisabled(plugin, false) }
+            return
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = t("row.disable") + ": " + plugin.name
+        alert.informativeText = t("row.disableInfo")
+        alert.addButton(withTitle: t("row.disable"))
+        alert.addButton(withTitle: t("mgr.cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        model.whenFLClosed { manager.setDisabled(plugin, true) }
     }
 
     private func confirmTrash(_ plugin: ManagedPlugin) {

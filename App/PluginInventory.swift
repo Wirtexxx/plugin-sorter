@@ -47,6 +47,22 @@ struct PluginBundle: Identifiable {
     var idVendor = ""
     /// An Audio Unit's own name, without the developer ("Ozone 11 Clarity" in "iZotope: Ozone 11 Clarity").
     var auName = ""
+    /// Turned off: moved to Disabled/ in the plugin tree, where no host looks.
+    var isDisabled = false
+    /// CFBundleIdentifier, the key of the plugin's preferences and caches.
+    var bundleID = ""
+
+    /// Where the file goes when it is turned on again: the same path without "Disabled/".
+    var enabledURL: URL {
+        guard isDisabled else { return url }
+        var parts = url.pathComponents
+        if let index = parts.indices.dropLast().last(where: {
+            parts[$0] == PluginInventory.disabledFolder && parts[$0 + 1] == format.folder
+        }) {
+            parts.remove(at: index)
+        }
+        return URL(fileURLWithPath: NSString.path(withComponents: parts))
+    }
 
     /// Path from the format folder on, e.g. "VST3/FabFilter/FabFilter Pro-Q 4.vst3".
     var displayPath: String {
@@ -65,6 +81,10 @@ struct ManagedPlugin: Identifiable {
     let bundles: [PluginBundle]
 
     var version: String { bundles.lazy.map(\.version).first { !$0.isEmpty } ?? "" }
+    /// Every file is turned off. A plugin with one format still on counts as on.
+    var isDisabled: Bool { !bundles.isEmpty && bundles.allSatisfy(\.isDisabled) }
+    /// The files hosts can see: the only ones worth checking and registering.
+    var activeBundles: [PluginBundle] { bundles.filter { !$0.isDisabled } }
 }
 
 enum PluginInventory {
@@ -78,15 +98,23 @@ enum PluginInventory {
         #endif
     }
 
+    /// Where turned-off plugins live inside the plugin tree, mirroring the format folders.
+    static let disabledFolder = "Disabled"
+
     static func scan(root: URL = PluginInventory.root) -> [ManagedPlugin] {
         var bundles: [PluginBundle] = []
+        let disabledRoot = root.appendingPathComponent(disabledFolder, isDirectory: true)
         for format in PluginFormat.allCases {
-            let dir = root.appendingPathComponent(format.folder, isDirectory: true)
-            guard let walker = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil,
-                                                               options: [.skipsHiddenFiles]) else { continue }
-            for case let url as URL in walker where url.pathExtension.lowercased() == format.fileExtension {
-                walker.skipDescendants()
-                bundles.append(read(url, format: format, formatRoot: dir))
+            for (base, isDisabled) in [(root, false), (disabledRoot, true)] {
+                let dir = base.appendingPathComponent(format.folder, isDirectory: true)
+                guard let walker = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil,
+                                                                   options: [.skipsHiddenFiles]) else { continue }
+                for case let url as URL in walker where url.pathExtension.lowercased() == format.fileExtension {
+                    walker.skipDescendants()
+                    var bundle = read(url, format: format, formatRoot: dir)
+                    bundle.isDisabled = isDisabled
+                    bundles.append(bundle)
+                }
             }
         }
 
@@ -159,7 +187,8 @@ enum PluginInventory {
                             executable: exists ? executable : nil,
                             archs: exists ? executable.map(archs) ?? [] : [],
                             quarantined: getxattr(url.path, "com.apple.quarantine", nil, 0, 0, 0) >= 0,
-                            au: au, nested: nested, idVendor: idVendor(identifier), auName: auName)
+                            au: au, nested: nested, idVendor: idVendor(identifier), auName: auName,
+                            bundleID: identifier ?? "")
     }
 
     /// Domain parts skipped to find the developer in a bundle id; keep in sync with vendor_from_id in the script.

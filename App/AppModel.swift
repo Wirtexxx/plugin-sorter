@@ -2,7 +2,7 @@ import AppKit
 import Combine
 
 enum CatalogFilter: Hashable {
-    case all, problems, notInFL, new, duplicates
+    case all, problems, notInFL, new, duplicates, disabled
 }
 
 enum CatalogSort {
@@ -109,6 +109,7 @@ final class AppModel: ObservableObject {
         case .all:               return true
         case .problems:          return (level(of: row) ?? .ok) > .ok
         case .notInFL:           return !row.isFavorite && !row.isStale
+        case .disabled:          return row.plugin?.isDisabled ?? false
         case .new, .duplicates:  return false
         }
     }

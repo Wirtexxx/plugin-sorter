@@ -92,6 +92,7 @@ struct PluginCardView: View {
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
         .background(hovered || isSelected ? Color.raised : Color.inset)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(isSelected ? Color.accent : .clear, lineWidth: 2))

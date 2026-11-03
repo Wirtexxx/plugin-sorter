@@ -159,6 +159,74 @@ struct ScriptTests {
         #expect(FileManager.default.fileExists(atPath: outside.path))
     }
 
+    // MARK: - Turning plugins off
+
+    @Test func disableMovesOutOfTheFormatFolderAndEnableBringsBack() throws {
+        let path = root.appendingPathComponent("VST3/OTT.vst3").path
+        #expect(try run(["--disable", path]).output.contains("disabled: VST3/OTT.vst3"))
+        #expect(!exists("VST3/OTT.vst3"))
+        #expect(exists("Disabled/VST3/OTT.vst3"))
+        let back = root.appendingPathComponent("Disabled/VST3/OTT.vst3").path
+        #expect(try run(["--enable", back]).output.contains("enabled: VST3/OTT.vst3"))
+        #expect(exists("VST3/OTT.vst3"))
+        #expect(!exists("Disabled/VST3"))                  // emptied folders are removed
+        #expect(!exists("Disabled"))
+    }
+
+    @Test func enableNeverOverwritesAReinstalledPlugin() throws {
+        try run(["--disable", root.appendingPathComponent("VST3/OTT.vst3").path])
+        try makeBundle(root.appendingPathComponent("VST3/OTT.vst3"), id: "com.xfer.OTT.new")
+        let output = try run(["--enable", root.appendingPathComponent("Disabled/VST3/OTT.vst3").path]).output
+        #expect(output.contains("skip:"))
+        #expect(!output.contains("enabled:"))
+        #expect(exists("VST3/OTT.vst3"))
+        #expect(exists("Disabled/VST3/OTT.vst3"))
+    }
+
+    @Test func enableRecreatesTheVendorFolder() throws {
+        let nested = root.appendingPathComponent("VST3/Xfer/OTT.vst3")
+        try FileManager.default.createDirectory(at: nested.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.moveItem(at: root.appendingPathComponent("VST3/OTT.vst3"), to: nested)
+        try run(["--disable", nested.path])
+        #expect(exists("Disabled/VST3/Xfer/OTT.vst3"))
+        #expect(!exists("VST3/Xfer"))                      // the vendor folder went with its last plugin
+        try run(["--enable", root.appendingPathComponent("Disabled/VST3/Xfer/OTT.vst3").path])
+        #expect(exists("VST3/Xfer/OTT.vst3"))
+        #expect(!exists("Disabled"))
+    }
+
+    @Test func disableRefusesPathsOutsideThePluginTree() throws {
+        let outside = dir.path("outside.vst3")
+        try makeBundle(outside, id: "com.outside")
+        let hosts = "/etc/hosts"
+        let output = try run(["--disable", hosts, root.appendingPathComponent("VST3/../VST3/Mystery.vst3").path,
+                              outside.path]).output
+        #expect(!output.contains("disabled:"))
+        #expect(output.components(separatedBy: "skip:").count == 4)
+        #expect(exists("VST3/Mystery.vst3"))
+        #expect(FileManager.default.fileExists(atPath: outside.path))
+        #expect(!exists("Disabled"))
+    }
+
+    @Test func disableAndEnableRefuseTheWrongSide() throws {
+        // --enable on a plugin that isn't disabled, --disable on one that already is
+        let live = root.appendingPathComponent("VST3/OTT.vst3").path
+        #expect(try run(["--enable", live]).output.contains("skip:"))
+        try run(["--disable", live])
+        let off = root.appendingPathComponent("Disabled/VST3/OTT.vst3").path
+        #expect(try run(["--disable", off]).output.contains("skip:"))
+        #expect(exists("Disabled/VST3/OTT.vst3"))
+        #expect(!exists("Disabled/Disabled"))
+    }
+
+    @Test func sortingIgnoresDisabledPlugins() throws {
+        try run(["--disable", root.appendingPathComponent("VST3/OTT.vst3").path])
+        let (_, output) = try run(["--apply"])
+        #expect(!output.contains("OTT.vst3"))
+        #expect(exists("Disabled/VST3/OTT.vst3"))
+        #expect(!exists("Disabled/VST3/Xfer Records"))
+    }
+
     @Test func keepFileProtectsMoreBundles() throws {
         let keep = dir.path("keep.txt")
         try "OTT.vst3\n".write(to: keep, atomically: true, encoding: .utf8)

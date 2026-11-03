@@ -118,6 +118,42 @@ struct InventoryTests {
         #expect(broken.executable == nil)
         #expect(PluginChecker.check(broken) == [.noBinary])
     }
+
+    @Test func disabledBundleIsFoundAndGroupedWithItsPlugin() throws {
+        let root = try TempDir()
+        try makeBundle(root.path("VST3/Xfer/X.vst3"), id: "com.xfer.X")
+        try makeBundle(root.path("Disabled/Components/X.component"), id: "com.xfer.X.au")
+        let one = try #require(PluginInventory.scan(root: root.url).first)
+        #expect(PluginInventory.scan(root: root.url).count == 1)
+        #expect(one.bundles.count == 2)
+        #expect(!one.isDisabled)
+        #expect(one.activeBundles.map(\.format) == [.vst3])
+
+        let off = try TempDir()
+        try makeBundle(off.path("Disabled/Components/X.component"), id: "com.xfer.X.au")
+        try makeBundle(off.path("Disabled/VST3/Xfer/X.vst3"), id: "com.xfer.X")
+        let plugin = try #require(PluginInventory.scan(root: off.url).first)
+        #expect(plugin.isDisabled)
+        #expect(plugin.activeBundles.isEmpty)
+        let au = try #require(plugin.bundles.first { $0.format == .au })
+        #expect(au.isDisabled)
+        #expect(au.enabledURL.path.hasSuffix("/" + off.url.lastPathComponent + "/Components/X.component"))
+        let vst3 = try #require(plugin.bundles.first { $0.format == .vst3 })
+        #expect(vst3.enabledURL.path.hasSuffix("/" + off.url.lastPathComponent + "/VST3/Xfer/X.vst3"))
+        #expect(vst3.nested)                                // the vendor folder still counts as one
+        #expect(vst3.vendor == "Xfer")
+    }
+
+    @Test func enabledURLOfALiveBundleIsItself() throws {
+        let bundle = try #require(scan().first { $0.name == "OTT" }?.bundles.first)
+        #expect(!bundle.isDisabled)
+        #expect(bundle.enabledURL == bundle.url)
+    }
+
+    @Test func bundleIDIsRead() throws {
+        let proQ = try #require(scan().first { $0.name == "FabFilter Pro-Q 4" })
+        #expect(Set(proQ.bundles.map(\.bundleID)) == ["com.fabfilter.Pro-Q.4", "com.fabfilter.Pro-Q.AU.4"])
+    }
 }
 
 @Suite("Plugin checks without loading")
