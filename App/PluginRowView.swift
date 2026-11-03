@@ -229,6 +229,9 @@ struct PluginDetailsView: View {
         Button(t(plugin.isDisabled ? "row.enable" : "row.disable")) { toggleDisabled(plugin) }
             .buttonStyle(PillButtonStyle())
             .disabled(manager.busy)
+        Button(t("mgr.uninstall")) { model.uninstallTarget = plugin }
+            .buttonStyle(PillButtonStyle(destructive: true))
+            .disabled(manager.busy)
         Button(t("mgr.trash")) { confirmTrash(plugin) }
             .buttonStyle(PillButtonStyle(destructive: true))
             .disabled(manager.busy)

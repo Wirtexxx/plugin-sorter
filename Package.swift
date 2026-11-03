@@ -26,6 +26,7 @@ let package = Package(
                 "ScrollGlide.swift",
                 "CardPictures.swift",
                 "Cleanup.swift",
+                "Uninstall.swift",
             ]
         ),
         .testTarget(

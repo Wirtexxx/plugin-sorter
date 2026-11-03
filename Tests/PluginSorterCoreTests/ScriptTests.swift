@@ -227,6 +227,94 @@ struct ScriptTests {
         #expect(!exists("Disabled/VST3/Xfer Records"))
     }
 
+    // MARK: - Leftovers
+
+    /// A data folder tree with a vendor folder, as /Library/Application Support has.
+    private func dataTree() throws -> (roots: [String: String], vendor: URL) {
+        let fm = FileManager.default
+        let vendor = dir.path("Data/Support/Xfer")
+        try fm.createDirectory(at: vendor.appendingPathComponent("Presets"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: dir.path("Data/Presets/Xfer"), withIntermediateDirectories: true)
+        return (["PLUGIN_SORT_DATA_ROOTS": dir.path("Data/Support").path + ":" + dir.path("Data/Presets").path], vendor)
+    }
+
+    @Test func trashDataMovesIntoTheTrash() throws {
+        let (env, vendor) = try dataTree()
+        let (status, output) = try run(["--trash-data", vendor.path, dir.path("Data/Presets/Xfer").path], extra: env)
+        #expect(status == 0)
+        #expect(output.contains("trashed-data: \(vendor.path)"))
+        #expect(!FileManager.default.fileExists(atPath: vendor.path))
+        #expect(FileManager.default.fileExists(atPath: dir.path("Trash/Xfer/Presets").path))
+        #expect(FileManager.default.fileExists(atPath: dir.path("Trash/Xfer 2").path))   // a second one never merges
+    }
+
+    @Test func trashDataRefusesAnythingOutsideTheDataRoots() throws {
+        let (env, vendor) = try dataTree()
+        let outside = dir.path("Elsewhere/Xfer")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        let sneaky = vendor.deletingLastPathComponent().path + "/../Support/Xfer"
+        let (_, output) = try run(["--trash-data", "/etc", outside.path, sneaky, vendor.path + "/./Presets"], extra: env)
+        #expect(!output.contains("trashed-data:"))
+        #expect(output.components(separatedBy: "skip:").count == 5)
+        #expect(FileManager.default.fileExists(atPath: outside.path))
+        #expect(FileManager.default.fileExists(atPath: vendor.path + "/Presets"))
+    }
+
+    @Test func trashDataRefusesTheRootItself() throws {
+        let (env, _) = try dataTree()
+        let rootPath = dir.path("Data/Support").path
+        let (_, output) = try run(["--trash-data", rootPath, rootPath + "/"], extra: env)
+        #expect(!output.contains("trashed-data:"))
+        #expect(FileManager.default.fileExists(atPath: rootPath + "/Xfer"))
+    }
+
+    @Test func trashDataRefusesSymlinks() throws {
+        let (env, vendor) = try dataTree()
+        let target = dir.path("Elsewhere")
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        let link = dir.path("Data/Support/Link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        // The link itself, and a path that goes through one
+        try FileManager.default.createDirectory(at: target.appendingPathComponent("Inner"), withIntermediateDirectories: true)
+        let (_, output) = try run(["--trash-data", link.path, link.path + "/Inner"], extra: env)
+        #expect(!output.contains("trashed-data:"))
+        #expect(output.components(separatedBy: "skip:").count == 3)
+        #expect(FileManager.default.fileExists(atPath: target.path + "/Inner"))
+        #expect(FileManager.default.fileExists(atPath: vendor.path))
+    }
+
+    @Test func forgetReceiptNeverRunsPkgutilUnderTheTestRoot() throws {
+        // A pkgutil that leaves a mark when it is called at all
+        let bin = dir.path("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let mark = dir.path("pkgutil-was-called")
+        let fake = bin.appendingPathComponent("pkgutil")
+        try "#!/bin/bash\ntouch '\(mark.path)'\n".write(to: fake, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+        let path = bin.path + ":" + (ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin")
+        let (status, output) = try run(["--forget-receipt", "com.xfer.OTT.pkg", "com.apple.pkg.Safari", "bad id;rm"],
+                                       extra: ["PATH": path])
+        #expect(status == 0)
+        #expect(output.contains("forgot: com.xfer.OTT.pkg"))
+        #expect(!output.contains("forgot: com.apple.pkg.Safari"))      // Apple's own receipts are never touched
+        #expect(!output.contains("forgot: bad id;rm"))
+        #expect(!FileManager.default.fileExists(atPath: mark.path))
+    }
+
+    @Test func oneInvocationTrashesPluginsDataAndForgetsReceipts() throws {
+        let (env, vendor) = try dataTree()
+        let (status, output) = try run(["--trash", root.appendingPathComponent("VST3/OTT.vst3").path,
+                                        "--trash-data", vendor.path,
+                                        "--forget-receipt", "com.xfer.OTT.pkg"], extra: env)
+        #expect(status == 0)
+        #expect(output.contains("trashed: VST3/OTT.vst3"))
+        #expect(output.contains("trashed-data: \(vendor.path)"))
+        #expect(output.contains("forgot: com.xfer.OTT.pkg"))
+        #expect(!exists("VST3/OTT.vst3"))
+        #expect(FileManager.default.fileExists(atPath: dir.path("Trash/OTT.vst3").path))
+        #expect(!FileManager.default.fileExists(atPath: vendor.path))
+    }
+
     @Test func keepFileProtectsMoreBundles() throws {
         let keep = dir.path("keep.txt")
         try "OTT.vst3\n".write(to: keep, atomically: true, encoding: .utf8)

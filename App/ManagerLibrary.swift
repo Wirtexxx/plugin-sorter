@@ -275,6 +275,41 @@ final class ManagerLibrary: ObservableObject {
         }
     }
 
+    /// Removes a plugin with what it left behind, all after one administrator password: its files, the
+    /// chosen leftovers in the shared folders and the installer receipts that nothing else needs.
+    /// Leftovers in the user's own folders go to the Trash afterwards, without the dialog.
+    func uninstall(_ plugin: ManagedPlugin, leftovers: [Leftover], receipts: [Receipt]) {
+        guard !busy else { return }
+        forget(plugin.bundles)
+        busy = true
+        let home = NSHomeDirectory() + "/"
+        let own = leftovers.filter { $0.url.path.hasPrefix(home) }
+        let shared = leftovers.filter { !$0.url.path.hasPrefix(home) }
+        var args = ["--trash"] + plugin.bundles.map(\.url.path)
+        if !shared.isEmpty { args += ["--trash-data"] + shared.map(\.url.path) }
+        if !receipts.isEmpty { args += ["--forget-receipt"] + receipts.map(\.id) }
+        queue.async {
+            let result = Shell.runScript(args, admin: true, env: Shell.ownerEnv)
+            let lines = result.output.split(separator: "\n")
+            var moved = lines.filter { $0.hasPrefix("trashed: ") || $0.hasPrefix("trashed-data: ") }.count
+            if result.succeeded {
+                for item in own where (try? FileManager.default.trashItem(at: item.url, resultingItemURL: nil)) != nil {
+                    moved += 1
+                }
+                Uninstall.dropFromCache(Set(lines.filter { $0.hasPrefix("forgot: ") }.map { String($0.dropFirst(8)) }))
+            }
+            DispatchQueue.main.async {
+                self.busy = false
+                if result.succeeded {
+                    self.status = .trashed(moved)
+                } else {
+                    self.status = result.cancelled ? .cancelled : .failed(result.error)
+                }
+                self.scan()
+            }
+        }
+    }
+
     /// Moves the bundles to the Trash through the administrator dialog.
     func trash(_ bundles: [PluginBundle]) {
         guard !busy, !bundles.isEmpty else { return }

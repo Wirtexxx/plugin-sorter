@@ -37,6 +37,9 @@ struct MainView: View {
         .sheet(isPresented: $model.showCleanupSheet) {
             CleanupSheet(model: model, t: t)
         }
+        .sheet(item: $model.uninstallTarget) { plugin in
+            UninstallSheet(plugin: plugin, model: model, t: t)
+        }
     }
 
     /// The plugin open in the panel. Only the cards have one; the list opens plugins in place. Gone when

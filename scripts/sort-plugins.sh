@@ -20,6 +20,9 @@ Usage:
   sudo $0 --undo LOG    move everything from LOG back
   sudo $0 --restore-au  move Audio Units sorted by older versions back to Components
   sudo $0 --trash PATH… move plugin bundles to the user's Trash
+  sudo $0 --trash-data PATH…    move leftovers in the shared data folders to the Trash
+  sudo $0 --forget-receipt PKGID…  forget installer receipts
+                        (the three may be combined in one call: --trash A --trash-data B --forget-receipt C)
   sudo $0 --disable PATH…  move plugin bundles to Disabled/ so no host sees them, nothing is deleted
   sudo $0 --enable PATH…   move bundles from Disabled/ back to where they were
   sudo $0 --unquarantine PATH…  remove the quarantine flag from plugin bundles
@@ -31,6 +34,8 @@ Environment:
   PLUGIN_SORT_LOG_DIR  where to write the move log (default: invoking user's home)
   PLUGIN_SORT_OWNER    user that should own the log (default: \$SUDO_USER)
   PLUGIN_SORT_ROOT     plugin tree to work on (default: /Library/Audio/Plug-Ins)
+  PLUGIN_SORT_DATA_ROOTS  colon-separated folders --trash-data may work in
+                       (default: /Library/Application Support:/Library/Audio/Presets)
   PLUGIN_SORT_TRASH    where --trash moves bundles (default: the owner's ~/.Trash)
   PLUGIN_SORT_KEEP_FILE  file with bundle names (one per line) to leave in place when sorting
 EOF
@@ -162,25 +167,107 @@ EOF_NESTED
   echo "Restored AU: $restored"
 }
 
+# Where the owner's Trash is
+trash_dir() { echo "${PLUGIN_SORT_TRASH:-$(eval echo ~"${OWNER:-$USER}")/.Trash}"; }
+
+# Moves $1 into the Trash under its own name, or "name 2" while that is taken. Bundles keep their
+# extension ("OTT 2.vst3"). Prints the final path.
+move_to_trash() {
+  local src="$1" trash name dest n
+  trash=$(trash_dir)
+  name="${src##*/}"
+  dest="$trash/$name"
+  n=2
+  while [ -e "$dest" ]; do
+    case "$name" in
+      *.vst3|*.vst|*.component|*.clap) dest="$trash/${name%.*} $n.${name##*.}" ;;
+      *)                               dest="$trash/$name $n" ;;
+    esac
+    n=$((n + 1))
+  done
+  mv "$src" "$dest" || return 1
+  [ -n "$OWNER" ] && chown -R "$OWNER" "$dest"
+  echo "$dest"
+}
+
 # Moves plugin bundles to the owner's Trash. Only bundles inside $ROOT are accepted.
 trash_plugins() {
-  local trash p name dest n
-  trash="${PLUGIN_SORT_TRASH:-$(eval echo ~"${OWNER:-$USER}")/.Trash}"
+  local p
   for p in "$@"; do
     { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
-    name="${p##*/}"
-    dest="$trash/$name"
-    n=2
-    while [ -e "$dest" ]; do
-      dest="$trash/${name%.*} $n.${name##*.}"
-      n=$((n + 1))
-    done
-    mv "$p" "$dest" || continue
-    [ -n "$OWNER" ] && chown -R "$OWNER" "$dest"
+    move_to_trash "$p" >/dev/null || continue
     echo "trashed: ${p#$ROOT/}"
   done
   drop_empty_vendor_dirs
   reset_au_cache
+}
+
+# Folders under which --trash-data may work: colon-separated, the developers' presets and libraries
+DATA_ROOTS="${PLUGIN_SORT_DATA_ROOTS:-/Library/Application Support:/Library/Audio/Presets}"
+
+# True for a path strictly inside one of the data roots: not the root, no "." or ".." parts, not a symlink,
+# and none of its folders a symlink either (so it can't lead out of the root).
+is_data_path() {
+  local p="$1" r rest parent real_root real_parent IFS=:
+  case "$p" in
+    *"/../"*|*"/./"*|*/..|*/.|*/) return 1 ;;
+  esac
+  [ -L "$p" ] && return 1
+  for r in $DATA_ROOTS; do
+    case "$p" in "$r"/?*) ;; *) continue ;; esac
+    rest="${p#$r/}"
+    parent="${p%/*}"
+    real_root=$(cd "$r" 2>/dev/null && pwd -P) || continue
+    real_parent=$(cd "$parent" 2>/dev/null && pwd -P) || continue
+    # The folder holding it must really be where its spelling says, below the real root
+    [ "$real_parent" = "$real_root${parent#$r}" ] && return 0
+  done
+  return 1
+}
+
+# Moves leftovers of a plugin (presets, libraries) from the shared data folders to the Trash.
+trash_data() {
+  local p dest
+  for p in "$@"; do
+    { is_data_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
+    move_to_trash "$p" >/dev/null || { echo "failed: $p"; continue; }
+    echo "trashed-data: $p"
+  done
+}
+
+# Forgets installer receipts. Under PLUGIN_SORT_ROOT (the tests) it only says so.
+forget_receipts() {
+  local id
+  for id in "$@"; do
+    case "$id" in
+      ""|*[!A-Za-z0-9._-]*|com.apple.*) echo "skip: $id"; continue ;;
+    esac
+    if [ -n "$PLUGIN_SORT_ROOT" ] || pkgutil --forget "$id" >/dev/null 2>&1; then
+      echo "forgot: $id"
+    else
+      echo "failed: $id"
+    fi
+  done
+}
+
+# --trash PATH… --trash-data PATH… --forget-receipt PKGID…, any of them, one password for all
+remove_plugins() {
+  local mode="" arg
+  local plugins=() data=() receipts=()
+  for arg in "$@"; do
+    case "$arg" in
+      --trash|--trash-data|--forget-receipt) mode="$arg" ;;
+      *) case "$mode" in
+           --trash)          plugins+=("$arg") ;;
+           --trash-data)     data+=("$arg") ;;
+           --forget-receipt) receipts+=("$arg") ;;
+         esac ;;
+    esac
+  done
+  [ "${#plugins[@]}" -gt 0 ] && trash_plugins "${plugins[@]}"
+  [ "${#data[@]}" -gt 0 ] && trash_data "${data[@]}"
+  [ "${#receipts[@]}" -gt 0 ] && forget_receipts "${receipts[@]}"
+  return 0
 }
 
 # True when a path relative to $ROOT starts in a format folder (VST3/…, Components/…)
@@ -272,8 +359,9 @@ case "$1" in
   --undo)       undo "$2"; exit ;;
   --restore-au) needs_root && { echo "Root required: sudo $0 --restore-au"; exit 1; }
                 restore_au; exit ;;
-  --trash)      needs_root && { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
-                shift; trash_plugins "$@"; exit ;;
+  --trash|--trash-data|--forget-receipt)
+                needs_root && { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
+                remove_plugins "$@"; exit ;;
   --disable)    needs_root && { echo "Root required: sudo $0 --disable PATH…"; exit 1; }
                 shift; disable_plugins "$@"; exit ;;
   --enable)     needs_root && { echo "Root required: sudo $0 --enable PATH…"; exit 1; }

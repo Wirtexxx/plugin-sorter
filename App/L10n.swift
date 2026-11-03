@@ -312,6 +312,36 @@ struct L10n {
             .uk: "Старі проєкти відкриються лише з версією, яку ви залишите, а проєктам із видаленою версією її бракуватиме. У Кошик підуть файли:",
             .de: "Alte Projekte öffnen sich nur mit der Version, die du behältst; Projekte mit einer entfernten Version vermissen sie. Diese Dateien kommen in den Papierkorb:",
         ]
+        t["mgr.uninstall"] = [.en: "Uninstall…", .ru: "Удалить полностью…", .uk: "Видалити повністю…", .de: "Vollständig entfernen…"]
+        t["uninstall.title"] = [.en: "Uninstall “%@”", .ru: "Удалить «%@» полностью", .uk: "Видалити «%@» повністю", .de: "„%@“ vollständig entfernen"]
+        t["uninstall.subtitle"] = [
+            .en: "Everything ticked goes to the Trash and can be put back. Nothing is deleted.",
+            .ru: "Всё отмеченное уйдёт в Корзину, его можно вернуть. Ничего не удаляется насовсем.",
+            .uk: "Усе позначене піде в Кошик, його можна повернути. Нічого не видаляється назавжди.",
+            .de: "Alles Angekreuzte kommt in den Papierkorb und lässt sich zurückholen. Nichts wird endgültig gelöscht.",
+        ]
+        t["uninstall.files"] = [.en: "Plugin files", .ru: "Файлы плагина", .uk: "Файли плагіна", .de: "Plugin-Dateien"]
+        t["uninstall.leftovers"] = [.en: "Left behind", .ru: "Что осталось после него", .uk: "Що залишилося після нього", .de: "Übrig geblieben"]
+        t["uninstall.searching"] = [
+            .en: "Looking for leftovers and installer records…", .ru: "Ищу хвосты и чеки установщика…",
+            .uk: "Шукаю залишки та чеки інсталятора…", .de: "Suche nach Resten und Installer-Belegen…",
+        ]
+        t["uninstall.none"] = [.en: "No leftovers found", .ru: "Хвостов не найдено", .uk: "Залишків не знайдено", .de: "Keine Reste gefunden"]
+        t["uninstall.receipts"] = [
+            .en: "Installer records: %d will be forgotten, %d stay because other plugins share them",
+            .ru: "Чеки установщика: забудется %d, останется %d, потому что их делят другие плагины",
+            .uk: "Чеки інсталятора: забудеться %d, залишиться %d, бо їх ділять інші плагіни",
+            .de: "Installer-Belege: %d werden vergessen, %d bleiben, weil andere Plugins sie teilen",
+        ]
+        t["left.preferences"] = [.en: "Preferences", .ru: "Настройки", .uk: "Налаштування", .de: "Einstellungen"]
+        t["left.cache"] = [.en: "Cache", .ru: "Кеш", .uk: "Кеш", .de: "Cache"]
+        t["left.presets"] = [.en: "Presets (may include your own)", .ru: "Пресеты (могут быть ваши)", .uk: "Пресети (можуть бути ваші)", .de: "Presets (evtl. eigene dabei)"]
+        t["left.vendorData"] = [
+            .en: "Developer folder: may hold libraries you paid for",
+            .ru: "Папка разработчика: там могут быть купленные библиотеки",
+            .uk: "Тека розробника: там можуть бути куплені бібліотеки",
+            .de: "Herstellerordner: kann bezahlte Bibliotheken enthalten",
+        ]
         t["mgr.fixed"] = [.en: "Fixed, checking again", .ru: "Исправлено, проверяю заново", .uk: "Виправлено, перевіряю знову", .de: "Behoben, prüfe erneut"]
         t["fix.unquarantine"] = [.en: "Remove quarantine", .ru: "Снять карантин", .uk: "Зняти карантин", .de: "Quarantäne aufheben"]
         t["fix.toComponents"] = [.en: "Move back to Components", .ru: "Вернуть в Components", .uk: "Повернути в Components", .de: "Zurück nach Components"]

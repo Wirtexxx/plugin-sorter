@@ -37,6 +37,8 @@ final class AppModel: ObservableObject {
     @Published var banner: Banner?
     @Published var showFolderSheet = false
     @Published var showCleanupSheet = false
+    /// The plugin whose removal window is open.
+    @Published var uninstallTarget: ManagedPlugin?
     /// "Don't ask again" in the FL dialog, until the app quits.
     var skipFLCheck = false
     /// FL's plugin database; a demo folder for README screenshots.
