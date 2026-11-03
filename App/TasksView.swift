@@ -1,17 +1,54 @@
 import SwiftUI
 
 /// The jobs that act on every plugin at once, each with how much is left and one button.
+/// Once all of them are done they fold into a small strip that opens them again.
 struct TasksView: View {
     @ObservedObject var model: AppModel
     let t: L10n
 
+    @State private var expanded = false
+
     var body: some View {
-        HStack(spacing: 10) {
-            folders
-            categories
-            pictures
+        let allDone = model.tasksAllDone
+        return VStack(spacing: 10) {
+            if !allDone || expanded {
+                HStack(spacing: 10) {
+                    folders
+                    categories
+                    pictures
+                }
+                .frame(height: 100)
+            }
+            if allDone { strip }
         }
-        .frame(height: 100)
+        .onChange(of: allDone) { _ in expanded = false }
+    }
+
+    private var strip: some View {
+        Button {
+            if Motion.reduced {
+                expanded.toggle()
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.mint)
+                Text(t("task.allDone")).font(.system(size: 12)).foregroundColor(.label)
+                Spacer()
+                Image(systemName: expanded ? "chevron.down" : "chevron.up")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.label)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 34)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .card()
+        .help(t(expanded ? "task.collapse" : "task.expand"))
     }
 
     private var folders: some View {

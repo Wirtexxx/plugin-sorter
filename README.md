@@ -130,7 +130,8 @@ Three jobs sit at the bottom, each showing what's left:
   keeps its own pictures; plugins that can't be opened get a card. Drop any image on a plugin's
   picture to use your own.
 
-Every job can be undone. If FL Studio is open while the app changes its plugin database, it asks first:
+Once all three are done they fold into a small strip; click it to open them again. Every job can be
+undone. If FL Studio is open while the app changes its plugin database, it asks first:
 FL shows the changes after a restart. The gear menu has a full recheck, **Reset AU cache**, putting back
 favourites removed from FL, and the settings (language, colour skin).
 

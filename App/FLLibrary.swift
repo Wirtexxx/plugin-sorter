@@ -13,6 +13,9 @@ enum FLStatus: Equatable {
 final class FLLibrary: ObservableObject {
     @Published var plugins: [FLPlugin] = []
     @Published var busy = false
+    /// The first scan has finished, so `plugins` says what is really there.
+    @Published private var scanned = false
+    var loaded: Bool { demo || scanned }
     @Published var progress = 0.0
     @Published var current = ""
     @Published var status: FLStatus = .idle
@@ -31,10 +34,13 @@ final class FLLibrary: ObservableObject {
     /// Reads FL's database off the main thread; hundreds of .fst files would otherwise stall the window.
     func scan() {
         guard !demo else { return }
-        guard FLDatabase.exists else { plugins = []; return }
+        guard FLDatabase.exists else { plugins = []; scanned = true; return }
         queue.async {
             let plugins = FLDatabase.scan(self.manifest)
-            DispatchQueue.main.async { self.plugins = plugins }
+            DispatchQueue.main.async {
+                self.plugins = plugins
+                self.scanned = true
+            }
         }
     }
 

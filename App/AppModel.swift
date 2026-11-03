@@ -133,6 +133,15 @@ final class AppModel: ObservableObject {
     var missingPictures: [FLPlugin] { pictures.missing.filter { !$0.isStock } }
     var categoryTotal: Int { favorites.favorites.filter { !$0.isStock }.count }
 
+    /// Nothing left in any task. False until everything is read: every count is 0 before that.
+    /// `sorter.running` is left out because each return to the window runs a preview.
+    var tasksAllDone: Bool {
+        sorter.loaded && favorites.loaded && pictures.loaded
+            && (sorter.applied || sorter.moves.isEmpty)
+            && favorites.unsorted.isEmpty && missingPictures.isEmpty
+            && !favorites.busy && !pictures.busy
+    }
+
     // MARK: - FL for one row
 
     /// Formats in the order a star picks them, as in the favourites list.

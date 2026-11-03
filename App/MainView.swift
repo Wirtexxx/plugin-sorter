@@ -14,6 +14,7 @@ struct MainView: View {
             TasksView(model: model, t: t)
         }
         .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: model.banner?.id)
+        .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: model.tasksAllDone)
         .sheet(isPresented: $model.showFolderSheet) {
             FolderSortSheet(model: model, t: t)
         }

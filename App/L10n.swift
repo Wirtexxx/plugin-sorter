@@ -190,6 +190,9 @@ struct L10n {
         t["task.sort"] = [.en: "Sort", .ru: "Разложить", .uk: "Розкласти", .de: "Sortieren"]
         t["task.add"] = [.en: "Add", .ru: "Добавить", .uk: "Додати", .de: "Hinzufügen"]
         t["task.done"] = [.en: "All done", .ru: "Готово", .uk: "Готово", .de: "Erledigt"]
+        t["task.allDone"] = [.en: "All tasks done", .ru: "Все задания выполнены", .uk: "Усі завдання виконано", .de: "Alle Aufgaben erledigt"]
+        t["task.expand"] = [.en: "Show tasks", .ru: "Показать задания", .uk: "Показати завдання", .de: "Aufgaben einblenden"]
+        t["task.collapse"] = [.en: "Hide tasks", .ru: "Скрыть задания", .uk: "Сховати завдання", .de: "Aufgaben ausblenden"]
         t["task.undo"] = [.en: "Undo", .ru: "Отменить", .uk: "Скасувати", .de: "Rückgängig"]
         t["sheet.title"] = [
             .en: "Sort plugin folders by developer", .ru: "Разложить плагины по папкам разработчиков",

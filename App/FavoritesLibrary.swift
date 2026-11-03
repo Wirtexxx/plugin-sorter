@@ -31,9 +31,17 @@ private struct TaggedBundle: Hashable {
 /// State of the Favourites section: what FL scanned, what's in its browser, and what's gone.
 final class FavoritesLibrary: ObservableObject {
     @Published private(set) var entries: [InstalledEntry] = []
-    @Published private(set) var favorites: [Favorite] = []
+    @Published private(set) var favorites: [Favorite] = [] {
+        didSet { unsorted = Self.unsorted(in: favorites) }
+    }
+    /// What one click sorts: third-party favourites still at the top of Effects or Generators.
+    /// Kept ready because the window reads it on every redraw.
+    private(set) var unsorted: [Favorite] = []
     @Published private(set) var availability: [String: Availability] = [:]
     @Published var busy = false
+    /// The first scan has finished, so the lists say what is really there.
+    @Published private var scanned = false
+    var loaded: Bool { demo || scanned }
     @Published var status: FavoritesStatus = .idle
     /// The plugin being read while sorting by category.
     @Published private(set) var current = ""
@@ -52,14 +60,16 @@ final class FavoritesLibrary: ObservableObject {
         demo = true
         entries = demoEntries
         self.favorites = favorites
+        unsorted = Self.unsorted(in: favorites)
         for entry in demoEntries { availability[entry.id] = .available }
     }
 
     var canRestore: Bool { !backup.records.isEmpty }
     var canUnsort: Bool { !journal.moves.isEmpty }
 
-    /// What one click sorts: third-party favourites still at the top of Effects or Generators.
-    var unsorted: [Favorite] { favorites.filter { !$0.isStock && FLCategories.folder(of: $0) == nil } }
+    private static func unsorted(in favorites: [Favorite]) -> [Favorite] {
+        favorites.filter { !$0.isStock && FLCategories.folder(of: $0) == nil }
+    }
 
     func isFavorite(_ entry: InstalledEntry) -> Bool { favorites.contains { $0.entry?.id == entry.id } }
 
@@ -93,6 +103,7 @@ final class FavoritesLibrary: ObservableObject {
                 self.entries = entries
                 self.favorites = favorites
                 self.availability = availability
+                self.scanned = true
             }
         }
     }
