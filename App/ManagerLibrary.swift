@@ -137,6 +137,11 @@ final class ManagerLibrary: ObservableObject {
                     self.status = result.cancelled ? .cancelled : .failed(result.error)
                 }
                 guard result.succeeded else { return }
+                if fix == .resetAUCache {
+                    // Saved "not registered" results are out of date now that macOS has looked again
+                    self.recheck(self.plugins.map { ManagedPlugin(key: $0.key, name: $0.name, vendor: $0.vendor,
+                                                                  bundles: $0.bundles.filter { $0.format == .au }) })
+                }
                 self.scan {
                     if let key = plugin?.key, let updated = self.plugins.first(where: { $0.key == key }) {
                         self.recheck([updated])
@@ -157,7 +162,7 @@ final class ManagerLibrary: ObservableObject {
                 for bundle in plugins.flatMap(\.bundles) {
                     if self.results[bundle.id] == .running {
                         results[bundle.id] = .running
-                    } else if let issues = self.cache.issues(for: bundle) {
+                    } else if let issues = self.cache.issues(for: bundle) ?? PluginChecker.knownIssues(bundle) {
                         results[bundle.id] = .done(issues)
                     }
                 }
@@ -177,8 +182,9 @@ final class ManagerLibrary: ObservableObject {
     func checkInBackground() {
         guard !demo else { return }
         let waiting = Set(queued.map(\.id))
+        // Problems already certain from the files (an AU in a subfolder) need no check
         enqueue(CheckCache.pending(plugins.flatMap(\.bundles), cache: cache, forgotten: forgotten)
-            .filter { !waiting.contains($0.id) && results[$0.id] != .running })
+            .filter { !waiting.contains($0.id) && results[$0.id] != .running && PluginChecker.knownIssues($0) == nil })
     }
 
     /// Checks these plugins again even if a saved result exists.

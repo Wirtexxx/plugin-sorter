@@ -80,8 +80,13 @@ struct PluginRowView: View {
 
     private var formats: some View {
         HStack(spacing: 4) {
-            ForEach(row.plugin?.bundles ?? []) { bundle in
-                FormatPill(text: bundle.format.rawValue, level: manager.state(of: bundle).level)
+            if let plugin = row.plugin {
+                ForEach(plugin.bundles) { bundle in
+                    FormatPill(text: bundle.format.rawValue, level: manager.state(of: bundle).level)
+                }
+            } else if !row.isStale {
+                // Installed outside /Library/Audio/Plug-Ins: the formats FL found
+                ForEach(row.entries) { entry in FormatPill(text: entry.shortFormat, level: nil) }
             }
         }
     }
@@ -139,6 +144,8 @@ struct PluginRowView: View {
                 bundles(plugin)
                 if row.isKnownToFL { flSection }
                 vendorData(plugin)
+            } else {
+                flSection
             }
         }
     }

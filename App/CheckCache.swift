@@ -28,14 +28,20 @@ final class CheckCache {
     func issues(for bundle: PluginBundle) -> [Issue]? {
         lock.lock()
         defer { lock.unlock() }
-        guard let record = records[bundle.url.path], record.modified == Self.modified(bundle.url) else { return nil }
+        guard let record = records[bundle.url.path], record.modified == Self.modified(bundle) else { return nil }
         return record.issues
     }
 
+    /// Results that depend on the moment rather than the plugin (a timeout, macOS's AU registry) aren't kept.
     func store(_ issues: [Issue], for bundle: PluginBundle) {
         lock.lock()
         defer { lock.unlock() }
-        records[bundle.url.path] = Record(modified: Self.modified(bundle.url), issues: issues)
+        if issues.contains(where: { $0 == .timeout || $0 == .notRegistered }) {
+            records[bundle.url.path] = nil
+            save()
+            return
+        }
+        records[bundle.url.path] = Record(modified: Self.modified(bundle), issues: issues)
         save()
     }
 
@@ -55,7 +61,14 @@ final class CheckCache {
         try? JSONEncoder().encode(records).write(to: url, options: .atomic)
     }
 
-    private static func modified(_ url: URL) -> Date {
+    /// The newest of the bundle folder, its Info.plist and its binary: an installer that rewrites files
+    /// inside an existing bundle leaves the folder's own date alone.
+    private static func modified(_ bundle: PluginBundle) -> Date {
+        let files = [bundle.url, bundle.url.appendingPathComponent("Contents/Info.plist")] + [bundle.executable].compactMap { $0 }
+        return files.map(date).max() ?? .distantPast
+    }
+
+    private static func date(_ url: URL) -> Date {
         // Not URL.resourceValues: a URL caches them, so a plugin updated in place would look unchanged
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date) ?? .distantPast
     }

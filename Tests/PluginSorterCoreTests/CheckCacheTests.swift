@@ -33,6 +33,28 @@ struct CheckCacheTests {
         #expect(cache.issues(for: ott) == nil)
     }
 
+    @Test func binaryReplacedInsideTheBundleIsCheckedAgain() throws {
+        // A .pkg update rewrites Contents/MacOS/<binary>; the bundle folder's own date stays the same
+        let ott = try bundle("OTT.vst3")
+        let cache = CheckCache(url: file)
+        cache.store([], for: ott)
+        let binary = try #require(ott.executable)
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(7200)], ofItemAtPath: binary.path)
+        #expect(cache.issues(for: ott) == nil)
+    }
+
+    @Test func passingFailuresAreNotRemembered() throws {
+        // A timeout or an unregistered AU says more about the moment than about the plugin
+        let ott = try bundle("OTT.vst3")
+        let cache = CheckCache(url: file)
+        cache.store([.timeout], for: ott)
+        #expect(cache.issues(for: ott) == nil)
+        cache.store([.notRegistered], for: ott)
+        #expect(cache.issues(for: ott) == nil)
+        cache.store([.quarantined], for: ott)
+        #expect(cache.issues(for: ott) == [.quarantined])
+    }
+
     @Test func unknownBundleHasNoResult() throws {
         #expect(CheckCache(url: file).issues(for: try bundle("OTT.vst3")) == nil)
     }
@@ -69,5 +91,19 @@ struct FLStudioTests {
     @Test func flStudioRunningIsDetected() {
         #expect(FLStudio.isRunning(["com.apple.finder", "com.image-line.flstudio"]))
         #expect(!FLStudio.isRunning([nil, "com.apple.finder"]))
+    }
+}
+
+@Suite("Known without a check")
+struct KnownIssueTests {
+    @Test func nestedAudioUnitIsUnregisteredStraightAway() throws {
+        let dir = try TempDir()
+        try makeBundle(dir.path("Plug-Ins/Components/Vendor/Nested.component"), id: "com.vendor.nested")
+        try makeBundle(dir.path("Plug-Ins/Components/Flat.component"), id: "com.vendor.flat")
+        let bundles = PluginInventory.scan(root: dir.path("Plug-Ins")).flatMap(\.bundles)
+        let nested = try #require(bundles.first { $0.url.lastPathComponent == "Nested.component" })
+        let flat = try #require(bundles.first { $0.url.lastPathComponent == "Flat.component" })
+        #expect(PluginChecker.knownIssues(nested) == [.notRegistered])
+        #expect(PluginChecker.knownIssues(flat) == nil)
     }
 }

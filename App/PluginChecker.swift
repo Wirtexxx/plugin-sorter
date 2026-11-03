@@ -63,6 +63,11 @@ enum PluginChecker {
         return issues + probe(bundle)
     }
 
+    /// What's certain from the files alone, before any check runs: macOS ignores an AU in a subfolder.
+    static func knownIssues(_ bundle: PluginBundle) -> [Issue]? {
+        bundle.format == .au && bundle.nested ? [.notRegistered] : nil
+    }
+
     // MARK: - Audio Units
 
     private static func validateAU(_ code: AUCode) -> [Issue] {

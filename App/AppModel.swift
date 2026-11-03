@@ -93,7 +93,7 @@ final class AppModel: ObservableObject {
         switch filter {
         case .all:               return true
         case .problems:          return (level(of: row) ?? .ok) > .ok
-        case .notInFL:           return row.plugin != nil && !row.isFavorite
+        case .notInFL:           return !row.isFavorite && !row.isStale
         case .new, .duplicates:  return false
         }
     }
@@ -112,7 +112,7 @@ final class AppModel: ObservableObject {
     /// Runs an FL change now, or asks first while FL Studio is open.
     func whenFLClosed(_ action: @escaping () -> Void) {
         guard !skipFLCheck, FLStudio.isRunning else { return action() }
-        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .en)
+        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = t("flOpen.title")
@@ -206,7 +206,10 @@ final class AppModel: ObservableObject {
             guard let self = self, status != .idle else { return }
             var isError = false
             if case .failed = status { isError = true }
-            let undo: (() -> Void)? = { if case .sorted = status { return { self.favorites.unsort() } }; return nil }()
+            let undo: (() -> Void)? = {
+                if case .sorted = status { return { self.whenFLClosed { self.favorites.unsort() } } }
+                return nil
+            }()
             self.show(Banner(source: .favorites(status), isError: isError, undo: undo))
         }.store(in: &bag)
 

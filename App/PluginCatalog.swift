@@ -5,7 +5,7 @@ struct CatalogRow: Identifiable {
     let id: String
     let name: String
     let vendor: String
-    /// Nil when the plugin was deleted from disk but FL still has it as a favourite.
+    /// Nil when it isn't in /Library/Audio/Plug-Ins: deleted, or installed somewhere FL also looks.
     let plugin: ManagedPlugin?
     /// FL's scans of it, every format and section.
     let entries: [InstalledEntry]
@@ -13,12 +13,13 @@ struct CatalogRow: Identifiable {
 
     var isKnownToFL: Bool { !entries.isEmpty }
     var isFavorite: Bool { !favorites.isEmpty }
-    var isStale: Bool { plugin == nil }
+    /// Deleted from disk but still an FL favourite.
+    let isStale: Bool
 }
 
 enum PluginCatalog {
-    /// Every disk plugin as a row, with FL's entries and favourites joined in. FL's own plugins are left out;
-    /// FL entries with no plugin on disk only show up when they are favourites of a deleted plugin.
+    /// Every disk plugin as a row, with FL's entries and favourites joined in. FL's own plugins are left out.
+    /// FL entries with no plugin here still get a row: installed elsewhere, or favourites of a deleted plugin.
     /// - Parameter removed: ids of entries whose plugin is gone (`Availability.removed`).
     static func rows(plugins: [ManagedPlugin], entries: [InstalledEntry], favorites: [Favorite],
                      removed: Set<String>) -> [CatalogRow] {
@@ -51,13 +52,15 @@ enum PluginCatalog {
         var rows = plugins.map { plugin -> CatalogRow in
             let group = joined[plugin.key] ?? []
             return CatalogRow(id: plugin.key, name: plugin.name, vendor: plugin.vendor, plugin: plugin,
-                              entries: group, favorites: favoritesOf(group))
+                              entries: group, favorites: favoritesOf(group), isStale: false)
         }
-        for orphan in orphans where orphan.entries.allSatisfy({ removed.contains($0.id) }) {
-            let stale = favoritesOf(orphan.entries)
-            guard !stale.isEmpty, let first = orphan.entries.first else { continue }
+        for orphan in orphans {
+            let gone = orphan.entries.allSatisfy { removed.contains($0.id) }
+            let favored = favoritesOf(orphan.entries)
+            // A deleted plugin is only worth a row while it still clutters FL's favourites
+            guard !gone || !favored.isEmpty, let first = orphan.entries.first else { continue }
             rows.append(CatalogRow(id: "fl|" + orphan.key, name: first.name, vendor: first.vendor, plugin: nil,
-                                   entries: orphan.entries, favorites: stale))
+                                   entries: orphan.entries, favorites: favored, isStale: gone))
         }
         return rows.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }

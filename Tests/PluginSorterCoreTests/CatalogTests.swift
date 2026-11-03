@@ -87,6 +87,16 @@ struct CatalogTests {
         #expect(gone.isFavorite)
     }
 
+    @Test func pluginsElsewhereStillGetARow() throws {
+        // FL also finds plugins outside /Library/Audio/Plug-Ins, e.g. in ~/Library; they stay reachable
+        try installed("Effects/VST3/Elsewhere", name: "Elsewhere", vendor: "Home Co",
+                      files: [dir.path("home/Elsewhere.vst3").path])
+        let elsewhere = try row("Elsewhere")
+        #expect(elsewhere.plugin == nil)
+        #expect(!elsewhere.isStale)
+        #expect(elsewhere.isKnownToFL)
+    }
+
     @Test func fruityPluginsAreLeftOut() {
         #expect(!rows().contains { $0.name == "Fruity Limiter" })
         #expect(rows().count == 4)
