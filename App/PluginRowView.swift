@@ -32,7 +32,7 @@ struct PluginRowView: View {
             }
         }
         .background(RoundedRectangle(cornerRadius: 12).fill(isExpanded || hovered ? Color.inset : Color.clear))
-        .onHover { hovered = $0 }
+        .onHover { hovered = $0 && !SmoothScrollView.isScrolling }
     }
 
     // MARK: - Summary line

@@ -23,6 +23,7 @@ let package = Package(
                 "CheckCache.swift",
                 "PluginCatalog.swift",
                 "FLStudio.swift",
+                "ScrollGlide.swift",
             ]
         ),
         .testTarget(

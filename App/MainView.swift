@@ -188,11 +188,24 @@ struct MainView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
+                    .background(SmoothScroll())
                 }
+                .overlay(edgeFade(.top), alignment: .top)
+                .overlay(edgeFade(.bottom), alignment: .bottom)
+                // The fades would otherwise paint over the card's rounded corners
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
         }
         .frame(maxHeight: .infinity)
         .card()
+    }
+
+    /// Rows melt into the card's edge instead of being cut off by it.
+    private func edgeFade(_ edge: UnitPoint) -> some View {
+        LinearGradient(gradient: Gradient(colors: [Color.panel, Color.panel.opacity(0)]),
+                       startPoint: edge, endPoint: edge == .top ? .bottom : .top)
+            .frame(height: 12)
+            .allowsHitTesting(false)
     }
 
     private var columnHeaders: some View {
