@@ -34,6 +34,9 @@ struct MainView: View {
         .sheet(isPresented: $model.showFolderSheet) {
             FolderSortSheet(model: model, t: t)
         }
+        .sheet(isPresented: $model.showCleanupSheet) {
+            CleanupSheet(model: model, t: t)
+        }
     }
 
     /// The plugin open in the panel. Only the cards have one; the list opens plugins in place. Gone when
@@ -228,6 +231,7 @@ struct MainView: View {
     private var list: some View {
         let rows = model.rows
         return VStack(spacing: 0) {
+            if model.filter == .duplicates { cleanupBar }
             if viewMode == .list { columnHeaders } else { cardHeaders }
             if rows.isEmpty {
                 Text(t("main.empty"))
@@ -264,6 +268,21 @@ struct MainView: View {
         }
         .frame(maxHeight: .infinity)
         .card()
+    }
+
+    /// Above the list while the duplicates filter is on: how much there is to clean and a way to do it.
+    private var cleanupBar: some View {
+        let findings = model.findings
+        let bytes = findings.reduce(0) { $0 + model.size(of: $1) }
+        return HStack(spacing: 12) {
+            Text(t("cleanup.found", findings.count, formatBytes(bytes)))
+                .font(.system(size: 13)).foregroundColor(.text)
+            Spacer()
+            Button(t("cleanup.review")) { model.showCleanupSheet = true }
+                .buttonStyle(PillButtonStyle(primary: true))
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
     }
 
     /// Rows melt into the card's edge instead of being cut off by it.

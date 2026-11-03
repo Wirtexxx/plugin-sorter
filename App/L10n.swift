@@ -281,6 +281,37 @@ struct L10n {
             .uk: "Вимкнено: програми не бачать цей плагін. Файли лежать у теці Disabled.",
             .de: "Ausgeschaltet: Hosts sehen dieses Plugin nicht. Die Dateien liegen im Ordner Disabled.",
         ]
+        t["cleanup.found"] = [
+            .en: "Found %d · %@ can be freed", .ru: "Найдено: %d · можно освободить %@",
+            .uk: "Знайдено: %d · можна звільнити %@", .de: "Gefunden: %d · %@ lassen sich freigeben",
+        ]
+        t["cleanup.review"] = [.en: "Review", .ru: "Посмотреть", .uk: "Переглянути", .de: "Ansehen"]
+        t["cleanup.title"] = [.en: "Old versions and duplicates", .ru: "Старые версии и дубли", .uk: "Старі версії та дублі", .de: "Alte Versionen und Duplikate"]
+        t["cleanup.subtitle"] = [
+            .en: "Only suggestions: nothing is ticked until you choose.",
+            .ru: "Только предложения: пока вы не выберете, ничего не отмечено.",
+            .uk: "Лише пропозиції: доки ви не оберете, нічого не позначено.",
+            .de: "Nur Vorschläge: Nichts ist angekreuzt, bis du wählst.",
+        ]
+        t["cleanup.empty"] = [.en: "Nothing to clean up", .ru: "Чистить нечего", .uk: "Нічого чистити", .de: "Nichts aufzuräumen"]
+        t["cleanup.older"] = [.en: "Older versions", .ru: "Старые версии", .uk: "Старі версії", .de: "Ältere Versionen"]
+        t["cleanup.copies"] = [.en: "Extra copies", .ru: "Лишние копии", .uk: "Зайві копії", .de: "Überzählige Kopien"]
+        t["cleanup.vst2"] = [.en: "VST2 next to VST3", .ru: "VST2 рядом с VST3", .uk: "VST2 поруч із VST3", .de: "VST2 neben VST3"]
+        t["cleanup.newer"] = [.en: "Newer version: %@", .ru: "Новая версия: %@", .uk: "Нова версія: %@", .de: "Neuere Version: %@"]
+        t["cleanup.inFL"] = [.en: "In FL favourites", .ru: "Есть в избранном FL", .uk: "Є в обраному FL", .de: "In FL-Favoriten"]
+        t["cleanup.selected"] = [
+            .en: "Selected: %d · %@", .ru: "Отмечено: %d · %@", .uk: "Позначено: %d · %@", .de: "Gewählt: %d · %@",
+        ]
+        t["cleanup.confirm"] = [
+            .en: "Move %d to the Trash?", .ru: "Переместить в Корзину: %d?",
+            .uk: "Перемістити у Кошик: %d?", .de: "%d in den Papierkorb legen?",
+        ]
+        t["cleanup.confirmInfo"] = [
+            .en: "Old projects open only with the version you keep, and projects that use a removed one will miss it. These files go to the Trash:",
+            .ru: "Старые проекты откроются только с версией, которую вы оставите, а проектам с удалённой версией её будет не хватать. В Корзину уйдут файлы:",
+            .uk: "Старі проєкти відкриються лише з версією, яку ви залишите, а проєктам із видаленою версією її бракуватиме. У Кошик підуть файли:",
+            .de: "Alte Projekte öffnen sich nur mit der Version, die du behältst; Projekte mit einer entfernten Version vermissen sie. Diese Dateien kommen in den Papierkorb:",
+        ]
         t["mgr.fixed"] = [.en: "Fixed, checking again", .ru: "Исправлено, проверяю заново", .uk: "Виправлено, перевіряю знову", .de: "Behoben, prüfe erneut"]
         t["fix.unquarantine"] = [.en: "Remove quarantine", .ru: "Снять карантин", .uk: "Зняти карантин", .de: "Quarantäne aufheben"]
         t["fix.toComponents"] = [.en: "Move back to Components", .ru: "Вернуть в Components", .uk: "Повернути в Components", .de: "Zurück nach Components"]

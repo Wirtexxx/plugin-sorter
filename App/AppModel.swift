@@ -36,6 +36,7 @@ final class AppModel: ObservableObject {
     @Published var expanded: String?
     @Published var banner: Banner?
     @Published var showFolderSheet = false
+    @Published var showCleanupSheet = false
     /// "Don't ask again" in the FL dialog, until the app quits.
     var skipFLCheck = false
     /// FL's plugin database; a demo folder for README screenshots.
@@ -45,6 +46,8 @@ final class AppModel: ObservableObject {
     private var bannerTimer: Timer?
     /// `allRows`, kept until a library it's made from changes.
     private var cachedRows: [CatalogRow]?
+    /// `findings`, kept until the installed plugins change.
+    private var cachedFindings: [CleanupFinding]?
     /// FL's pictures by favourite file, kept until they change: every card asks on every redraw.
     private var cachedPictures: [String: FLPlugin]?
 
@@ -63,6 +66,7 @@ final class AppModel: ObservableObject {
         // Right away, not on the next run loop pass: a redraw must never see rows older than the data
         let forget: (Any) -> Void = { [weak self] _ in self?.cachedRows = nil }
         manager.$plugins.sink(receiveValue: forget).store(in: &bag)
+        manager.$plugins.sink { [weak self] _ in self?.cachedFindings = nil }.store(in: &bag)
         favorites.$entries.sink(receiveValue: forget).store(in: &bag)
         favorites.$favorites.sink(receiveValue: forget).store(in: &bag)
         favorites.$availability.sink(receiveValue: forget).store(in: &bag)
@@ -84,6 +88,17 @@ final class AppModel: ObservableObject {
         cachedRows = rows
         return rows
     }
+
+    /// Old versions and duplicates among the installed plugins; asked for on every redraw, so built once.
+    var findings: [CleanupFinding] {
+        if let findings = cachedFindings { return findings }
+        let findings = Cleanup.findings(manager.plugins)
+        cachedFindings = findings
+        return findings
+    }
+
+    /// Space the finding's files take.
+    func size(of finding: CleanupFinding) -> Int64 { finding.bundles.reduce(0) { $0 + (manager.sizes[$1.path] ?? 0) } }
 
     var rows: [CatalogRow] {
         let matching = allRows.filter { row in
@@ -110,7 +125,8 @@ final class AppModel: ObservableObject {
         case .problems:          return (level(of: row) ?? .ok) > .ok
         case .notInFL:           return !row.isFavorite && !row.isStale
         case .disabled:          return row.plugin?.isDisabled ?? false
-        case .new, .duplicates:  return false
+        case .duplicates:        return row.plugin.map { plugin in findings.contains { $0.pluginKey == plugin.key } } ?? false
+        case .new:               return false
         }
     }
 

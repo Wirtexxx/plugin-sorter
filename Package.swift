@@ -25,6 +25,7 @@ let package = Package(
                 "FLStudio.swift",
                 "ScrollGlide.swift",
                 "CardPictures.swift",
+                "Cleanup.swift",
             ]
         ),
         .testTarget(
