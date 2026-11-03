@@ -39,6 +39,8 @@ final class AppModel: ObservableObject {
     @Published var filter: CatalogFilter = .all
     @Published var sort: CatalogSort = .name
     @Published var expanded: String?
+    /// The tab of a plugin's details, kept from one plugin to the next.
+    @Published var detailsTab: DetailsTab = .files
     @Published var banner: Banner?
     /// Keys of the plugins installed since the last "all seen".
     @Published private(set) var newKeys: Set<String> = []

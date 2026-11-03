@@ -25,6 +25,7 @@ let package = Package(
                 "FLStudio.swift",
                 "ScrollGlide.swift",
                 "CardPictures.swift",
+                "DetailsTab.swift",
                 "Cleanup.swift",
                 "Uninstall.swift",
                 "CatalogExport.swift",

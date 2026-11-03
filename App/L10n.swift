@@ -147,12 +147,15 @@ struct L10n {
         t["new.badge"] = [.en: "NEW", .ru: "НОВЫЙ", .uk: "НОВИЙ", .de: "NEU"]
         t["new.markSeen"] = [.en: "All seen", .ru: "Всё просмотрено", .uk: "Усе переглянуто", .de: "Alles gesehen"]
         t["filter.tags"] = [.en: "Tags", .ru: "Теги", .uk: "Теги", .de: "Tags"]
-        t["row.tags"] = [.en: "Tags and colour", .ru: "Теги и цвет", .uk: "Теги та колір", .de: "Tags und Farbe"]
         t["tags.add"] = [.en: "New tag", .ru: "Новый тег", .uk: "Новий тег", .de: "Neuer Tag"]
         t["tags.existing"] = [.en: "Existing tags", .ru: "Уже есть", .uk: "Вже є", .de: "Vorhandene Tags"]
         t["tags.remove"] = [.en: "Remove the tag", .ru: "Убрать тег", .uk: "Прибрати тег", .de: "Tag entfernen"]
         t["tags.noColor"] = [.en: "No colour", .ru: "Без цвета", .uk: "Без кольору", .de: "Keine Farbe"]
-        t["row.license"] = [.en: "License", .ru: "Лицензия", .uk: "Ліцензія", .de: "Lizenz"]
+        t["tab.files"] = [.en: "Files", .ru: "Файлы", .uk: "Файли", .de: "Dateien"]
+        t["tab.fl"] = [.en: "FL Studio", .ru: "FL Studio", .uk: "FL Studio", .de: "FL Studio"]
+        t["tab.tags"] = [.en: "Tags", .ru: "Теги", .uk: "Теги", .de: "Tags"]
+        t["tab.license"] = [.en: "License", .ru: "Лицензия", .uk: "Ліцензія", .de: "Lizenz"]
+        t["row.more"] = [.en: "More actions", .ru: "Другие действия", .uk: "Інші дії", .de: "Weitere Aktionen"]
         t["license.add"] = [.en: "Add a license", .ru: "Добавить лицензию", .uk: "Додати ліцензію", .de: "Lizenz hinzufügen"]
         t["license.show"] = [.en: "Show", .ru: "Показать", .uk: "Показати", .de: "Anzeigen"]
         t["license.hide"] = [.en: "Hide", .ru: "Скрыть", .uk: "Сховати", .de: "Ausblenden"]
@@ -196,7 +199,7 @@ struct L10n {
         t["row.removeFromFL"] = [.en: "Remove from FL", .ru: "Убрать из FL", .uk: "Прибрати з FL", .de: "Aus FL entfernen"]
         t["row.picture"] = [.en: "Picture in FL", .ru: "Картинка в FL", .uk: "Картинка в FL", .de: "Bild in FL"]
         t["row.dropHint"] = [.en: "Drop an image here", .ru: "Перетащите картинку сюда", .uk: "Перетягніть картинку сюди", .de: "Bild hierher ziehen"]
-        t["row.inFL"] = [.en: "In FL", .ru: "В FL", .uk: "У FL", .de: "In FL"]
+        t["row.inFL"] = [.en: "In FL favourites", .ru: "В избранном FL", .uk: "В обраному FL", .de: "In FL-Favoriten"]
         t["row.formatsHint"] = [
             .en: "Click a format to add or remove it in FL's favourites",
             .ru: "Клик по формату добавляет его в избранное FL или убирает",

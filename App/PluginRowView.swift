@@ -210,6 +210,9 @@ struct PluginDetailsView: View {
     let t: L10n
     var compact = false
 
+    /// A license form is open: switching tabs would throw away what's typed in it.
+    @State private var editingLicense = false
+
     private var manager: ManagerLibrary { model.manager }
     private var isRunning: Bool {
         row.plugin?.bundles.contains { manager.state(of: $0) == .running } ?? false
@@ -222,30 +225,96 @@ struct PluginDetailsView: View {
                     Button(t("row.removeFromFL")) { model.whenFLClosed { model.favorites.remove(row.favorites) } }
                         .buttonStyle(PillButtonStyle(primary: true))
                 }
-            } else if let plugin = row.plugin {
-                if plugin.isDisabled {
-                    Text(t("row.disabledNote")).font(.system(size: 12)).foregroundColor(.label)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let text = problemText(plugin) {
-                    problem(text) {
-                        // A second line: one would be wider than the window
-                        VStack(alignment: .leading, spacing: 6) {
-                            flow { actions(plugin) }
-                            flow { supportButtons(plugin) }
-                        }
-                    }
-                } else {
-                    flow { actions(plugin) }
-                }
-                bundles(plugin)
-                tagsSection(plugin)
-                LicenseSection(plugin: plugin, model: model, t: t, compact: compact)
-                if row.isKnownToFL { flSection }
-                vendorData(plugin)
             } else {
-                flSection
+                // Never behind a tab: whatever tab is open, a problem stays in sight
+                if let plugin = row.plugin { notices(plugin) }
+                if DetailsTab.available(for: row).count > 1 { tabBar }
+                tabContent
+                if let plugin = row.plugin { actionBar(plugin) }
             }
+        }
+    }
+
+    @ViewBuilder private func notices(_ plugin: ManagedPlugin) -> some View {
+        if plugin.isDisabled {
+            Text(t("row.disabledNote")).font(.system(size: 12)).foregroundColor(.label)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if let text = problemText(plugin) {
+            problem(text) {
+                ForEach(plugin.activeBundles.flatMap(manager.fixes)) { fix in
+                    Button(t.fix(fix)) { manager.apply(fix, for: plugin) }
+                        .buttonStyle(PillButtonStyle(primary: true))
+                        .disabled(manager.busy)
+                }
+                supportButtons(plugin)
+            }
+        }
+    }
+
+    // MARK: Tabs
+
+    private var selectedTab: DetailsTab? { DetailsTab.resolved(model.detailsTab, for: row) }
+
+    private var tabBar: some View {
+        HStack(spacing: compact ? 12 : 18) {
+            ForEach(DetailsTab.available(for: row)) { tab in
+                Button { model.detailsTab = tab } label: { tabLabel(tab) }
+                    .buttonStyle(PlainButtonStyle())
+            }
+            Spacer(minLength: 0)
+        }
+        .overlay(Rectangle().fill(Color.raised).frame(height: 1), alignment: .bottom)
+        .disabled(editingLicense)
+        .opacity(editingLicense ? 0.5 : 1)
+    }
+
+    private func tabLabel(_ tab: DetailsTab) -> some View {
+        let selected = tab == selectedTab
+        return VStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Text(t("tab.\(tab.rawValue)"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(selected ? .text : .label)
+                    .fixedSize()
+                tabHint(tab)
+            }
+            Rectangle().fill(selected ? Color.accent : Color.clear).frame(height: 2)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .contentShape(Rectangle())
+    }
+
+    /// What a closed tab holds, so a tag or a license isn't out of mind just because it's out of sight.
+    @ViewBuilder private func tabHint(_ tab: DetailsTab) -> some View {
+        if let plugin = row.plugin {
+            if tab == .tags, case let count = model.labels.labels(of: plugin.key).tags.count, count > 0 {
+                Text("\(count)").font(.system(size: 11)).foregroundColor(.label)
+            } else if tab == .license, model.vault.hasLicense(plugin.key) {
+                Circle().fill(Color.accent).frame(width: 5, height: 5)
+            }
+        }
+    }
+
+    @ViewBuilder private var tabContent: some View {
+        switch selectedTab {
+        case .files:
+            if let plugin = row.plugin {
+                VStack(alignment: .leading, spacing: 14) {
+                    bundles(plugin)
+                    vendorData(plugin)
+                }
+            }
+        case .fl:
+            flSection
+        case .tags:
+            if let plugin = row.plugin { tagsSection(plugin) }
+        case .license:
+            if let plugin = row.plugin {
+                LicenseSection(plugin: plugin, model: model, t: t, compact: compact, editing: $editingLicense)
+            }
+        case nil:
+            EmptyView()
         }
     }
 
@@ -280,13 +349,16 @@ struct PluginDetailsView: View {
         return lines.isEmpty ? nil : lines.joined(separator: "\n")
     }
 
-    @ViewBuilder private func actions(_ plugin: ManagedPlugin) -> some View {
-        let fixes = plugin.activeBundles.flatMap(manager.fixes)
-        ForEach(fixes) { fix in
-            Button(t.fix(fix)) { manager.apply(fix, for: plugin) }
-                .buttonStyle(PillButtonStyle(primary: true))
-                .disabled(manager.busy)
+    /// What can be done with the plugin, the same on every tab.
+    private func actionBar(_ plugin: ManagedPlugin) -> some View {
+        flow {
+            actions(plugin)
+            if !compact { Spacer(minLength: 0) }
+            moreMenu(plugin)
         }
+    }
+
+    @ViewBuilder private func actions(_ plugin: ManagedPlugin) -> some View {
         Button(t("mgr.reveal")) { NSWorkspace.shared.activateFileViewerSelecting(plugin.bundles.map(\.url)) }
             .buttonStyle(PillButtonStyle())
         Button(t("row.recheck")) { manager.recheck([plugin]) }
@@ -295,12 +367,26 @@ struct PluginDetailsView: View {
         Button(t(plugin.isDisabled ? "row.enable" : "row.disable")) { toggleDisabled(plugin) }
             .buttonStyle(PillButtonStyle())
             .disabled(manager.busy)
-        Button(t("mgr.uninstall")) { model.uninstallTarget = plugin }
-            .buttonStyle(PillButtonStyle(destructive: true))
-            .disabled(manager.busy)
-        Button(t("mgr.trash")) { confirmTrash(plugin) }
-            .buttonStyle(PillButtonStyle(destructive: true))
-            .disabled(manager.busy)
+    }
+
+    /// Removing a plugin, a step away from the everyday buttons.
+    private func moreMenu(_ plugin: ManagedPlugin) -> some View {
+        Menu {
+            Button(t("mgr.uninstall")) { model.uninstallTarget = plugin }
+            Button(t("mgr.trash")) { confirmTrash(plugin) }
+        } label: {
+            // Invisible, like the gear's: the system menu ignores the label's colour
+            Image(nsImage: NSImage(size: NSSize(width: 36, height: 26)))
+        }
+        .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
+        .frame(width: 36, height: 26)
+        .background(ZStack {
+            Capsule().fill(Color.raised)
+            Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).foregroundColor(.text)
+        })
+        .contentShape(Capsule())
+        .disabled(manager.busy)
+        .help(t("row.more"))
     }
 
     /// A draft for the developer's support: written in a mail, or copied for where mail isn't set up.
@@ -335,7 +421,6 @@ struct PluginDetailsView: View {
             !current.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame }
         }
         return VStack(alignment: .leading, spacing: 8) {
-            Text(t("row.tags")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
             if !current.tags.isEmpty {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 6, alignment: .leading)],
                           alignment: .leading, spacing: 6) {
@@ -648,6 +733,8 @@ struct LicenseSection: View {
     @ObservedObject var model: AppModel
     let t: L10n
     var compact = false
+    /// Set while the form is open.
+    @Binding var editing: Bool
 
     /// The license on screen after "Show".
     @State private var revealed: License?
@@ -660,7 +747,6 @@ struct LicenseSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(t("row.license")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
             if draft != nil {
                 form
             } else if vault.hasLicense(plugin.key) {
@@ -670,6 +756,7 @@ struct LicenseSection: View {
             }
         }
         .id(version)
+        .onChange(of: draft != nil) { editing = $0 }
     }
 
     private var saved: some View {
@@ -757,6 +844,7 @@ struct LicenseSection: View {
             draft = nil
             revealed = nil
             version += 1
+            model.objectWillChange.send()  // the dot on the tab
         } catch { model.report(error) }
     }
 
@@ -771,6 +859,7 @@ struct LicenseSection: View {
             try vault.remove(plugin.key)
             revealed = nil
             version += 1
+            model.objectWillChange.send()  // the dot on the tab
         } catch { model.report(error) }
     }
 }
