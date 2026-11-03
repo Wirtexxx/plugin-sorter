@@ -21,6 +21,7 @@ let package = Package(
                 "DiskUsage.swift",
                 "FLCategories.swift",
                 "CheckCache.swift",
+                "PluginCatalog.swift",
             ]
         ),
         .testTarget(
