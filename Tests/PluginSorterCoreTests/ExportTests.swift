@@ -16,8 +16,8 @@ struct ExportTests {
         #expect(csv.hasSuffix("\r\n"))
         #expect(!csv.replacingOccurrences(of: "\r\n", with: "").contains("\n"))
         let all = lines(csv)
-        #expect(all.first == "name,vendor,version,status,formats,archs,size_bytes")
-        #expect(all[1] == "OTT,Xfer Records,1.37,ok,VST3,arm64,1000")
+        #expect(all.first == "name,vendor,version,status,formats,archs,size_bytes,tags")
+        #expect(all[1] == "OTT,Xfer Records,1.37,ok,VST3,arm64,1000,")
         #expect(all.count == 4)                                   // header, two rows, the empty piece after the last CRLF
     }
 
@@ -41,7 +41,7 @@ struct ExportTests {
 
     @Test func csvListsFormatsSortedAndSizeInBytes() {
         let csv = CatalogExport.render([row(formats: ["VST3", "AU", "CLAP"], archs: ["x86_64", "arm64"], size: 123_456_789)], as: .csv)
-        #expect(lines(csv)[1].hasSuffix("AU;CLAP;VST3,arm64;x86_64,123456789"))
+        #expect(lines(csv)[1].hasSuffix("AU;CLAP;VST3,arm64;x86_64,123456789,"))
     }
 
     @Test func markdownEscapesPipes() {
@@ -51,7 +51,7 @@ struct ExportTests {
         #expect(table.count == 3)                                  // header, separator, one row
         #expect(table[0].hasPrefix("| Name |"))
         #expect(table[1].hasPrefix("| --- |"))
-        #expect(table[2] == "| A\\|B | Xfer Records | 1.37 | ok | VST3 | arm64 | 1000 |")
+        #expect(table[2] == "| A\\|B | Xfer Records | 1.37 | ok | VST3 | arm64 | 1000 |  |")
     }
 
     @Test func markdownKeepsARowOnOneLine() {
@@ -73,7 +73,7 @@ struct ExportTests {
     }
 
     @Test func emptyListIsStillValid() throws {
-        #expect(CatalogExport.render([], as: .csv) == "name,vendor,version,status,formats,archs,size_bytes\r\n")
+        #expect(CatalogExport.render([], as: .csv) == "name,vendor,version,status,formats,archs,size_bytes,tags\r\n")
         #expect(CatalogExport.render([], as: .json) == "[]")
         let md = CatalogExport.render([], as: .markdown)
         #expect(md.split(separator: "\n").count == 2)              // the header and its separator

@@ -30,6 +30,7 @@ let package = Package(
                 "CatalogExport.swift",
                 "SupportDraft.swift",
                 "KnownPlugins.swift",
+                "UserLabels.swift",
             ]
         ),
         .testTarget(

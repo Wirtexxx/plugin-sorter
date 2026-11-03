@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 
 enum CatalogFilter: Hashable {
     case all, problems, notInFL, new, duplicates, disabled
+    /// Plugins with this tag of the user's.
+    case tag(String)
 }
 
 enum CatalogSort {
@@ -30,6 +32,7 @@ final class AppModel: ObservableObject {
     let manager: ManagerLibrary
     let favorites: FavoritesLibrary
     let pictures: FLLibrary
+    let labels: UserLabels
 
     @Published var query = ""
     @Published var filter: CatalogFilter = .all
@@ -59,8 +62,9 @@ final class AppModel: ObservableObject {
 
     init(sorter: Sorter = Sorter(), manager: ManagerLibrary = ManagerLibrary(),
          favorites: FavoritesLibrary = FavoritesLibrary(), pictures: FLLibrary = FLLibrary(),
-         known: KnownPlugins = KnownPlugins()) {
+         known: KnownPlugins = KnownPlugins(), labels: UserLabels = UserLabels()) {
         self.known = known
+        self.labels = labels
         self.sorter = sorter
         self.manager = manager
         self.favorites = favorites
@@ -68,7 +72,7 @@ final class AppModel: ObservableObject {
 
         // Any change in a library redraws the window
         for publisher in [sorter.objectWillChange, manager.objectWillChange,
-                          favorites.objectWillChange, pictures.objectWillChange] {
+                          favorites.objectWillChange, pictures.objectWillChange, labels.objectWillChange] {
             publisher.receive(on: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &bag)
         }
         // Right away, not on the next run loop pass: a redraw must never see rows older than the data
@@ -83,6 +87,12 @@ final class AppModel: ObservableObject {
         favorites.$favorites.sink(receiveValue: forget).store(in: &bag)
         favorites.$availability.sink(receiveValue: forget).store(in: &bag)
         pictures.$plugins.sink { [weak self] _ in self?.cachedPictures = nil }.store(in: &bag)
+        // A tag filter whose last plugin lost the tag would be an empty list with no way out
+        labels.$all.dropFirst().sink { [weak self] all in
+            guard let self = self, case .tag(let tag) = self.filter else { return }
+            let used = all.values.contains { $0.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame } }
+            if !used { self.filter = .all }
+        }.store(in: &bag)
         observeStatuses()
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in self?.refresh() }
@@ -116,7 +126,8 @@ final class AppModel: ObservableObject {
         let matching = allRows.filter { row in
             passes(row, filter)
                 && (query.isEmpty || row.name.localizedCaseInsensitiveContains(query)
-                    || row.vendor.localizedCaseInsensitiveContains(query))
+                    || row.vendor.localizedCaseInsensitiveContains(query)
+                    || tags(of: row).contains { $0.localizedCaseInsensitiveContains(query) })
         }
         guard sort == .size else { return matching }
         return matching.sorted { size(of: $0) > size(of: $1) }
@@ -124,7 +135,7 @@ final class AppModel: ObservableObject {
 
     /// The list as it is on screen now, with the search and the filter applied.
     func exportRows() -> [ExportRow] {
-        rows.map { ExportRow(row: $0, level: level(of: $0), sizeBytes: size(of: $0)) }
+        rows.map { ExportRow(row: $0, level: level(of: $0), sizeBytes: size(of: $0), tags: tags(of: $0)) }
     }
 
     /// Asks where to save the visible list and writes it there.
@@ -141,6 +152,11 @@ final class AppModel: ObservableObject {
             show(Banner(source: .manager(.failed(error.localizedDescription)), isError: true, undo: nil))
         }
     }
+
+    /// The user's tags of the row's plugin.
+    func tags(of row: CatalogRow) -> [String] { row.plugin.map { labels.labels(of: $0.key).tags } ?? [] }
+
+    func labelColor(of row: CatalogRow) -> LabelColor? { row.plugin.flatMap { labels.labels(of: $0.key).color } }
 
     func isNew(_ row: CatalogRow) -> Bool { row.plugin.map { newKeys.contains($0.key) } ?? false }
 
@@ -168,6 +184,7 @@ final class AppModel: ObservableObject {
         case .disabled:          return row.plugin?.isDisabled ?? false
         case .duplicates:        return row.plugin.map { plugin in findings.contains { $0.pluginKey == plugin.key } } ?? false
         case .new:               return isNew(row)
+        case .tag(let tag):      return tags(of: row).contains { $0.caseInsensitiveCompare(tag) == .orderedSame }
         }
     }
 

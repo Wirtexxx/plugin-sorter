@@ -95,6 +95,7 @@ struct PluginCardView: View {
         }
         .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
         .background(hovered || isSelected ? Color.raised : Color.inset)
+        .overlay(LabelStripe(color: model.labelColor(of: row)), alignment: .leading)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(isSelected ? Color.accent : .clear, lineWidth: 2))
         .contentShape(RoundedRectangle(cornerRadius: 10))

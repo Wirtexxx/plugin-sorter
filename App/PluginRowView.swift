@@ -32,6 +32,7 @@ struct PluginRowView: View {
             }
         }
         .background(RoundedRectangle(cornerRadius: 12).fill(isExpanded || hovered ? Color.inset : Color.clear))
+        .overlay(LabelStripe(color: model.labelColor(of: row)).padding(.vertical, 8), alignment: .leading)
         .onHover { hovered = $0 && !SmoothScrollView.isScrolling }
     }
 
@@ -95,6 +96,46 @@ struct PluginRowView: View {
         }
     }
 
+}
+
+extension LabelColor {
+    var swatch: Color {
+        switch self {
+        case .accent: return .accent
+        case .mint:   return .mint
+        case .amber:  return .amber
+        case .danger: return .danger
+        }
+    }
+}
+
+/// The colour label: a strip at the edge, apart from the status lamp.
+struct LabelStripe: View {
+    let color: LabelColor?
+
+    var body: some View {
+        Capsule().fill(color?.swatch ?? .clear).frame(width: 3).opacity(color == nil ? 0 : 1)
+    }
+}
+
+/// A text field that hands over its text on Return and empties itself.
+struct NewTagField: View {
+    let placeholder: String
+    let onAdd: (String) -> Void
+    @State private var text = ""
+
+    var body: some View {
+        TextField(placeholder, text: $text, onCommit: {
+            onAdd(text)
+            text = ""
+        })
+        .textFieldStyle(PlainTextFieldStyle())
+        .font(.system(size: 12))
+        .foregroundColor(.text)
+        .padding(.horizontal, 10)
+        .frame(width: 120, height: 24)
+        .background(Capsule().fill(Color.raised))
+    }
 }
 
 /// Marks a plugin installed since the last "all seen".
@@ -188,13 +229,17 @@ struct PluginDetailsView: View {
                 }
                 if let text = problemText(plugin) {
                     problem(text) {
-                        actions(plugin)
-                        supportButtons(plugin)
+                        // A second line: one would be wider than the window
+                        VStack(alignment: .leading, spacing: 6) {
+                            flow { actions(plugin) }
+                            flow { supportButtons(plugin) }
+                        }
                     }
                 } else {
                     flow { actions(plugin) }
                 }
                 bundles(plugin)
+                tagsSection(plugin)
                 if row.isKnownToFL { flSection }
                 vendorData(plugin)
             } else {
@@ -279,6 +324,61 @@ struct PluginDetailsView: View {
         let context = SupportContext(macOS: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
                                      cpu: PluginInventory.hostArch, appVersion: app)
         return SupportDraft.make(plugin: plugin, issues: issues, context: context)
+    }
+
+    // MARK: Tags
+
+    private func tagsSection(_ plugin: ManagedPlugin) -> some View {
+        let current = model.labels.labels(of: plugin.key)
+        let unused = model.labels.allTags.map(\.tag).filter { tag in
+            !current.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame }
+        }
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(t("row.tags")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
+            if !current.tags.isEmpty {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 6, alignment: .leading)],
+                          alignment: .leading, spacing: 6) {
+                    ForEach(current.tags, id: \.self) { tag in
+                        HStack(spacing: 4) {
+                            Text(tag).font(.system(size: 11, weight: .semibold)).foregroundColor(.text).lineLimit(1)
+                            Button { model.labels.removeTag(tag, from: plugin.key) } label: {
+                                Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundColor(.label)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .help(t("tags.remove"))
+                        }
+                        .padding(.horizontal, 9)
+                        .frame(height: 22)
+                        .background(Capsule().fill(Color.raised))
+                        .fixedSize()
+                    }
+                }
+            }
+            flow {
+                NewTagField(placeholder: t("tags.add")) { model.labels.addTag($0, to: plugin.key) }
+                if !unused.isEmpty {
+                    Menu(t("tags.existing")) {
+                        ForEach(unused, id: \.self) { tag in
+                            Button(tag) { model.labels.addTag(tag, to: plugin.key) }
+                        }
+                    }
+                    .menuStyle(BorderlessButtonMenuStyle())
+                    .fixedSize()
+                }
+            }
+            HStack(spacing: 8) {
+                ForEach(LabelColor.allCases, id: \.self) { color in
+                    Button { model.labels.setColor(current.color == color ? nil : color, for: plugin.key) } label: {
+                        Circle().fill(color.swatch).frame(width: 16, height: 16)
+                            .overlay(Circle().stroke(Color.text, lineWidth: current.color == color ? 2 : 0).padding(-3))
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help(current.color == color ? t("tags.noColor") : "")
+                }
+            }
+        }
     }
 
     private func bundles(_ plugin: ManagedPlugin) -> some View {

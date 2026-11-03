@@ -50,7 +50,8 @@ struct Snapshot {
             let manager = demoManager()
             let (favorites, titles) = demoFavorites(for: manager, in: dir)
             model = AppModel(sorter: sorter, manager: manager, favorites: favorites, pictures: demoLibrary(titles, in: dir),
-                             known: KnownPlugins(url: dir.appendingPathComponent("known-plugins.json")))
+                             known: KnownPlugins(url: dir.appendingPathComponent("known-plugins.json")),
+                             labels: UserLabels(url: dir.appendingPathComponent("labels.json")))
             model.flRoot = dir
         }
         // Always set the view: UserDefaults persist between runs of this tool

@@ -161,9 +161,31 @@ struct MainView: View {
             if model.count(.new) > 0 { filterPill(.new, "filter.new") }
             if model.count(.duplicates) > 0 { filterPill(.duplicates, "filter.duplicates") }
             if model.count(.disabled) > 0 { filterPill(.disabled, "filter.disabled") }
+            if !model.labels.allTags.isEmpty { tagsMenu }
         }
     }
 
+
+    /// The user's tags as a pill that opens a menu; it shows the tag while one is the filter.
+    private var tagsMenu: some View {
+        var active: String?
+        if case .tag(let tag) = model.filter { active = tag }
+        return Menu {
+            ForEach(model.labels.allTags, id: \.tag) { item in
+                Button(item.tag + "  (\(item.count))") { model.filter = active == item.tag ? .all : .tag(item.tag) }
+            }
+        } label: {
+            Text(active ?? t("filter.tags"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(active == nil ? .text : .white)
+        }
+        .menuStyle(BorderlessButtonMenuStyle())
+        .fixedSize()
+        .padding(.horizontal, 10)
+        .frame(height: 32)
+        .background(Group { if active != nil { accentGradient } else { Color.raised } })
+        .clipShape(Capsule())
+    }
 
     private func filterPill(_ filter: CatalogFilter, _ key: String) -> some View {
         FilterPill(title: t(key), count: model.count(filter), isOn: model.filter == filter) {

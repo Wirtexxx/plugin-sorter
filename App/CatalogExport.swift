@@ -9,11 +9,13 @@ struct ExportRow: Equatable, Codable {
     let name, vendor, version, status: String
     let formats, archs: [String]
     let sizeBytes: Int64
+    /// The user's own tags.
+    var tags: [String] = []
 }
 
 extension ExportRow {
     /// A list row as the export shows it: what the row's plugin is made of, and how its last check went.
-    init(row: CatalogRow, level: CheckState.Level?, sizeBytes: Int64) {
+    init(row: CatalogRow, level: CheckState.Level?, sizeBytes: Int64, tags: [String] = []) {
         let bundles = row.plugin?.bundles ?? []
         let status: String
         switch (row.isStale, row.plugin?.isDisabled ?? false, level) {
@@ -26,18 +28,18 @@ extension ExportRow {
         }
         self.init(name: row.name, vendor: row.vendor, version: row.plugin?.version ?? "", status: status,
                   formats: Set(bundles.map(\.format.rawValue)).sorted(), archs: Set(bundles.flatMap(\.archs)).sorted(),
-                  sizeBytes: sizeBytes)
+                  sizeBytes: sizeBytes, tags: tags)
     }
 }
 
 enum CatalogExport {
-    private static let columns = ["name", "vendor", "version", "status", "formats", "archs", "size_bytes"]
+    private static let columns = ["name", "vendor", "version", "status", "formats", "archs", "size_bytes", "tags"]
 
     static func render(_ rows: [ExportRow], as format: ExportFormat) -> String {
         // The same list in the same order always gives the same text
         let rows = rows.map {
             ExportRow(name: $0.name, vendor: $0.vendor, version: $0.version, status: $0.status,
-                      formats: $0.formats.sorted(), archs: $0.archs.sorted(), sizeBytes: $0.sizeBytes)
+                      formats: $0.formats.sorted(), archs: $0.archs.sorted(), sizeBytes: $0.sizeBytes, tags: $0.tags.sorted())
         }
         switch format {
         case .csv:      return csv(rows)
@@ -53,7 +55,7 @@ enum CatalogExport {
         for row in rows {
             let cells: [String] = [row.name, row.vendor, row.version, row.status,
                                    row.formats.joined(separator: ";"), row.archs.joined(separator: ";")]
-            lines.append((cells.map(csvCell) + [String(row.sizeBytes)]).joined(separator: ","))
+            lines.append((cells.map(csvCell) + [String(row.sizeBytes), csvCell(row.tags.joined(separator: ";"))]).joined(separator: ","))
         }
         return lines.joined(separator: "\r\n") + "\r\n"
     }
@@ -70,14 +72,15 @@ enum CatalogExport {
     // MARK: - Markdown
 
     private static func markdown(_ rows: [ExportRow]) -> String {
-        let titles: [String] = ["Name", "Vendor", "Version", "Status", "Formats", "Archs", "Size (bytes)"]
+        let titles: [String] = ["Name", "Vendor", "Version", "Status", "Formats", "Archs", "Size (bytes)", "Tags"]
         let dashes: [String] = titles.map { _ in "---" }
         let header: String = "| " + titles.joined(separator: " | ") + " |"
         let separator: String = "| " + dashes.joined(separator: " | ") + " |"
         var lines: [String] = [header, separator]
         for row in rows {
             let cells: [String] = [row.name, row.vendor, row.version, row.status, row.formats.joined(separator: ", "),
-                                   row.archs.joined(separator: ", "), String(row.sizeBytes)]
+                                   row.archs.joined(separator: ", "), String(row.sizeBytes),
+                                   row.tags.joined(separator: ", ")]
             let escaped: [String] = cells.map(markdownCell)
             lines.append("| " + escaped.joined(separator: " | ") + " |")
         }
