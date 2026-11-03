@@ -248,3 +248,152 @@ struct Knob: View {
             .rotation(.degrees(135))
     }
 }
+
+// MARK: - One-screen components
+
+/// The accent gradient, from the skin's colour to its bright partner.
+var accentGradient: LinearGradient {
+    LinearGradient(gradient: Gradient(colors: [Color.accent, Color.accentHot]), startPoint: .leading, endPoint: .trailing)
+}
+
+extension View {
+    /// A large rounded panel, the main building block of the window.
+    func card() -> some View { panel(.panel, radius: 16) }
+}
+
+/// Capsule button. The primary one carries the accent gradient and glows; destructive text is red.
+struct PillButtonStyle: ButtonStyle {
+    var primary = false
+    var destructive = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        Pill(configuration: configuration, primary: primary, destructive: destructive)
+    }
+
+    private struct Pill: View {
+        let configuration: ButtonStyleConfiguration
+        let primary: Bool
+        let destructive: Bool
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var hovered = false
+
+        var body: some View {
+            let lit = hovered && isEnabled
+            let text: Color = primary ? .white : destructive ? .danger : .text
+            return configuration.label
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(text)
+                .padding(.horizontal, 16)
+                .frame(height: 32)
+                .background(background.brightness(configuration.isPressed ? -0.08 : lit ? 0.05 : 0))
+                .clipShape(Capsule())
+                .shadow(color: primary && isEnabled ? Color.accent.opacity(lit ? 0.55 : 0.35) : .clear, radius: 10)
+                .opacity(isEnabled ? 1 : 0.4)
+                .onHover { hovered = $0 }
+                .animation(.easeOut(duration: 0.15), value: lit)
+        }
+
+        @ViewBuilder private var background: some View {
+            if primary { accentGradient } else { Color.raised }
+        }
+    }
+}
+
+/// A filter in the header: title, count, gradient when selected.
+struct FilterPill: View {
+    let title: String
+    let count: Int?
+    let isOn: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                if let count = count {
+                    Text("\(count)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(isOn ? Color.white.opacity(0.8) : .label)
+                }
+            }
+            .foregroundColor(isOn ? .white : .text)
+            .padding(.horizontal, 14)
+            .frame(height: 32)
+            .background(Group { if isOn { accentGradient } else { Color.raised } })
+            .clipShape(Capsule())
+            .shadow(color: isOn ? Color.accent.opacity(0.35) : .clear, radius: 10)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .animation(.easeOut(duration: 0.15), value: isOn)
+    }
+}
+
+/// How much of a task is done: the ring fills as the remaining number drops, or shows progress while working.
+struct TaskRing: View {
+    let remaining: Int
+    let total: Int
+    var progress: Double?
+
+    var body: some View {
+        let done = total > 0 ? Double(total - remaining) / Double(total) : 1
+        let fraction = max(0, min(1, progress ?? done))
+        return ZStack {
+            Circle().stroke(Color.raised, lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: CGFloat(fraction))
+                .stroke(accentGradient, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .shadow(color: Color.accent.opacity(0.45), radius: 4)
+                .animation(Motion.reduced ? nil : .easeOut(duration: 0.6), value: fraction)
+            if remaining == 0 && progress == nil {
+                Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundColor(.mint)
+            } else {
+                Text("\(remaining)").font(.system(size: 14, weight: .bold, design: .rounded)).foregroundColor(.text)
+            }
+        }
+        .frame(width: 44, height: 44)
+    }
+}
+
+/// A plugin's state: green works, amber warning, red problem, grey not checked yet.
+struct LED: View {
+    let level: CheckState.Level?
+    var running = false
+
+    var body: some View {
+        let color: Color = {
+            switch level {
+            case .ok?:      return .mint
+            case .warning?: return .amber
+            case .failed?:  return .danger
+            case nil:       return .edge
+            }
+        }()
+        return Group {
+            if running {
+                PulseDot()
+            } else {
+                Circle()
+                    .fill(color)
+                    .frame(width: 8, height: 8)
+                    .shadow(color: level == nil ? .clear : color.opacity(0.8), radius: 4)
+            }
+        }
+        .frame(width: 10, height: 10)
+    }
+}
+
+/// The app's name in the accent gradient with a soft glow, like the title of a plugin.
+struct GradientTitle: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 20, weight: .bold, design: .rounded))
+            .kerning(2)
+            .foregroundColor(.clear)
+            .overlay(accentGradient.mask(Text(text).font(.system(size: 20, weight: .bold, design: .rounded)).kerning(2)))
+            .shadow(color: Color.accent.opacity(0.4), radius: 8)
+    }
+}
