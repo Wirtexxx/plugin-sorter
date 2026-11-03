@@ -108,7 +108,7 @@ struct ManagerView: View {
             Button(t("button.refresh").uppercased()) { library.scan() }
                 .buttonStyle(PluginButtonStyle())
                 .disabled(library.busy)
-            Button(t("mgr.checkAll").uppercased()) { library.check(library.visible) }
+            Button(t("mgr.checkAll").uppercased()) { library.recheckAll() }
                 .buttonStyle(PluginButtonStyle(primary: true))
                 .disabled(library.busy || library.visible.isEmpty)
         }
@@ -160,7 +160,7 @@ struct ManagerRow: View {
                     .buttonStyle(IconButtonStyle(accent: true))
                     .help(t("mgr.canFix"))
                 }
-                Button { library.check([plugin]) } label: {
+                Button { library.recheck([plugin]) } label: {
                     Image(systemName: "stethoscope").font(.system(size: 11, weight: .semibold))
                 }
                 .buttonStyle(IconButtonStyle())
@@ -240,7 +240,7 @@ struct ManagerRow: View {
             if isExpanded { library.expanded.remove(plugin.id) } else { library.expanded.insert(plugin.id) }
         }
         .contextMenu {
-            Button(t("mgr.check")) { library.check([plugin]) }
+            Button(t("mgr.check")) { library.recheck([plugin]) }
             Button(t("mgr.reveal")) { NSWorkspace.shared.activateFileViewerSelecting(plugin.bundles.map(\.url)) }
             Divider()
             Button(t("mgr.trash")) { confirmTrash() }

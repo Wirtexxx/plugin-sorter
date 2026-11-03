@@ -22,6 +22,7 @@ let package = Package(
                 "FLCategories.swift",
                 "CheckCache.swift",
                 "PluginCatalog.swift",
+                "FLStudio.swift",
             ]
         ),
         .testTarget(

@@ -46,6 +46,11 @@ final class CheckCache {
         save()
     }
 
+    /// Bundles the background check still has to look at: never checked, changed since, and not on their way out.
+    static func pending(_ bundles: [PluginBundle], cache: CheckCache, forgotten: Set<String>) -> [PluginBundle] {
+        bundles.filter { !forgotten.contains($0.id) && cache.issues(for: $0) == nil }
+    }
+
     private func save() {
         try? JSONEncoder().encode(records).write(to: url, options: .atomic)
     }
