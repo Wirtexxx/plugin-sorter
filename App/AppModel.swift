@@ -36,6 +36,8 @@ final class AppModel: ObservableObject {
     @Published var sort: CatalogSort = .name
     @Published var expanded: String?
     @Published var banner: Banner?
+    /// Keys of the plugins installed since the last "all seen".
+    @Published private(set) var newKeys: Set<String> = []
     @Published var showFolderSheet = false
     @Published var showCleanupSheet = false
     /// The plugin whose removal window is open.
@@ -45,6 +47,7 @@ final class AppModel: ObservableObject {
     /// FL's plugin database; a demo folder for README screenshots.
     var flRoot = FLDatabase.root
 
+    private let known: KnownPlugins
     private var bag: Set<AnyCancellable> = []
     private var bannerTimer: Timer?
     /// `allRows`, kept until a library it's made from changes.
@@ -55,7 +58,9 @@ final class AppModel: ObservableObject {
     private var cachedPictures: [String: FLPlugin]?
 
     init(sorter: Sorter = Sorter(), manager: ManagerLibrary = ManagerLibrary(),
-         favorites: FavoritesLibrary = FavoritesLibrary(), pictures: FLLibrary = FLLibrary()) {
+         favorites: FavoritesLibrary = FavoritesLibrary(), pictures: FLLibrary = FLLibrary(),
+         known: KnownPlugins = KnownPlugins()) {
+        self.known = known
         self.sorter = sorter
         self.manager = manager
         self.favorites = favorites
@@ -70,6 +75,10 @@ final class AppModel: ObservableObject {
         let forget: (Any) -> Void = { [weak self] _ in self?.cachedRows = nil }
         manager.$plugins.sink(receiveValue: forget).store(in: &bag)
         manager.$plugins.sink { [weak self] _ in self?.cachedFindings = nil }.store(in: &bag)
+        manager.$plugins.sink { [weak self] plugins in
+            guard let self = self else { return }
+            self.newKeys = self.known.update(with: plugins)
+        }.store(in: &bag)
         favorites.$entries.sink(receiveValue: forget).store(in: &bag)
         favorites.$favorites.sink(receiveValue: forget).store(in: &bag)
         favorites.$availability.sink(receiveValue: forget).store(in: &bag)
@@ -133,6 +142,15 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func isNew(_ row: CatalogRow) -> Bool { row.plugin.map { newKeys.contains($0.key) } ?? false }
+
+    /// "All seen": the marks go and the list leaves the filter that has nothing left to show.
+    func markAllSeen() {
+        known.markAllSeen()
+        newKeys = []
+        if filter == .new { filter = .all }
+    }
+
     func count(_ filter: CatalogFilter) -> Int { allRows.filter { passes($0, filter) }.count }
 
     func level(of row: CatalogRow) -> CheckState.Level? {
@@ -149,7 +167,7 @@ final class AppModel: ObservableObject {
         case .notInFL:           return !row.isFavorite && !row.isStale
         case .disabled:          return row.plugin?.isDisabled ?? false
         case .duplicates:        return row.plugin.map { plugin in findings.contains { $0.pluginKey == plugin.key } } ?? false
-        case .new:               return false
+        case .new:               return isNew(row)
         }
     }
 

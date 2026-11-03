@@ -29,6 +29,7 @@ let package = Package(
                 "Uninstall.swift",
                 "CatalogExport.swift",
                 "SupportDraft.swift",
+                "KnownPlugins.swift",
             ]
         ),
         .testTarget(

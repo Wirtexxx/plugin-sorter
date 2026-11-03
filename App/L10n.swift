@@ -144,6 +144,8 @@ struct L10n {
         t["filter.problems"] = [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"]
         t["filter.notInFL"] = [.en: "Not in FL", .ru: "Не в FL", .uk: "Не в FL", .de: "Nicht in FL"]
         t["filter.new"] = [.en: "New", .ru: "Новые", .uk: "Нові", .de: "Neu"]
+        t["new.badge"] = [.en: "NEW", .ru: "НОВЫЙ", .uk: "НОВИЙ", .de: "NEU"]
+        t["new.markSeen"] = [.en: "All seen", .ru: "Всё просмотрено", .uk: "Усе переглянуто", .de: "Alles gesehen"]
         t["filter.disabled"] = [.en: "Off", .ru: "Выключены", .uk: "Вимкнені", .de: "Aus"]
         t["filter.duplicates"] = [.en: "Duplicates", .ru: "Дубли", .uk: "Дублі", .de: "Duplikate"]
         t["col.plugin"] = [.en: "Plugin", .ru: "Плагин", .uk: "Плагін", .de: "Plugin"]

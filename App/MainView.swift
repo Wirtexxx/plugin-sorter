@@ -157,7 +157,7 @@ struct MainView: View {
             filterPill(.all, "filter.all")
             filterPill(.problems, "filter.problems")
             filterPill(.notInFL, "filter.notInFL")
-            // Places for later features: shown only once they find something
+            // Shown only once they find something
             if model.count(.new) > 0 { filterPill(.new, "filter.new") }
             if model.count(.duplicates) > 0 { filterPill(.duplicates, "filter.duplicates") }
             if model.count(.disabled) > 0 { filterPill(.disabled, "filter.disabled") }
@@ -240,6 +240,7 @@ struct MainView: View {
         let rows = model.rows
         return VStack(spacing: 0) {
             if model.filter == .duplicates { cleanupBar }
+            if model.filter == .new { newBar }
             if viewMode == .list { columnHeaders } else { cardHeaders }
             if rows.isEmpty {
                 Text(t("main.empty"))
@@ -287,6 +288,17 @@ struct MainView: View {
                 .font(.system(size: 13)).foregroundColor(.text)
             Spacer()
             Button(t("cleanup.review")) { model.showCleanupSheet = true }
+                .buttonStyle(PillButtonStyle(primary: true))
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
+    }
+
+    /// Above the list while the new filter is on: the marks stay until they are cleared here.
+    private var newBar: some View {
+        HStack {
+            Spacer()
+            Button(t("new.markSeen")) { model.markAllSeen() }
                 .buttonStyle(PillButtonStyle(primary: true))
         }
         .padding(.horizontal, 22)

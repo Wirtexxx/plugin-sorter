@@ -84,6 +84,7 @@ struct PluginCardView: View {
                 .overlay(PluginStar(row: row, model: model, t: t, size: 12)
                     .background(Circle().fill(Color.chassis.opacity(0.75)))
                     .padding(2), alignment: .topTrailing)
+                .overlay(Group { if model.isNew(row) { NewBadge(t: t).padding(6) } }, alignment: .bottomLeading)
             Text(row.name)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(row.isStale ? .label : .text)

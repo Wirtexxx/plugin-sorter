@@ -41,10 +41,13 @@ struct PluginRowView: View {
         HStack(spacing: Self.spacing) {
             LED(level: model.level(of: row), running: isRunning).frame(width: Self.ledWidth)
             VStack(alignment: .leading, spacing: 2) {
-                Text(row.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(row.isStale ? .label : .text)
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(row.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(row.isStale ? .label : .text)
+                        .lineLimit(1)
+                    if model.isNew(row) { NewBadge(t: t) }
+                }
                 Text(row.vendor)
                     .font(.system(size: 12))
                     .foregroundColor(.label)
@@ -92,6 +95,20 @@ struct PluginRowView: View {
         }
     }
 
+}
+
+/// Marks a plugin installed since the last "all seen".
+struct NewBadge: View {
+    let t: L10n
+
+    var body: some View {
+        Text(t("new.badge"))
+            .font(.system(size: 9, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .frame(height: 15)
+            .background(Capsule().fill(Color.accent))
+    }
 }
 
 /// The FL star: adds the plugin to FL's favourites or takes it out.
