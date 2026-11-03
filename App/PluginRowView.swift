@@ -24,7 +24,7 @@ struct PluginRowView: View {
         VStack(alignment: .leading, spacing: 0) {
             summary
             if isExpanded {
-                details
+                PluginDetailsView(row: row, model: model, t: t)
                     .padding(.leading, Self.ledWidth + Self.spacing + 14)
                     .padding(.trailing, 14)
                     .padding(.bottom, 14)
@@ -52,8 +52,8 @@ struct PluginRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             formats.frame(width: Self.formatsWidth, alignment: .trailing)
-            star.frame(width: Self.starWidth)
-            category.frame(width: Self.categoryWidth, alignment: .leading)
+            PluginStar(row: row, model: model, t: t).frame(width: Self.starWidth)
+            PluginCategoryMenu(row: row, model: model, t: t).frame(width: Self.categoryWidth, alignment: .leading)
             Text(size)
                 .font(.system(size: 12))
                 .foregroundColor(.label)
@@ -91,10 +91,19 @@ struct PluginRowView: View {
         }
     }
 
-    private var star: some View {
+}
+
+/// The FL star: adds the plugin to FL's favourites or takes it out.
+struct PluginStar: View {
+    let row: CatalogRow
+    @ObservedObject var model: AppModel
+    let t: L10n
+    var size: CGFloat = 14
+
+    var body: some View {
         Button { model.toggleFavorite(row) } label: {
             Image(systemName: row.isFavorite ? "star.fill" : "star")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: size, weight: .semibold))
                 .foregroundColor(row.isFavorite ? .accent : row.isKnownToFL ? .label : .edge)
                 .shadow(color: row.isFavorite ? Color.accent.opacity(0.5) : .clear, radius: 4)
                 .frame(width: 28, height: 28)
@@ -104,8 +113,15 @@ struct PluginRowView: View {
         .disabled(!row.isKnownToFL || model.favorites.busy)
         .help(row.isKnownToFL ? t(row.isFavorite ? "row.removeFavorite" : "row.addFavorite") : t("row.notSeen"))
     }
+}
 
-    @ViewBuilder private var category: some View {
+/// The FL category of a favourite, as a menu of FL's folders.
+struct PluginCategoryMenu: View {
+    let row: CatalogRow
+    @ObservedObject var model: AppModel
+    let t: L10n
+
+    @ViewBuilder var body: some View {
         if row.isFavorite && !row.isStale {
             Menu {
                 ForEach(FLCategories.folders(model.section(of: row)), id: \.self) { folder in
@@ -125,10 +141,22 @@ struct PluginRowView: View {
             Text("—").font(.system(size: 13)).foregroundColor(.edge)
         }
     }
+}
 
-    // MARK: - Details
+/// What's known about one plugin and what can be done with it: in place in the list, or narrow
+/// (`compact`) in the panel beside the cards.
+struct PluginDetailsView: View {
+    let row: CatalogRow
+    @ObservedObject var model: AppModel
+    let t: L10n
+    var compact = false
 
-    @ViewBuilder private var details: some View {
+    private var manager: ManagerLibrary { model.manager }
+    private var isRunning: Bool {
+        row.plugin?.bundles.contains { manager.state(of: $0) == .running } ?? false
+    }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if row.isStale {
                 problem(t("row.stale")) {
@@ -139,7 +167,7 @@ struct PluginRowView: View {
                 if let text = problemText(plugin) {
                     problem(text) { actions(plugin) }
                 } else {
-                    HStack(spacing: 8) { actions(plugin) }
+                    flow { actions(plugin) }
                 }
                 bundles(plugin)
                 if row.isKnownToFL { flSection }
@@ -150,13 +178,22 @@ struct PluginRowView: View {
         }
     }
 
+    /// Buttons side by side, or one under another where they wouldn't fit.
+    @ViewBuilder private func flow<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if compact {
+            VStack(alignment: .leading, spacing: 6) { content() }
+        } else {
+            HStack(spacing: 8) { content() }
+        }
+    }
+
     private func problem<Actions: View>(_ text: String, @ViewBuilder actions: () -> Actions) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(text)
                 .font(.system(size: 13))
                 .foregroundColor(Color(hex: 0xFFB3BB))
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) { actions() }
+            flow { actions() }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,20 +229,42 @@ struct PluginRowView: View {
     private func bundles(_ plugin: ManagedPlugin) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(plugin.bundles) { bundle in
-                HStack(spacing: 10) {
-                    FormatPill(text: bundle.format.rawValue, level: manager.state(of: bundle).level)
-                    Text(bundle.displayPath)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.text)
-                        .lineLimit(1)
-                    Text(state(bundle)).font(.system(size: 12)).foregroundColor(.label).lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(bundle.archs.joined(separator: " · ")).font(.system(size: 11)).foregroundColor(.label)
-                    if let size = manager.size(of: bundle) {
-                        Text(formatBytes(size)).font(.system(size: 11)).foregroundColor(.label)
+                if compact {
+                    compactBundle(bundle)
+                } else {
+                    HStack(spacing: 10) {
+                        FormatPill(text: bundle.format.rawValue, level: manager.state(of: bundle).level)
+                        Text(bundle.displayPath)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.text)
+                            .lineLimit(1)
+                        Text(state(bundle)).font(.system(size: 12)).foregroundColor(.label).lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text(bundle.archs.joined(separator: " · ")).font(.system(size: 11)).foregroundColor(.label)
+                        if let size = manager.size(of: bundle) {
+                            Text(formatBytes(size)).font(.system(size: 11)).foregroundColor(.label)
+                        }
                     }
                 }
             }
+        }
+    }
+
+    private func compactBundle(_ bundle: PluginBundle) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                FormatPill(text: bundle.format.rawValue, level: manager.state(of: bundle).level)
+                Text(state(bundle)).font(.system(size: 12)).foregroundColor(.label).lineLimit(1)
+                Spacer(minLength: 0)
+                if let size = manager.size(of: bundle) {
+                    Text(formatBytes(size)).font(.system(size: 11)).foregroundColor(.label)
+                }
+            }
+            Text(bundle.displayPath)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.text)
+                .lineLimit(2)
+            Text(bundle.archs.joined(separator: " · ")).font(.system(size: 11)).foregroundColor(.label)
         }
     }
 
@@ -219,26 +278,39 @@ struct PluginRowView: View {
 
     // MARK: FL
 
-    private var flSection: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(t("row.inFL")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
-                HStack(spacing: 4) {
-                    ForEach(row.entries) { entry in
-                        let on = model.isFavorite(entry)
-                        Button { model.toggle(entry) } label: {
-                            FormatPill(text: entry.shortFormat, level: nil, filled: on)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .disabled(model.favorites.busy)
-                    }
+    @ViewBuilder private var flSection: some View {
+        if compact {
+            VStack(alignment: .leading, spacing: 14) {
+                flFormats
+                if let picture = model.picture(of: row) {
+                    PictureWell(plugin: picture, model: model, t: t, compact: true)
                 }
-                .help(t("row.formatsHint"))
             }
-            if let picture = model.picture(of: row) {
-                PictureWell(plugin: picture, model: model, t: t)
+        } else {
+            HStack(alignment: .top, spacing: 18) {
+                flFormats
+                if let picture = model.picture(of: row) {
+                    PictureWell(plugin: picture, model: model, t: t)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+        }
+    }
+
+    private var flFormats: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(t("row.inFL")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
+            HStack(spacing: 4) {
+                ForEach(row.entries) { entry in
+                    let on = model.isFavorite(entry)
+                    Button { model.toggle(entry) } label: {
+                        FormatPill(text: entry.shortFormat, level: nil, filled: on)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(model.favorites.busy)
+                }
+            }
+            .help(t("row.formatsHint"))
         }
     }
 
@@ -247,20 +319,42 @@ struct PluginRowView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(t("mgr.vendorData")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
                 ForEach(folders, id: \.self) { folder in
-                    HStack(spacing: 10) {
-                        Text(folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(.text)
-                            .lineLimit(1)
-                        Spacer()
-                        Text(manager.folderSizes[folder].map(formatBytes) ?? "…").font(.system(size: 11)).foregroundColor(.label)
-                        Button(t("mgr.reveal")) { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
-                            .buttonStyle(PillButtonStyle())
+                    if compact {
+                        VStack(alignment: .leading, spacing: 4) {
+                            folderPath(folder).lineLimit(2)
+                            HStack(spacing: 10) {
+                                folderSize(folder)
+                                Spacer()
+                                revealButton(folder)
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 10) {
+                            folderPath(folder).lineLimit(1)
+                            Spacer()
+                            folderSize(folder)
+                            revealButton(folder)
+                        }
                     }
                 }
             }
             .onAppear { manager.measure(folders) }
         }
+    }
+
+    private func folderPath(_ folder: URL) -> some View {
+        Text(folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundColor(.text)
+    }
+
+    private func folderSize(_ folder: URL) -> some View {
+        Text(manager.folderSizes[folder].map(formatBytes) ?? "…").font(.system(size: 11)).foregroundColor(.label)
+    }
+
+    private func revealButton(_ folder: URL) -> some View {
+        Button(t("mgr.reveal")) { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
+            .buttonStyle(PillButtonStyle())
     }
 
     private func confirmTrash(_ plugin: ManagedPlugin) {
@@ -305,47 +399,65 @@ struct PictureWell: View {
     let plugin: FLPlugin
     @ObservedObject var model: AppModel
     let t: L10n
+    /// Only the buttons: the panel shows the picture above them and takes the drop there.
+    var compact = false
     @State private var targeted = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(Color.chassis)
-                if plugin.hasPicture, let image = NSImage(contentsOf: plugin.picture) {
-                    Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).padding(4)
-                } else {
-                    Text(t("row.dropHint")).font(.system(size: 11)).foregroundColor(.label).multilineTextAlignment(.center)
-                        .padding(8)
-                }
-            }
-            .frame(width: 150, height: 76)
-            .overlay(RoundedRectangle(cornerRadius: 10)
-                .stroke(targeted ? Color.accent : .clear, style: StrokeStyle(lineWidth: 2, dash: [5, 3])))
-            .onDrop(of: [UTType.fileURL], isTargeted: $targeted) { providers in
-                guard let provider = providers.first else { return false }
-                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                    guard let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
-                    DispatchQueue.main.async { model.whenFLClosed { model.pictures.setCustom(plugin, image: url) } }
-                }
-                return true
-            }
+            if !compact { well }
             VStack(alignment: .leading, spacing: 6) {
                 Text(t("row.picture")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
-                HStack(spacing: 6) {
-                    Button(t("fl.retake")) { model.whenFLClosed { model.pictures.generate([plugin], screenshots: true) } }
-                    Button(t("fl.useCard")) { model.whenFLClosed { model.pictures.generate([plugin], screenshots: false) } }
-                }
-                .buttonStyle(PillButtonStyle())
-                HStack(spacing: 6) {
-                    Button(t("fl.choose")) { choose() }
-                    if plugin.source != nil {
-                        Button(t("fl.remove")) { model.whenFLClosed { model.pictures.remove([plugin]) } }
-                            .buttonStyle(PillButtonStyle(destructive: true))
-                    }
-                }
-                .buttonStyle(PillButtonStyle())
+                pictureButtons
             }
             .disabled(model.pictures.busy)
+        }
+    }
+
+    private var well: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10).fill(Color.chassis)
+            if plugin.hasPicture, let image = NSImage(contentsOf: plugin.picture) {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).padding(4)
+            } else {
+                Text(t("row.dropHint")).font(.system(size: 11)).foregroundColor(.label).multilineTextAlignment(.center)
+                    .padding(8)
+            }
+        }
+        .frame(width: 150, height: 76)
+        .overlay(RoundedRectangle(cornerRadius: 10)
+            .stroke(targeted ? Color.accent : .clear, style: StrokeStyle(lineWidth: 2, dash: [5, 3])))
+        .onDrop(of: [UTType.fileURL], isTargeted: $targeted) { providers in
+            guard let provider = providers.first else { return false }
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                guard let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+                DispatchQueue.main.async { model.whenFLClosed { model.pictures.setCustom(plugin, image: url) } }
+            }
+            return true
+        }
+    }
+
+    @ViewBuilder private var pictureButtons: some View {
+        let retake = Button(t("fl.retake")) { model.whenFLClosed { model.pictures.generate([plugin], screenshots: true) } }
+        let card = Button(t("fl.useCard")) { model.whenFLClosed { model.pictures.generate([plugin], screenshots: false) } }
+        let pick = Button(t("fl.choose")) { choose() }
+        let remove = Button(t("fl.remove")) { model.whenFLClosed { model.pictures.remove([plugin]) } }
+        if compact {
+            VStack(alignment: .leading, spacing: 6) {
+                retake.buttonStyle(PillButtonStyle())
+                card.buttonStyle(PillButtonStyle())
+                pick.buttonStyle(PillButtonStyle())
+                if plugin.source != nil { remove.buttonStyle(PillButtonStyle(destructive: true)) }
+            }
+        } else {
+            HStack(spacing: 6) {
+                retake.buttonStyle(PillButtonStyle())
+                card.buttonStyle(PillButtonStyle())
+            }
+            HStack(spacing: 6) {
+                pick.buttonStyle(PillButtonStyle())
+                if plugin.source != nil { remove.buttonStyle(PillButtonStyle(destructive: true)) }
+            }
         }
     }
 

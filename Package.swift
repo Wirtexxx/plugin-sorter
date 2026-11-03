@@ -24,6 +24,7 @@ let package = Package(
                 "PluginCatalog.swift",
                 "FLStudio.swift",
                 "ScrollGlide.swift",
+                "CardPictures.swift",
             ]
         ),
         .testTarget(

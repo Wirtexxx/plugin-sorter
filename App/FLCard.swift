@@ -10,7 +10,7 @@ struct FLCard: View {
     /// Pixels per point. FL's stock PNGs are stored at 192 dpi, twice its 96 dpi base,
     /// and FL draws them at half their pixel size; a 72 dpi PNG is drawn pixel for pixel.
     static let scale: CGFloat = 2
-    private static let header: CGFloat = 17
+    static let header: CGFloat = 17
 
     let title: String
     let vendor: String

@@ -1,25 +1,46 @@
 import SwiftUI
 import AppKit
 
+/// How the window shows the plugins. The raw value is what's remembered between launches.
+enum PluginViewMode: String {
+    case list, cards
+}
+
 /// The whole window: header with search and filters, every plugin, and the tasks below.
 struct MainView: View {
     @ObservedObject var model: AppModel
     let t: L10n
 
     @State private var gearHovered = false
+    @AppStorage("viewMode") private var viewMode: PluginViewMode = .list
 
     var body: some View {
         VStack(spacing: 10) {
             header
             if let banner = model.banner { bannerView(banner) }
-            list
+            HStack(spacing: 10) {
+                list
+                if let row = panelRow {
+                    PluginDetailPanel(row: row, model: model, t: t)
+                        .id(row.id)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
             TasksView(model: model, t: t)
         }
         .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: model.banner?.id)
+        .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: panelRow == nil)
         .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: model.tasksAllDone)
         .sheet(isPresented: $model.showFolderSheet) {
             FolderSortSheet(model: model, t: t)
         }
+    }
+
+    /// The plugin open in the panel. Only the cards have one; the list opens plugins in place. Gone when
+    /// a filter or the Trash takes the plugin away.
+    private var panelRow: CatalogRow? {
+        guard viewMode == .cards, let id = model.expanded else { return nil }
+        return model.rows.first { $0.id == id }
     }
 
     // MARK: - Result banner
@@ -89,6 +110,7 @@ struct MainView: View {
                 .frame(height: 32)
                 .background(Capsule().fill(Color.inset))
                 filters
+                viewToggle
                 gearMenu
             }
             .padding(.horizontal, 16)
@@ -98,6 +120,30 @@ struct MainView: View {
             }
         }
         .card()
+    }
+
+    private var viewToggle: some View {
+        HStack(spacing: 2) {
+            viewButton(.list, icon: "list.bullet", help: "view.list")
+            viewButton(.cards, icon: "square.grid.2x2", help: "view.cards")
+        }
+        .padding(2)
+        .background(Capsule().fill(Color.inset))
+    }
+
+    private func viewButton(_ mode: PluginViewMode, icon: String, help: String) -> some View {
+        Button {
+            withAnimation(Motion.reduced ? nil : .easeOut(duration: 0.2)) { viewMode = mode }
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(viewMode == mode ? .text : .label)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(viewMode == mode ? Color.raised : .clear))
+                .contentShape(Circle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .help(t(help))
     }
 
     private var filters: some View {
@@ -181,7 +227,7 @@ struct MainView: View {
     private var list: some View {
         let rows = model.rows
         return VStack(spacing: 0) {
-            columnHeaders
+            if viewMode == .list { columnHeaders } else { cardHeaders }
             if rows.isEmpty {
                 Text(t("main.empty"))
                     .font(.system(size: 13))
@@ -189,9 +235,20 @@ struct MainView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(rows) { row in
-                            PluginRowView(row: row, model: model, t: t)
+                    Group {
+                        if viewMode == .list {
+                            LazyVStack(spacing: 2) {
+                                ForEach(rows) { row in
+                                    PluginRowView(row: row, model: model, t: t)
+                                }
+                            }
+                        } else {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], spacing: 8) {
+                                ForEach(rows) { row in
+                                    PluginCardView(row: row, model: model, t: t)
+                                }
+                            }
+                            .padding(.top, 2)
                         }
                     }
                     .padding(.horizontal, 8)
@@ -224,6 +281,18 @@ struct MainView: View {
             header("FL").frame(width: PluginRowView.starWidth)
             header(t("col.category")).frame(width: PluginRowView.categoryWidth, alignment: .leading)
             sortHeader(t("col.size"), .size).frame(width: PluginRowView.sizeWidth, alignment: .trailing)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
+        .padding(.bottom, 6)
+    }
+
+    /// The list's column titles sort it; the cards have no columns, so only the sorting stays.
+    private var cardHeaders: some View {
+        HStack(spacing: PluginRowView.spacing) {
+            sortHeader(t("col.plugin"), .name)
+            sortHeader(t("col.size"), .size)
+            Spacer()
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)

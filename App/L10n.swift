@@ -136,6 +136,8 @@ struct L10n {
         t["fav.reading"] = [.en: "Reading categories", .ru: "Читаю категории", .uk: "Читаю категорії", .de: "Lese Kategorien"]
         t["fav.noCategory"] = [.en: "No category", .ru: "Без категории", .uk: "Без категорії", .de: "Ohne Kategorie"]
         t["main.search"] = [.en: "Find a plugin", .ru: "Найти плагин", .uk: "Знайти плагін", .de: "Plugin suchen"]
+        t["view.list"] = [.en: "List", .ru: "Список", .uk: "Список", .de: "Liste"]
+        t["view.cards"] = [.en: "Cards", .ru: "Карточки", .uk: "Картки", .de: "Karten"]
         t["filter.all"] = [.en: "All", .ru: "Все", .uk: "Усі", .de: "Alle"]
         t["filter.problems"] = [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"]
         t["filter.notInFL"] = [.en: "Not in FL", .ru: "Не в FL", .uk: "Не в FL", .de: "Nicht in FL"]

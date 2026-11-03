@@ -45,6 +45,8 @@ final class AppModel: ObservableObject {
     private var bannerTimer: Timer?
     /// `allRows`, kept until a library it's made from changes.
     private var cachedRows: [CatalogRow]?
+    /// FL's pictures by favourite file, kept until they change: every card asks on every redraw.
+    private var cachedPictures: [String: FLPlugin]?
 
     init(sorter: Sorter = Sorter(), manager: ManagerLibrary = ManagerLibrary(),
          favorites: FavoritesLibrary = FavoritesLibrary(), pictures: FLLibrary = FLLibrary()) {
@@ -64,6 +66,7 @@ final class AppModel: ObservableObject {
         favorites.$entries.sink(receiveValue: forget).store(in: &bag)
         favorites.$favorites.sink(receiveValue: forget).store(in: &bag)
         favorites.$availability.sink(receiveValue: forget).store(in: &bag)
+        pictures.$plugins.sink { [weak self] _ in self?.cachedPictures = nil }.store(in: &bag)
         observeStatuses()
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in self?.refresh() }
@@ -171,8 +174,14 @@ final class AppModel: ObservableObject {
 
     /// The picture FL shows for the plugin's favourite.
     func picture(of row: CatalogRow) -> FLPlugin? {
-        let paths = Set(row.favorites.map(\.fst.path))
-        return pictures.plugins.first { paths.contains($0.fst.path) }
+        let index: [String: FLPlugin]
+        if let cached = cachedPictures {
+            index = cached
+        } else {
+            index = Dictionary(pictures.plugins.map { ($0.fst.path, $0) }, uniquingKeysWith: { first, _ in first })
+            cachedPictures = index
+        }
+        return row.favorites.lazy.compactMap { index[$0.fst.path] }.first
     }
 
     func isFavorite(_ entry: InstalledEntry) -> Bool { favorites.isFavorite(entry) }
