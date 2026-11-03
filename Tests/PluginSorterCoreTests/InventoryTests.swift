@@ -54,8 +54,25 @@ struct InventoryTests {
     }
 
     @Test func groupsVendorAUSuffix() {
-        let room = scan().first { $0.key == "valhallaroom" }
+        let room = scan().first { $0.key.hasPrefix("valhallaroom|") }
         #expect(room?.bundles.map(\.format) == [.au, .vst3])
+    }
+
+    @Test func sameNameFromDifferentDevelopersStaysApart() throws {
+        try makeBundle(dir.path("VST3/Compressor.vst3"), id: "com.vendora.compressor")
+        try makeBundle(dir.path("Components/Compressor.component"), id: "com.vendorb.compressor")
+        let compressors = scan().filter { $0.name == "Compressor" }
+        #expect(compressors.count == 2)
+        #expect(compressors.allSatisfy { $0.bundles.count == 1 })
+    }
+
+    @Test func domainPartsMatchTheScript() throws {
+        let script = try String(contentsOf: ScriptTests.script, encoding: .utf8)
+        let line = try #require(script.split(separator: "\n").first { $0.contains("com|co|uk|") })
+        let parts = line.trimmingCharacters(in: .whitespaces).split(separator: ")").first?.split(separator: "|").map(String.init)
+        #expect(Set(parts ?? []) == PluginInventory.domainParts)
+        #expect(PluginInventory.idVendor("jp.co.vendor.Plugin") == "vendor")
+        #expect(PluginInventory.idVendor("audio.output.Portal") == "output")
     }
 
     @Test func keepsSimilarNamesApart() {
@@ -66,7 +83,7 @@ struct InventoryTests {
 
     @Test func vendorComesFromFolderAUOrBundleID() {
         let plugins = scan()
-        #expect(plugins.first { $0.key == "valhallaroom" }?.vendor == "Valhalla DSP")  // vendor folder
+        #expect(plugins.first { $0.key.hasPrefix("valhallaroom|") }?.vendor == "Valhalla DSP")  // vendor folder
         let au = plugins.flatMap(\.bundles).first { $0.format == .au && $0.url.lastPathComponent.hasPrefix("FabFilter") }
         #expect(au?.vendor == "FabFilter")                                                 // AU component name
         #expect(plugins.first { $0.name == "OTT" }?.vendor == "xfer")                      // bundle id

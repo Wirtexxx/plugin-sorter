@@ -42,6 +42,9 @@ struct PluginBundle: Identifiable {
     let au: AUCode?
     /// Inside a vendor folder rather than directly in the format folder.
     let nested: Bool
+    /// Developer part of the bundle identifier ("fabfilter" in com.fabfilter.Pro-Q.4), used to keep
+    /// same-named plugins of different developers apart.
+    var idVendor = ""
 
     /// Path from the format folder on, e.g. "VST3/FabFilter/FabFilter Pro-Q 4.vst3".
     var displayPath: String {
@@ -86,15 +89,17 @@ enum PluginInventory {
         }
 
         // Formats of one plugin share a file name: "FabFilter Pro-Q 4.vst3" and "FabFilter Pro-Q 4.component"
-        let grouped = Dictionary(grouping: bundles) { key(for: $0.url) }
+        // …and a developer: two "Compressor"s from different developers must never become one row
+        let grouped = Dictionary(grouping: bundles) { key(for: $0.url) + "|" + $0.idVendor }
         return grouped.map { key, items in
             let sorted = items.sorted { $0.format.rawValue < $1.format.rawValue }
-            let name = sorted.map { $0.url.deletingPathExtension().lastPathComponent }.min { $0.count < $1.count } ?? key
+            let names: [String] = sorted.map { $0.url.deletingPathExtension().lastPathComponent }
+            let name: String = names.min { $0.count < $1.count } ?? key
             // Best vendor name first: a vendor folder (already pretty), then the AU's "Vendor: Name",
             // then whatever the bundle id gives
-            let vendor = (sorted.first { $0.nested && !$0.vendor.isEmpty }
-                ?? sorted.first { $0.format == .au && !$0.vendor.isEmpty }
-                ?? sorted.first { !$0.vendor.isEmpty })?.vendor ?? ""
+            let named: [PluginBundle] = sorted.filter { !$0.vendor.isEmpty }
+            let best: PluginBundle? = named.first(where: \.nested) ?? named.first { $0.format == .au } ?? named.first
+            let vendor: String = best?.vendor ?? ""
             return ManagedPlugin(key: key, name: name, vendor: vendor, bundles: sorted)
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -127,9 +132,9 @@ enum PluginInventory {
                 au = AUCode(type: type, subtype: subtype, manufacturer: manufacturer)
             }
         }
-        if vendor.isEmpty, let id = info["CFBundleIdentifier"] as? String {
-            let skip: Set<String> = ["com", "co", "uk", "net", "org", "io", "app", "audio", "de", "fr"]
-            vendor = id.split(separator: ".").map(String.init).first { !skip.contains($0.lowercased()) } ?? ""
+        let identifier = info["CFBundleIdentifier"] as? String
+        if vendor.isEmpty, let id = identifier {
+            vendor = id.split(separator: ".").map(String.init).first { !domainParts.contains($0.lowercased()) } ?? ""
         }
 
         let executable = (info["CFBundleExecutable"] as? String).map {
@@ -142,7 +147,18 @@ enum PluginInventory {
                             executable: exists ? executable : nil,
                             archs: exists ? executable.map(archs) ?? [] : [],
                             quarantined: getxattr(url.path, "com.apple.quarantine", nil, 0, 0, 0) >= 0,
-                            au: au, nested: nested)
+                            au: au, nested: nested, idVendor: idVendor(identifier))
+    }
+
+    /// Domain parts skipped to find the developer in a bundle id; keep in sync with vendor_from_id in the script.
+    static let domainParts: Set<String> = ["com", "co", "uk", "net", "org", "io", "app", "audio",
+                                           "de", "fr", "nl", "se", "dk", "ch", "at", "it", "jp", "au", "ca", "us"]
+
+    /// "com.fabfilter.Pro-Q.4" → "fabfilter", "co.uk.gvst.GClip" → "gvst".
+    static func idVendor(_ identifier: String?) -> String {
+        guard let identifier = identifier else { return "" }
+        let part = identifier.split(separator: ".").map(String.init).first { !domainParts.contains($0.lowercased()) }
+        return (part ?? "").lowercased().filter { $0.isLetter || $0.isNumber }
     }
 
     /// CPU architectures from the Mach-O header, universal or thin.
