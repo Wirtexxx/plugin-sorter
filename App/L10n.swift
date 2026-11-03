@@ -200,6 +200,52 @@ struct L10n {
             .uk: "Клік по формату додає його в обране FL або прибирає",
             .de: "Ein Klick auf ein Format nimmt es in die FL-Favoriten auf oder entfernt es",
         ]
+        t["task.folders"] = [.en: "Plugin folders", .ru: "Папки плагинов", .uk: "Папки плагінів", .de: "Plugin-Ordner"]
+        t["task.folders.left"] = [
+            .en: "%d outside developer folders", .ru: "%d лежат вне папок разработчиков",
+            .uk: "%d лежать поза папками розробників", .de: "%d außerhalb der Herstellerordner",
+        ]
+        t["task.categories"] = [.en: "Categories in FL", .ru: "Категории в FL", .uk: "Категорії в FL", .de: "Kategorien in FL"]
+        t["task.categories.left"] = [
+            .en: "%d favourites without a category", .ru: "%d в избранном без категории",
+            .uk: "%d в обраному без категорії", .de: "%d Favoriten ohne Kategorie",
+        ]
+        t["task.pictures"] = [.en: "Pictures in FL", .ru: "Картинки в FL", .uk: "Картинки в FL", .de: "Bilder in FL"]
+        t["task.pictures.left"] = [
+            .en: "%d plugins without a picture", .ru: "%d плагинов без картинки",
+            .uk: "%d плагінів без картинки", .de: "%d Plugins ohne Bild",
+        ]
+        t["task.sort"] = [.en: "Sort", .ru: "Разложить", .uk: "Розкласти", .de: "Sortieren"]
+        t["task.add"] = [.en: "Add", .ru: "Добавить", .uk: "Додати", .de: "Hinzufügen"]
+        t["task.done"] = [.en: "All done", .ru: "Готово", .uk: "Готово", .de: "Erledigt"]
+        t["task.undo"] = [.en: "Undo", .ru: "Отменить", .uk: "Скасувати", .de: "Rückgängig"]
+        t["sheet.title"] = [
+            .en: "Sort plugin folders by developer", .ru: "Разложить плагины по папкам разработчиков",
+            .uk: "Розкласти плагіни по папках розробників", .de: "Plugins nach Hersteller in Ordner sortieren",
+        ]
+        t["sheet.subtitle"] = [
+            .en: "These plugins move into their developer's folder. You can undo it at any time.",
+            .ru: "Эти плагины переедут в папки своих разработчиков. Откатить можно в любой момент.",
+            .uk: "Ці плагіни переїдуть у папки своїх розробників. Скасувати можна будь-коли.",
+            .de: "Diese Plugins kommen in den Ordner ihres Herstellers. Das lässt sich jederzeit rückgängig machen.",
+        ]
+        t["sheet.empty"] = [
+            .en: "Every plugin is already in its developer's folder.", .ru: "Все плагины уже лежат в папках разработчиков.",
+            .uk: "Усі плагіни вже лежать у папках розробників.", .de: "Alle Plugins liegen schon im Ordner ihres Herstellers.",
+        ]
+        t["banner.close"] = [.en: "Close", .ru: "Закрыть", .uk: "Закрити", .de: "Schließen"]
+        t["flOpen.title"] = [.en: "FL Studio is open", .ru: "FL Studio открыт", .uk: "FL Studio відкритий", .de: "FL Studio ist geöffnet"]
+        t["flOpen.text"] = [
+            .en: "Changes show up after FL restarts, and when FL closes it may overwrite the favourites.",
+            .ru: "Изменения появятся после его перезапуска, а при закрытии FL может перезаписать избранное.",
+            .uk: "Зміни з'являться після його перезапуску, а під час закриття FL може перезаписати обране.",
+            .de: "Die Änderungen erscheinen nach einem Neustart von FL, und beim Beenden kann FL die Favoriten überschreiben.",
+        ]
+        t["flOpen.continue"] = [.en: "Continue anyway", .ru: "Всё равно продолжить", .uk: "Однаково продовжити", .de: "Trotzdem fortfahren"]
+        t["flOpen.dontAsk"] = [
+            .en: "Don't ask again until Plugin Sorter restarts", .ru: "Больше не спрашивать до перезапуска Plugin Sorter",
+            .uk: "Більше не питати до перезапуску Plugin Sorter", .de: "Bis zum Neustart von Plugin Sorter nicht mehr fragen",
+        ]
         t["badge.removed"] = [.en: "Deleted", .ru: "Удалён", .uk: "Видалено", .de: "Gelöscht"]
         t["badge.moved"] = [.en: "Moved", .ru: "Перенесён", .uk: "Перенесено", .de: "Verschoben"]
         t["settings.language"] = [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"]

@@ -8,8 +8,60 @@ struct MainView: View {
     var body: some View {
         VStack(spacing: 10) {
             header
+            if let banner = model.banner { bannerView(banner) }
             list
+            TasksView(model: model, t: t)
         }
+        .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: model.banner?.id)
+        .sheet(isPresented: $model.showFolderSheet) {
+            FolderSortSheet(model: model, t: t)
+        }
+    }
+
+    // MARK: - Result banner
+
+    private func bannerView(_ banner: Banner) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: banner.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(banner.isError ? .danger : .mint)
+            Text(text(of: banner))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.text)
+                .lineLimit(2)
+            Spacer()
+            if let undo = banner.undo {
+                Button(t("task.undo")) {
+                    model.banner = nil
+                    undo()
+                }
+                .buttonStyle(PillButtonStyle())
+            }
+            Button { model.banner = nil } label: {
+                Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.label)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .help(t("banner.close"))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 16)
+            .fill(banner.isError ? Color.danger.opacity(0.14) : Color.mint.opacity(0.1)))
+        .transition(.opacity)
+    }
+
+    private func text(of banner: Banner) -> String {
+        switch banner.source {
+        case .sorter(let status):    return t.status(status)
+        case .pictures(let status):  return t.flStatus(status) + (isDone(status) ? " · " + t("fl.restart") : "")
+        case .manager(let status):   return t.managerStatus(status)
+        case .favorites(let status): return t.favoritesStatus(status)
+        }
+    }
+
+    private func isDone(_ status: FLStatus) -> Bool {
+        if case .done = status { return true }
+        return false
     }
 
     // MARK: - Header

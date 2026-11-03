@@ -35,8 +35,7 @@ final class AppModel: ObservableObject {
     @Published var sort: CatalogSort = .name
     @Published var expanded: String?
     @Published var banner: Banner?
-    /// An FL change waiting for the user to confirm while FL Studio is open.
-    @Published var confirmFL: (() -> Void)?
+    @Published var showFolderSheet = false
     /// "Don't ask again" in the FL dialog, until the app quits.
     var skipFLCheck = false
     /// FL's plugin database; a demo folder for README screenshots.
@@ -112,12 +111,27 @@ final class AppModel: ObservableObject {
 
     /// Runs an FL change now, or asks first while FL Studio is open.
     func whenFLClosed(_ action: @escaping () -> Void) {
-        if skipFLCheck || !FLStudio.isRunning {
-            action()
-        } else {
-            confirmFL = action
-        }
+        guard !skipFLCheck, FLStudio.isRunning else { return action() }
+        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .en)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = t("flOpen.title")
+        alert.informativeText = t("flOpen.text")
+        alert.addButton(withTitle: t("flOpen.continue"))
+        alert.addButton(withTitle: t("mgr.cancel"))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = t("flOpen.dontAsk")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        if alert.suppressionButton?.state == .on { skipFLCheck = true }
+        action()
     }
+
+    // MARK: - Tasks
+
+    /// Third-party favourites that are FL's plugin picks; stock ones aren't ours to sort or picture.
+    var pictureTargets: [FLPlugin] { pictures.plugins.filter { !$0.isStock } }
+    var missingPictures: [FLPlugin] { pictures.missing.filter { !$0.isStock } }
+    var categoryTotal: Int { favorites.favorites.filter { !$0.isStock }.count }
 
     // MARK: - FL for one row
 
@@ -174,7 +188,11 @@ final class AppModel: ObservableObject {
         sorter.$status.dropFirst().sink { [weak self] status in
             guard let self = self else { return }
             switch status {
-            case .moved, .undone, .auRestored, .cancelled:
+            case .moved, .undone, .auRestored:
+                self.manager.scan()
+                self.sorter.preview(keepStatus: true)
+                fallthrough
+            case .cancelled:
                 let undo: (() -> Void)? = { if case .moved = status { return { self.sorter.undo() } }; return nil }()
                 self.show(Banner(source: .sorter(status), isError: false, undo: undo))
             case .failed:

@@ -1,5 +1,5 @@
 // Renders the main window with demo data for the README:
-// snapshot <out.png> [lang] [main|main-expanded|settings] [violet|mint|amber|ice]
+// snapshot <out.png> [lang] [main|main-expanded|banner|sheet|settings] [violet|mint|amber|ice]
 import SwiftUI
 import AppKit
 
@@ -54,12 +54,20 @@ struct Snapshot {
             model = AppModel(sorter: sorter, manager: manager, favorites: favorites, pictures: demoLibrary(titles, in: dir))
             model.flRoot = dir
         }
+        if mode == "banner" {
+            model.banner = Banner(source: .favorites(.sorted(12)), isError: false, undo: {})
+        }
         if mode == "main-expanded" {
             model.expanded = model.rows.first { $0.name == "Serum2" }?.id ?? model.rows.first?.id
         }
 
         let view: NSView
-        if mode == "settings" {
+        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .en)
+        if mode == "sheet" {
+            let sheet = NSHostingView(rootView: FolderSortSheet(model: model, t: t).clipShape(RoundedRectangle(cornerRadius: 12)))
+            sheet.frame = NSRect(origin: .zero, size: sheet.fittingSize)
+            view = sheet
+        } else if mode == "settings" {
             let settings = NSHostingView(rootView: ZStack { Color.chassis; SettingsView() }
                 .clipShape(RoundedRectangle(cornerRadius: 12)))
             settings.frame = NSRect(origin: .zero, size: settings.fittingSize)
@@ -68,7 +76,7 @@ struct Snapshot {
             let size = NSSize(width: 900, height: 640)
             let main = NSHostingView(rootView: ZStack {
                 Color.chassis
-                MainView(model: model, t: L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .en))
+                MainView(model: model, t: t)
                     .padding(10)
             }
             .frame(width: size.width, height: size.height)

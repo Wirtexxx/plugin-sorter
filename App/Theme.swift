@@ -265,15 +265,18 @@ extension View {
 struct PillButtonStyle: ButtonStyle {
     var primary = false
     var destructive = false
+    /// Smaller, for tight spots like the task cards.
+    var compact = false
 
     func makeBody(configuration: Configuration) -> some View {
-        Pill(configuration: configuration, primary: primary, destructive: destructive)
+        Pill(configuration: configuration, primary: primary, destructive: destructive, compact: compact)
     }
 
     private struct Pill: View {
         let configuration: ButtonStyleConfiguration
         let primary: Bool
         let destructive: Bool
+        let compact: Bool
         @Environment(\.isEnabled) private var isEnabled
         @State private var hovered = false
 
@@ -281,10 +284,12 @@ struct PillButtonStyle: ButtonStyle {
             let lit = hovered && isEnabled
             let text: Color = primary ? .white : destructive ? .danger : .text
             return configuration.label
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundColor(text)
-                .padding(.horizontal, 16)
-                .frame(height: 32)
+                .padding(.horizontal, compact ? 13 : 16)
+                .frame(height: compact ? 26 : 32)
                 .background(background.brightness(configuration.isPressed ? -0.08 : lit ? 0.05 : 0))
                 .clipShape(Capsule())
                 .shadow(color: primary && isEnabled ? Color.accent.opacity(lit ? 0.55 : 0.35) : .clear, radius: 10)
