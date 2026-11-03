@@ -152,6 +152,24 @@ struct L10n {
         t["tags.existing"] = [.en: "Existing tags", .ru: "Уже есть", .uk: "Вже є", .de: "Vorhandene Tags"]
         t["tags.remove"] = [.en: "Remove the tag", .ru: "Убрать тег", .uk: "Прибрати тег", .de: "Tag entfernen"]
         t["tags.noColor"] = [.en: "No colour", .ru: "Без цвета", .uk: "Без кольору", .de: "Keine Farbe"]
+        t["row.license"] = [.en: "License", .ru: "Лицензия", .uk: "Ліцензія", .de: "Lizenz"]
+        t["license.add"] = [.en: "Add a license", .ru: "Добавить лицензию", .uk: "Додати ліцензію", .de: "Lizenz hinzufügen"]
+        t["license.show"] = [.en: "Show", .ru: "Показать", .uk: "Показати", .de: "Anzeigen"]
+        t["license.hide"] = [.en: "Hide", .ru: "Скрыть", .uk: "Сховати", .de: "Ausblenden"]
+        t["license.copy"] = [.en: "Copy the serial", .ru: "Скопировать серийник", .uk: "Скопіювати серійник", .de: "Seriennummer kopieren"]
+        t["license.edit"] = [.en: "Edit", .ru: "Изменить", .uk: "Змінити", .de: "Bearbeiten"]
+        t["license.delete"] = [.en: "Delete", .ru: "Удалить", .uk: "Видалити", .de: "Löschen"]
+        t["license.save"] = [.en: "Save", .ru: "Сохранить", .uk: "Зберегти", .de: "Sichern"]
+        t["license.serial"] = [.en: "Serial or key", .ru: "Серийный номер или ключ", .uk: "Серійний номер або ключ", .de: "Seriennummer oder Schlüssel"]
+        t["license.email"] = [.en: "Account email", .ru: "Почта аккаунта", .uk: "Пошта акаунта", .de: "E-Mail des Kontos"]
+        t["license.note"] = [.en: "Note", .ru: "Заметка", .uk: "Нотатка", .de: "Notiz"]
+        t["license.hint"] = [
+            .en: "Kept in the macOS Keychain. Copied text leaves the clipboard after a minute.",
+            .ru: "Хранится в Связке ключей macOS. Скопированное стирается из буфера через минуту.",
+            .uk: "Зберігається в в'язці ключів macOS. Скопійоване стирається з буфера за хвилину.",
+            .de: "Liegt im macOS-Schlüsselbund. Kopierter Text verschwindet nach einer Minute aus der Zwischenablage.",
+        ]
+        t["license.confirm"] = [.en: "Delete the license of “%@”?", .ru: "Удалить лицензию «%@»?", .uk: "Видалити ліцензію «%@»?", .de: "Lizenz von „%@“ löschen?"]
         t["filter.disabled"] = [.en: "Off", .ru: "Выключены", .uk: "Вимкнені", .de: "Aus"]
         t["filter.duplicates"] = [.en: "Duplicates", .ru: "Дубли", .uk: "Дублі", .de: "Duplikate"]
         t["col.plugin"] = [.en: "Plugin", .ru: "Плагин", .uk: "Плагін", .de: "Plugin"]

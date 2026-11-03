@@ -240,6 +240,7 @@ struct PluginDetailsView: View {
                 }
                 bundles(plugin)
                 tagsSection(plugin)
+                LicenseSection(plugin: plugin, model: model, t: t, compact: compact)
                 if row.isKnownToFL { flSection }
                 vendorData(plugin)
             } else {
@@ -638,5 +639,138 @@ struct PictureWell: View {
         if panel.runModal() == .OK, let url = panel.url {
             model.whenFLClosed { model.pictures.setCustom(plugin, image: url) }
         }
+    }
+}
+
+/// The plugin's license: nothing is read from the Keychain until the user asks to see or copy it.
+struct LicenseSection: View {
+    let plugin: ManagedPlugin
+    @ObservedObject var model: AppModel
+    let t: L10n
+    var compact = false
+
+    /// The license on screen after "Show".
+    @State private var revealed: License?
+    /// The form, while adding or editing.
+    @State private var draft: License?
+    /// Redraws after a change: the vault isn't observable.
+    @State private var version = 0
+
+    private var vault: LicenseVault { model.vault }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(t("row.license")).font(.system(size: 12, weight: .semibold)).foregroundColor(.label)
+            if draft != nil {
+                form
+            } else if vault.hasLicense(plugin.key) {
+                saved
+            } else {
+                Button(t("license.add")) { draft = License() }.buttonStyle(PillButtonStyle())
+            }
+        }
+        .id(version)
+    }
+
+    private var saved: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let license = revealed {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(license.serial).font(.system(size: 12, design: .monospaced)).foregroundColor(.text)
+                    if !license.email.isEmpty { Text(license.email).font(.system(size: 12)).foregroundColor(.label) }
+                    if !license.note.isEmpty { Text(license.note).font(.system(size: 12)).foregroundColor(.label) }
+                }
+            } else {
+                Text("••••••••••").font(.system(size: 13)).foregroundColor(.label)
+            }
+            buttons
+        }
+    }
+
+    @ViewBuilder private var buttons: some View {
+        let show = Button(revealed == nil ? t("license.show") : t("license.hide")) { toggleReveal() }
+        let copy = Button(t("license.copy")) { copySerial() }
+        let edit = Button(t("license.edit")) { startEditing() }
+        let delete = Button(t("license.delete")) { confirmDelete() }.buttonStyle(PillButtonStyle(destructive: true))
+        if compact {
+            VStack(alignment: .leading, spacing: 6) {
+                show.buttonStyle(PillButtonStyle())
+                copy.buttonStyle(PillButtonStyle())
+                edit.buttonStyle(PillButtonStyle())
+                delete
+            }
+        } else {
+            HStack(spacing: 8) {
+                show.buttonStyle(PillButtonStyle())
+                copy.buttonStyle(PillButtonStyle())
+                edit.buttonStyle(PillButtonStyle())
+                delete
+            }
+        }
+    }
+
+    private var form: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            field("license.serial", \.serial)
+            field("license.email", \.email)
+            field("license.note", \.note)
+            Text(t("license.hint")).font(.system(size: 11)).foregroundColor(.label)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button(t("license.save")) { save() }.buttonStyle(PillButtonStyle(primary: true))
+                Button(t("mgr.cancel")) { draft = nil }.buttonStyle(PillButtonStyle())
+            }
+        }
+    }
+
+    private func field(_ title: String, _ path: WritableKeyPath<License, String>) -> some View {
+        TextField(t(title), text: Binding(get: { draft?[keyPath: path] ?? "" }, set: { draft?[keyPath: path] = $0 }))
+            .textFieldStyle(PlainTextFieldStyle())
+            .font(.system(size: 12))
+            .foregroundColor(.text)
+            .padding(.horizontal, 12)
+            .frame(height: 26)
+            .background(Capsule().fill(Color.raised))
+    }
+
+    // MARK: Actions
+
+    private func toggleReveal() {
+        if revealed != nil { revealed = nil; return }
+        do { revealed = try vault.license(plugin.key) } catch { model.report(error) }
+    }
+
+    private func copySerial() {
+        do {
+            if let license = try vault.license(plugin.key) { model.copySecret(license.serial) }
+        } catch { model.report(error) }
+    }
+
+    private func startEditing() {
+        do { draft = try vault.license(plugin.key) ?? License() } catch { model.report(error) }
+    }
+
+    private func save() {
+        guard let license = draft else { return }
+        do {
+            try vault.save(license, for: plugin.key)
+            draft = nil
+            revealed = nil
+            version += 1
+        } catch { model.report(error) }
+    }
+
+    private func confirmDelete() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = t("license.confirm", plugin.name)
+        alert.addButton(withTitle: t("license.delete"))
+        alert.addButton(withTitle: t("mgr.cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try vault.remove(plugin.key)
+            revealed = nil
+            version += 1
+        } catch { model.report(error) }
     }
 }

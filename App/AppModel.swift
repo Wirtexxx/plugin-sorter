@@ -33,6 +33,7 @@ final class AppModel: ObservableObject {
     let favorites: FavoritesLibrary
     let pictures: FLLibrary
     let labels: UserLabels
+    let vault: LicenseVault
 
     @Published var query = ""
     @Published var filter: CatalogFilter = .all
@@ -62,7 +63,9 @@ final class AppModel: ObservableObject {
 
     init(sorter: Sorter = Sorter(), manager: ManagerLibrary = ManagerLibrary(),
          favorites: FavoritesLibrary = FavoritesLibrary(), pictures: FLLibrary = FLLibrary(),
-         known: KnownPlugins = KnownPlugins(), labels: UserLabels = UserLabels()) {
+         known: KnownPlugins = KnownPlugins(), labels: UserLabels = UserLabels(),
+         vault: LicenseVault = LicenseVault(store: KeychainStore(service: LicenseVault.service))) {
+        self.vault = vault
         self.known = known
         self.labels = labels
         self.sorter = sorter
@@ -215,6 +218,27 @@ final class AppModel: ObservableObject {
         if alert.suppressionButton?.state == .on { skipFLCheck = true }
         action()
     }
+
+    // MARK: - Licenses
+
+    /// Shows a failed Keychain call above the list. The user closing the password dialog is not one.
+    func report(_ error: Error) {
+        if let error = error as? SecretStoreError, error == .cancelled { return }
+        show(Banner(source: .manager(.failed(error.localizedDescription)), isError: true, undo: nil))
+    }
+
+    /// Puts a secret on the pasteboard and takes it off after a minute, if nothing else was copied since.
+    func copySecret(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        let count = pasteboard.changeCount
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.secretLifetime) {
+            if pasteboard.changeCount == count { pasteboard.clearContents() }
+        }
+    }
+
+    static let secretLifetime: TimeInterval = 60
 
     // MARK: - Tasks
 

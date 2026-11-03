@@ -3,6 +3,15 @@
 import SwiftUI
 import AppKit
 
+/// Licenses of the demo live in memory: a snapshot must never reach the real Keychain.
+final class DemoSecrets: SecretStore {
+    private var records: [String: Data] = [:]
+    func accounts() throws -> Set<String> { Set(records.keys) }
+    func read(_ account: String) throws -> Data? { records[account] }
+    func write(_ data: Data, account: String) throws { records[account] = data }
+    func delete(_ account: String) throws { records[account] = nil }
+}
+
 @main
 struct Snapshot {
     static func main() {
@@ -51,7 +60,8 @@ struct Snapshot {
             let (favorites, titles) = demoFavorites(for: manager, in: dir)
             model = AppModel(sorter: sorter, manager: manager, favorites: favorites, pictures: demoLibrary(titles, in: dir),
                              known: KnownPlugins(url: dir.appendingPathComponent("known-plugins.json")),
-                             labels: UserLabels(url: dir.appendingPathComponent("labels.json")))
+                             labels: UserLabels(url: dir.appendingPathComponent("labels.json")),
+                             vault: LicenseVault(store: DemoSecrets()))
             model.flRoot = dir
         }
         // Always set the view: UserDefaults persist between runs of this tool

@@ -31,6 +31,7 @@ let package = Package(
                 "SupportDraft.swift",
                 "KnownPlugins.swift",
                 "UserLabels.swift",
+                "LicenseVault.swift",
             ]
         ),
         .testTarget(
