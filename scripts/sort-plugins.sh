@@ -9,7 +9,7 @@
 # Root trusts nothing from its environment: these would move the allow-lists and the Trash. The
 # overrides are for the tests, which run as a normal user.
 if [ "$EUID" -eq 0 ]; then
-  unset PLUGIN_SORT_ROOT PLUGIN_SORT_DATA_ROOTS PLUGIN_SORT_TRASH PLUGIN_SORT_FORMATS
+  unset PLUGIN_SORT_ROOT PLUGIN_SORT_DATA_ROOTS PLUGIN_SORT_TRASH
 fi
 
 # PLUGIN_SORT_ROOT points the script at another tree (used by the tests); no root needed there

@@ -523,6 +523,20 @@ struct ScriptTests {
             #expect(block.contains(name))
         }
         #expect(!text.contains("eval "))
+
+        // Only these three are dropped: everything the app passes must still reach the script as root
+        let unsetLine = try #require(block.split(separator: "\n").first { $0.contains("unset ") })
+        let dropped = Set(unsetLine.split(separator: " ").map(String.init).filter { $0.hasPrefix("PLUGIN_SORT_") })
+        #expect(dropped == ["PLUGIN_SORT_ROOT", "PLUGIN_SORT_DATA_ROOTS", "PLUGIN_SORT_TRASH"])
+        let app = Self.script.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("App")
+        var passed: Set<String> = []
+        for file in ["Sorter.swift", "Shell.swift"] {
+            let source = try String(contentsOf: app.appendingPathComponent(file), encoding: .utf8)
+            let names = source.components(separatedBy: "\"").filter { $0.hasPrefix("PLUGIN_SORT_") }
+            passed.formUnion(names)
+        }
+        #expect(passed.isSuperset(of: ["PLUGIN_SORT_FORMATS", "PLUGIN_SORT_LOG_DIR", "PLUGIN_SORT_OWNER", "PLUGIN_SORT_KEEP_FILE"]))
+        #expect(passed.isDisjoint(with: dropped))
     }
 
     @Test func forgetReceiptRefusesOptionsAndAppleIds() throws {
