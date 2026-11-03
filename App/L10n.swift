@@ -5,6 +5,16 @@ enum Lang: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// The language's own name, shown the same whatever language is selected.
+    var nativeName: String {
+        switch self {
+        case .en: return "English"
+        case .ru: return "Русский"
+        case .uk: return "Українська"
+        case .de: return "Deutsch"
+        }
+    }
+
     /// First supported language from the system preferences, English otherwise.
     static var system: Lang {
         for code in Locale.preferredLanguages {
@@ -49,8 +59,33 @@ struct L10n {
         case .idle:                          return ""
         case .checked(let ok, let w, let f): return self("mgr.checked", ok, w, f)
         case .trashed(let n):                return self("mgr.trashed", n)
+        case .fixed:                         return self("mgr.fixed")
         case .cancelled:                     return self("status.cancelled")
         case .failed(let error):             return self("status.failed", error)
+        }
+    }
+
+    func fix(_ fix: Fix) -> String {
+        switch fix {
+        case .unquarantine:
+            return self("fix.unquarantine")
+        case .relocate(_, let to) where to.pathExtension.lowercased() == PluginFormat.au.fileExtension:
+            return self("fix.toComponents")
+        case .relocate(_, let to):
+            return self("fix.relocate", to.lastPathComponent, to.deletingLastPathComponent().lastPathComponent)
+        case .resetAUCache:
+            return self("fix.resetAU")
+        }
+    }
+
+    func favoritesStatus(_ status: FavoritesStatus) -> String {
+        switch status {
+        case .idle:               return ""
+        case .removed(let n):     return self("fav.status.removed", n)
+        case .restored(let n):    return self("fav.status.restored", n)
+        case .sorted(let n):      return self("fav.status.sorted", n)
+        case .unsorted(let n):    return self("fav.status.unsorted", n)
+        case .failed(let error):  return self("status.failed", error)
         }
     }
 
@@ -79,233 +114,277 @@ struct L10n {
         }
     }
 
-    private static let table: [String: [Lang: String]] = [
-        "subtitle": [
+    /// Filled one entry per statement: as a single dictionary literal it got slow enough to type-check
+    /// that CI's compiler could give up on it.
+    private static let table: [String: [Lang: String]] = {
+        var t: [String: [Lang: String]] = [:]
+        t["subtitle"] = [
             .en: "Sorts your plugins into developer folders",
             .ru: "Раскладывает плагины по папкам разработчиков",
             .uk: "Розкладає плагіни по теках розробників",
             .de: "Sortiert Plugins in Herstellerordner",
-        ],
-        "tab.sorter": [.en: "Sorter", .ru: "Сортировка", .uk: "Сортування", .de: "Sortieren"],
-        "tab.fl": [.en: "FL Studio", .ru: "FL Studio", .uk: "FL Studio", .de: "FL Studio"],
-        "tab.manager": [.en: "Manager", .ru: "Менеджер", .uk: "Менеджер", .de: "Manager"],
-        "mgr.title": [
-            .en: "Check and remove plugins",
-            .ru: "Проверка и удаление плагинов",
-            .uk: "Перевірка та видалення плагінів",
-            .de: "Plugins prüfen und entfernen",
-        ],
-        "mgr.hint": [
-            .en: "Audio Units are checked with Apple's auval, VST, VST3 and CLAP are test-loaded in a separate process. Click a plugin for details. Deleted plugins go to the Trash.",
-            .ru: "Audio Units проверяются утилитой Apple auval, а VST, VST3 и CLAP пробно загружаются в отдельном процессе. Нажмите на плагин, чтобы увидеть подробности. Удалённые плагины попадают в Корзину.",
-            .uk: "Audio Units перевіряються утилітою Apple auval, а VST, VST3 і CLAP пробно завантажуються в окремому процесі. Натисніть на плагін, щоб побачити подробиці. Видалені плагіни потрапляють у Кошик.",
-            .de: "Audio Units werden mit Apples auval geprüft, VST, VST3 und CLAP in einem eigenen Prozess probehalber geladen. Klicke auf ein Plugin für Details. Gelöschte Plugins landen im Papierkorb.",
-        ],
-        "mgr.ok": [.en: "Working", .ru: "Работают", .uk: "Працюють", .de: "Funktionieren"],
-        "mgr.problems": [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"],
-        "mgr.search": [.en: "Search", .ru: "Поиск", .uk: "Пошук", .de: "Suchen"],
-        "mgr.onlyProblems": [.en: "Problems only", .ru: "Только проблемные", .uk: "Лише проблемні", .de: "Nur Probleme"],
-        "mgr.checkAll": [.en: "Check all", .ru: "Проверить все", .uk: "Перевірити всі", .de: "Alle prüfen"],
-        "mgr.check": [.en: "Check", .ru: "Проверить", .uk: "Перевірити", .de: "Prüfen"],
-        "mgr.checking": [.en: "Checking", .ru: "Проверяю", .uk: "Перевіряю", .de: "Prüfe"],
-        "mgr.trash": [.en: "Move to Trash", .ru: "В Корзину", .uk: "У Кошик", .de: "In den Papierkorb"],
-        "mgr.reveal": [.en: "Show in Finder", .ru: "Показать в Finder", .uk: "Показати у Finder", .de: "Im Finder zeigen"],
-        "mgr.cancel": [.en: "Cancel", .ru: "Отмена", .uk: "Скасувати", .de: "Abbrechen"],
-        "mgr.confirm": [
+        ]
+        t["fav.status.removed"] = [.en: "Removed from favourites: %d", .ru: "Убрано из избранного: %d", .uk: "Прибрано з обраного: %d", .de: "Aus Favoriten entfernt: %d"]
+        t["fav.status.restored"] = [.en: "Put back: %d", .ru: "Возвращено: %d", .uk: "Повернено: %d", .de: "Zurückgeholt: %d"]
+        t["fav.status.sorted"] = [
+            .en: "Sorted into categories: %d. Restart FL Studio",
+            .ru: "Разложено по категориям: %d. Перезапустите FL Studio",
+            .uk: "Розкладено за категоріями: %d. Перезапустіть FL Studio",
+            .de: "In Kategorien sortiert: %d. Starte FL Studio neu",
+        ]
+        t["fav.status.unsorted"] = [.en: "Back where they were: %d", .ru: "Возвращено на место: %d", .uk: "Повернено на місце: %d", .de: "Zurück an alter Stelle: %d"]
+        t["fav.reading"] = [.en: "Reading categories", .ru: "Читаю категории", .uk: "Читаю категорії", .de: "Lese Kategorien"]
+        t["fav.noCategory"] = [.en: "No category", .ru: "Без категории", .uk: "Без категорії", .de: "Ohne Kategorie"]
+        t["main.search"] = [.en: "Find a plugin", .ru: "Найти плагин", .uk: "Знайти плагін", .de: "Plugin suchen"]
+        t["filter.all"] = [.en: "All", .ru: "Все", .uk: "Усі", .de: "Alle"]
+        t["filter.problems"] = [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"]
+        t["filter.notInFL"] = [.en: "Not in FL", .ru: "Не в FL", .uk: "Не в FL", .de: "Nicht in FL"]
+        t["filter.new"] = [.en: "New", .ru: "Новые", .uk: "Нові", .de: "Neu"]
+        t["filter.duplicates"] = [.en: "Duplicates", .ru: "Дубли", .uk: "Дублі", .de: "Duplikate"]
+        t["col.plugin"] = [.en: "Plugin", .ru: "Плагин", .uk: "Плагін", .de: "Plugin"]
+        t["col.formats"] = [.en: "Formats", .ru: "Форматы", .uk: "Формати", .de: "Formate"]
+        t["col.category"] = [.en: "FL category", .ru: "Категория FL", .uk: "Категорія FL", .de: "FL-Kategorie"]
+        t["col.size"] = [.en: "Size", .ru: "Размер", .uk: "Розмір", .de: "Größe"]
+        t["main.checking"] = [.en: "Checking %d of %d · %@", .ru: "Проверяю %d из %d · %@", .uk: "Перевіряю %d з %d · %@", .de: "Prüfe %d von %d · %@"]
+        t["main.empty"] = [.en: "Nothing here", .ru: "Здесь пусто", .uk: "Тут порожньо", .de: "Nichts hier"]
+        t["row.notSeen"] = [
+            .en: "FL hasn't seen this plugin yet — refresh the plugin list in FL",
+            .ru: "FL ещё не видел этот плагин — обновите список плагинов в FL",
+            .uk: "FL ще не бачив цей плагін — оновіть список плагінів у FL",
+            .de: "FL kennt dieses Plugin noch nicht — aktualisiere die Plugin-Liste in FL",
+        ]
+        t["row.addFavorite"] = [.en: "Add to FL favourites", .ru: "Добавить в избранное FL", .uk: "Додати в обране FL", .de: "Zu FL-Favoriten hinzufügen"]
+        t["row.removeFavorite"] = [.en: "Remove from FL favourites", .ru: "Убрать из избранного FL", .uk: "Прибрати з обраного FL", .de: "Aus FL-Favoriten entfernen"]
+        t["row.recheck"] = [.en: "Check again", .ru: "Проверить ещё раз", .uk: "Перевірити ще раз", .de: "Erneut prüfen"]
+        t["row.stale"] = [
+            .en: "Deleted, but still in FL's favourites",
+            .ru: "Удалён, но остался в избранном FL",
+            .uk: "Видалений, але залишився в обраному FL",
+            .de: "Gelöscht, aber noch in den FL-Favoriten",
+        ]
+        t["row.removeFromFL"] = [.en: "Remove from FL", .ru: "Убрать из FL", .uk: "Прибрати з FL", .de: "Aus FL entfernen"]
+        t["row.picture"] = [.en: "Picture in FL", .ru: "Картинка в FL", .uk: "Картинка в FL", .de: "Bild in FL"]
+        t["row.dropHint"] = [.en: "Drop an image here", .ru: "Перетащите картинку сюда", .uk: "Перетягніть картинку сюди", .de: "Bild hierher ziehen"]
+        t["row.inFL"] = [.en: "In FL", .ru: "В FL", .uk: "У FL", .de: "In FL"]
+        t["row.formatsHint"] = [
+            .en: "Click a format to add or remove it in FL's favourites",
+            .ru: "Клик по формату добавляет его в избранное FL или убирает",
+            .uk: "Клік по формату додає його в обране FL або прибирає",
+            .de: "Ein Klick auf ein Format nimmt es in die FL-Favoriten auf oder entfernt es",
+        ]
+        t["task.folders"] = [.en: "Plugin folders", .ru: "Папки плагинов", .uk: "Папки плагінів", .de: "Plugin-Ordner"]
+        t["task.folders.left"] = [
+            .en: "%d outside developer folders", .ru: "%d лежат вне папок разработчиков",
+            .uk: "%d лежать поза папками розробників", .de: "%d außerhalb der Herstellerordner",
+        ]
+        t["task.categories"] = [.en: "Categories in FL", .ru: "Категории в FL", .uk: "Категорії в FL", .de: "Kategorien in FL"]
+        t["task.categories.left"] = [
+            .en: "%d favourites without a category", .ru: "%d в избранном без категории",
+            .uk: "%d в обраному без категорії", .de: "%d Favoriten ohne Kategorie",
+        ]
+        t["task.pictures"] = [.en: "Pictures in FL", .ru: "Картинки в FL", .uk: "Картинки в FL", .de: "Bilder in FL"]
+        t["task.pictures.left"] = [
+            .en: "%d plugins without a picture", .ru: "%d плагинов без картинки",
+            .uk: "%d плагінів без картинки", .de: "%d Plugins ohne Bild",
+        ]
+        t["task.sort"] = [.en: "Sort", .ru: "Разложить", .uk: "Розкласти", .de: "Sortieren"]
+        t["task.add"] = [.en: "Add", .ru: "Добавить", .uk: "Додати", .de: "Hinzufügen"]
+        t["task.done"] = [.en: "All done", .ru: "Готово", .uk: "Готово", .de: "Erledigt"]
+        t["task.allDone"] = [.en: "All tasks done", .ru: "Все задания выполнены", .uk: "Усі завдання виконано", .de: "Alle Aufgaben erledigt"]
+        t["task.expand"] = [.en: "Show tasks", .ru: "Показать задания", .uk: "Показати завдання", .de: "Aufgaben einblenden"]
+        t["task.collapse"] = [.en: "Hide tasks", .ru: "Скрыть задания", .uk: "Сховати завдання", .de: "Aufgaben ausblenden"]
+        t["task.undo"] = [.en: "Undo", .ru: "Отменить", .uk: "Скасувати", .de: "Rückgängig"]
+        t["sheet.title"] = [
+            .en: "Sort plugin folders by developer", .ru: "Разложить плагины по папкам разработчиков",
+            .uk: "Розкласти плагіни по папках розробників", .de: "Plugins nach Hersteller in Ordner sortieren",
+        ]
+        t["sheet.subtitle"] = [
+            .en: "These plugins move into their developer's folder. You can undo it at any time.",
+            .ru: "Эти плагины переедут в папки своих разработчиков. Откатить можно в любой момент.",
+            .uk: "Ці плагіни переїдуть у папки своїх розробників. Скасувати можна будь-коли.",
+            .de: "Diese Plugins kommen in den Ordner ihres Herstellers. Das lässt sich jederzeit rückgängig machen.",
+        ]
+        t["sheet.empty"] = [
+            .en: "Every plugin is already in its developer's folder.", .ru: "Все плагины уже лежат в папках разработчиков.",
+            .uk: "Усі плагіни вже лежать у папках розробників.", .de: "Alle Plugins liegen schon im Ordner ihres Herstellers.",
+        ]
+        t["banner.close"] = [.en: "Close", .ru: "Закрыть", .uk: "Закрити", .de: "Schließen"]
+        t["flOpen.title"] = [.en: "FL Studio is open", .ru: "FL Studio открыт", .uk: "FL Studio відкритий", .de: "FL Studio ist geöffnet"]
+        t["flOpen.text"] = [
+            .en: "Changes show up after FL restarts, and when FL closes it may overwrite the favourites.",
+            .ru: "Изменения появятся после его перезапуска, а при закрытии FL может перезаписать избранное.",
+            .uk: "Зміни з'являться після його перезапуску, а під час закриття FL може перезаписати обране.",
+            .de: "Die Änderungen erscheinen nach einem Neustart von FL, und beim Beenden kann FL die Favoriten überschreiben.",
+        ]
+        t["flOpen.continue"] = [.en: "Continue anyway", .ru: "Всё равно продолжить", .uk: "Однаково продовжити", .de: "Trotzdem fortfahren"]
+        t["flOpen.dontAsk"] = [
+            .en: "Don't ask again until Plugin Sorter restarts", .ru: "Больше не спрашивать до перезапуска Plugin Sorter",
+            .uk: "Більше не питати до перезапуску Plugin Sorter", .de: "Bis zum Neustart von Plugin Sorter nicht mehr fragen",
+        ]
+        t["gear.recheck"] = [.en: "Check all plugins again", .ru: "Проверить все плагины заново", .uk: "Перевірити всі плагіни заново", .de: "Alle Plugins neu prüfen"]
+        t["gear.restore"] = [.en: "Put back favourites removed from FL", .ru: "Вернуть убранное из избранного FL", .uk: "Повернути прибране з обраного FL", .de: "Aus FL entfernte Favoriten zurückholen"]
+        t["gear.settings"] = [.en: "Settings…", .ru: "Настройки…", .uk: "Налаштування…", .de: "Einstellungen…"]
+        t["settings.language"] = [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"]
+        t["settings.skin"] = [.en: "Skin", .ru: "Скин", .uk: "Скін", .de: "Skin"]
+        t["skin.violet"] = [.en: "Violet", .ru: "Фиолетовый", .uk: "Фіолетовий", .de: "Violett"]
+        t["skin.mint"] = [.en: "Mint", .ru: "Мятный", .uk: "М'ятний", .de: "Minze"]
+        t["skin.amber"] = [.en: "Amber", .ru: "Янтарный", .uk: "Бурштиновий", .de: "Bernstein"]
+        t["skin.ice"] = [.en: "Ice", .ru: "Ледяной", .uk: "Крижаний", .de: "Eis"]
+        t["mgr.checking"] = [.en: "Checking", .ru: "Проверяю", .uk: "Перевіряю", .de: "Prüfe"]
+        t["mgr.trash"] = [.en: "Move to Trash", .ru: "В Корзину", .uk: "У Кошик", .de: "In den Papierkorb"]
+        t["mgr.reveal"] = [.en: "Show in Finder", .ru: "Показать в Finder", .uk: "Показати у Finder", .de: "Im Finder zeigen"]
+        t["mgr.cancel"] = [.en: "Cancel", .ru: "Отмена", .uk: "Скасувати", .de: "Abbrechen"]
+        t["mgr.confirm"] = [
             .en: "Move “%@” to the Trash?",
             .ru: "Переместить «%@» в Корзину?",
             .uk: "Перемістити «%@» у Кошик?",
             .de: "„%@“ in den Papierkorb legen?",
-        ],
-        "mgr.confirmInfo": [
+        ]
+        t["mgr.confirmInfo"] = [
             .en: "These files will be moved to the Trash:",
             .ru: "В Корзину будут перемещены файлы:",
             .uk: "У Кошик буде переміщено файли:",
             .de: "Diese Dateien werden in den Papierkorb gelegt:",
-        ],
-        "mgr.unchecked": [.en: "Not checked", .ru: "Не проверен", .uk: "Не перевірено", .de: "Nicht geprüft"],
-        "mgr.works": [.en: "Works", .ru: "Работает", .uk: "Працює", .de: "Funktioniert"],
-        "mgr.checked": [
+        ]
+        t["mgr.unchecked"] = [.en: "Not checked", .ru: "Не проверен", .uk: "Не перевірено", .de: "Nicht geprüft"]
+        t["mgr.works"] = [.en: "Works", .ru: "Работает", .uk: "Працює", .de: "Funktioniert"]
+        t["mgr.checked"] = [
             .en: "Working: %d · warnings: %d · problems: %d",
             .ru: "Работают: %d · предупреждений: %d · проблем: %d",
             .uk: "Працюють: %d · попереджень: %d · проблем: %d",
             .de: "OK: %d · Warnungen: %d · Probleme: %d",
-        ],
-        "mgr.trashed": [.en: "Moved to Trash: %d", .ru: "В Корзине: %d", .uk: "У Кошику: %d", .de: "Im Papierkorb: %d"],
-        "issue.noBinary": [
+        ]
+        t["mgr.trashed"] = [.en: "Moved to Trash: %d", .ru: "В Корзине: %d", .uk: "У Кошику: %d", .de: "Im Papierkorb: %d"]
+        t["mgr.vendorData"] = [
+            .en: "Developer data: presets, libraries — not deleted with the plugin",
+            .ru: "Данные разработчика: пресеты, библиотеки — не удаляются вместе с плагином",
+            .uk: "Дані розробника: пресети, бібліотеки — не видаляються разом із плагіном",
+            .de: "Herstellerdaten: Presets, Bibliotheken — werden nicht mit dem Plugin gelöscht",
+        ]
+        t["mgr.fixed"] = [.en: "Fixed, checking again", .ru: "Исправлено, проверяю заново", .uk: "Виправлено, перевіряю знову", .de: "Behoben, prüfe erneut"]
+        t["fix.unquarantine"] = [.en: "Remove quarantine", .ru: "Снять карантин", .uk: "Зняти карантин", .de: "Quarantäne aufheben"]
+        t["fix.toComponents"] = [.en: "Move back to Components", .ru: "Вернуть в Components", .uk: "Повернути в Components", .de: "Zurück nach Components"]
+        t["fix.relocate"] = [.en: "Put %@ back in %@", .ru: "Вернуть %@ в %@", .uk: "Повернути %@ у %@", .de: "%@ zurück nach %@"]
+        t["fix.resetAU"] = [.en: "Reset AU cache", .ru: "Сбросить кеш AU", .uk: "Скинути кеш AU", .de: "AU-Cache zurücksetzen"]
+        t["issue.noBinary"] = [
             .en: "The plugin's binary is missing",
             .ru: "Нет исполняемого файла плагина",
             .uk: "Немає виконуваного файлу плагіна",
             .de: "Die Plugin-Binärdatei fehlt",
-        ],
-        "issue.wrongArch": [
+        ]
+        t["issue.wrongArch"] = [
             .en: "Built for %@ only, this Mac is %@",
             .ru: "Собран только под %@, а этот Mac — %@",
             .uk: "Зібраний лише під %@, а цей Mac — %@",
             .de: "Nur für %@ gebaut, dieser Mac ist %@",
-        ],
-        "issue.rosetta": [
+        ]
+        t["issue.rosetta"] = [
             .en: "Intel only: works just in hosts running under Rosetta",
             .ru: "Только Intel: работает лишь в DAW, запущенных через Rosetta",
             .uk: "Лише Intel: працює тільки в DAW, запущених через Rosetta",
             .de: "Nur Intel: läuft nur in Hosts unter Rosetta",
-        ],
-        "issue.quarantined": [
+        ]
+        t["issue.quarantined"] = [
             .en: "Quarantined: macOS may block it",
             .ru: "В карантине: macOS может его заблокировать",
             .uk: "У карантині: macOS може його заблокувати",
             .de: "In Quarantäne: macOS blockiert es möglicherweise",
-        ],
-        "issue.notRegistered": [
+        ]
+        t["issue.notRegistered"] = [
             .en: "Not registered by macOS: an AU must sit directly in Components",
             .ru: "macOS его не видит: AU должен лежать прямо в Components",
             .uk: "macOS його не бачить: AU має лежати прямо в Components",
             .de: "Von macOS nicht registriert: Eine AU muss direkt in Components liegen",
-        ],
-        "issue.validation": [.en: "auval: %@", .ru: "auval: %@", .uk: "auval: %@", .de: "auval: %@"],
-        "issue.load": [
+        ]
+        t["issue.validation"] = [.en: "auval: %@", .ru: "auval: %@", .uk: "auval: %@", .de: "auval: %@"]
+        t["issue.load"] = [
             .en: "Doesn't load: %@",
             .ru: "Не загружается: %@",
             .uk: "Не завантажується: %@",
             .de: "Lädt nicht: %@",
-        ],
-        "issue.timeout": [
+        ]
+        t["issue.timeout"] = [
             .en: "Hung during the check",
             .ru: "Завис во время проверки",
             .uk: "Завис під час перевірки",
             .de: "Hing während der Prüfung",
-        ],
-        "fl.title": [
-            .en: "Pictures in the FL browser",
-            .ru: "Картинки в браузере FL",
-            .uk: "Картинки в браузері FL",
-            .de: "Bilder im FL-Browser",
-        ],
-        "fl.hint": [
-            .en: "Screenshots come from the AU version of each plugin, plugins that won't open get a card. Drop your own image on any tile or right-click it for more.",
-            .ru: "Скриншоты снимаются с AU-версии плагина, а если он не открылся — рисуется карточка. Перетащите свою картинку на любую плитку или нажмите по ней правой кнопкой.",
-            .uk: "Скриншоти знімаються з AU-версії плагіна, а якщо він не відкрився — малюється картка. Перетягніть свою картинку на будь-яку плитку або натисніть на неї правою кнопкою.",
-            .de: "Screenshots stammen aus der AU-Version jedes Plugins, für Plugins, die sich nicht öffnen, wird eine Karte erstellt. Zieh ein eigenes Bild auf eine Kachel oder klicke sie mit rechts an.",
-        ],
-        "fl.notFound": [
-            .en: "FL Studio plugin database not found in ~/Documents/Image-Line",
-            .ru: "База плагинов FL Studio не найдена в ~/Documents/Image-Line",
-            .uk: "Базу плагінів FL Studio не знайдено в ~/Documents/Image-Line",
-            .de: "FL-Studio-Plugin-Datenbank in ~/Documents/Image-Line nicht gefunden",
-        ],
-        "fl.withPicture": [.en: "With picture", .ru: "С картинкой", .uk: "З картинкою", .de: "Mit Bild"],
-        "fl.missing": [.en: "Without", .ru: "Без картинки", .uk: "Без картинки", .de: "Ohne Bild"],
-        "fl.capturing": [.en: "Capturing", .ru: "Снимаю", .uk: "Знімаю", .de: "Aufnahme"],
-        "fl.noPicture": [.en: "No picture", .ru: "Нет картинки", .uk: "Немає картинки", .de: "Kein Bild"],
-        "fl.showStock": [.en: "FL stock", .ru: "Стоковые FL", .uk: "Стокові FL", .de: "FL-Standard"],
-        "fl.generate": [.en: "Add pictures", .ru: "Добавить картинки", .uk: "Додати картинки", .de: "Bilder hinzufügen"],
-        "fl.retakeMine": [.en: "Retake mine", .ru: "Переснять мои", .uk: "Перезняти мої", .de: "Meine neu"],
-        "fl.removeMine": [.en: "Remove mine", .ru: "Удалить мои", .uk: "Видалити мої", .de: "Meine entfernen"],
-        "fl.retake": [.en: "Retake screenshot", .ru: "Переснять скриншот", .uk: "Перезняти скриншот", .de: "Screenshot neu aufnehmen"],
-        "fl.useCard": [.en: "Use a card", .ru: "Сделать карточку", .uk: "Зробити картку", .de: "Karte verwenden"],
-        "fl.choose": [.en: "Choose image…", .ru: "Выбрать картинку…", .uk: "Вибрати картинку…", .de: "Bild wählen…"],
-        "fl.remove": [.en: "Remove picture", .ru: "Удалить картинку", .uk: "Видалити картинку", .de: "Bild entfernen"],
-        "fl.done": [
+        ]
+        t["fl.capturing"] = [.en: "Capturing", .ru: "Снимаю", .uk: "Знімаю", .de: "Aufnahme"]
+        t["fl.retake"] = [.en: "Retake screenshot", .ru: "Переснять скриншот", .uk: "Перезняти скриншот", .de: "Screenshot neu aufnehmen"]
+        t["fl.useCard"] = [.en: "Use a card", .ru: "Сделать карточку", .uk: "Зробити картку", .de: "Karte verwenden"]
+        t["fl.choose"] = [.en: "Choose image…", .ru: "Выбрать картинку…", .uk: "Вибрати картинку…", .de: "Bild wählen…"]
+        t["fl.remove"] = [.en: "Remove picture", .ru: "Удалить картинку", .uk: "Видалити картинку", .de: "Bild entfernen"]
+        t["fl.done"] = [
             .en: "Screenshots: %d · cards: %d",
             .ru: "Скриншотов: %d · карточек: %d",
             .uk: "Скриншотів: %d · карток: %d",
             .de: "Screenshots: %d · Karten: %d",
-        ],
-        "fl.restart": [
+        ]
+        t["fl.restart"] = [
             .en: "Restart FL Studio to see the pictures in the browser.",
             .ru: "Перезапустите FL Studio, чтобы картинки появились в браузере.",
             .uk: "Перезапустіть FL Studio, щоб картинки з'явилися в браузері.",
             .de: "Starte FL Studio neu, um die Bilder im Browser zu sehen.",
-        ],
-        "fl.removed": [.en: "Removed: %d", .ru: "Удалено: %d", .uk: "Видалено: %d", .de: "Entfernt: %d"],
-        "badge.screenshot": [.en: "Shot", .ru: "Скрин", .uk: "Скрин", .de: "Shot"],
-        "badge.card": [.en: "Card", .ru: "Карточка", .uk: "Картка", .de: "Karte"],
-        "badge.custom": [.en: "Custom", .ru: "Своя", .uk: "Своя", .de: "Eigenes"],
-        "panel.distribution": [.en: "Distribution", .ru: "Распределение", .uk: "Розподіл", .de: "Verteilung"],
-        "meter.plugins": [.en: "Plugins", .ru: "Плагины", .uk: "Плагіни", .de: "Plugins"],
-        "meter.vendors": [.en: "Developers", .ru: "Разработчики", .uk: "Розробники", .de: "Hersteller"],
-        "meter.formats": [.en: "Formats", .ru: "Форматы", .uk: "Формати", .de: "Formate"],
-        "empty.title": [
-            .en: "Everything is in order",
-            .ru: "Всё уже разложено",
-            .uk: "Усе вже розкладено",
-            .de: "Alles ist sortiert",
-        ],
-        "empty.hint": [
-            .en: "New plugins will show up here after installation",
-            .ru: "Новые плагины появятся здесь после установки",
-            .uk: "Нові плагіни з'являться тут після встановлення",
-            .de: "Neue Plugins erscheinen hier nach der Installation",
-        ],
-        "notes": [.en: "Notes (%d)", .ru: "Заметки (%d)", .uk: "Нотатки (%d)", .de: "Hinweise (%d)"],
-        "button.undo": [.en: "Undo last", .ru: "Откатить", .uk: "Скасувати", .de: "Rückgängig"],
-        "button.refresh": [.en: "Refresh", .ru: "Обновить", .uk: "Оновити", .de: "Aktualisieren"],
-        "button.sort": [.en: "Sort", .ru: "Сортировать", .uk: "Сортувати", .de: "Sortieren"],
-        "button.done": [.en: "Done", .ru: "Готово", .uk: "Готово", .de: "Fertig"],
-        "status.noFormats": [
+        ]
+        t["fl.removed"] = [.en: "Removed: %d", .ru: "Удалено: %d", .uk: "Видалено: %d", .de: "Entfernt: %d"]
+        t["status.noFormats"] = [
             .en: "Select at least one format",
             .ru: "Выберите хотя бы один формат",
             .uk: "Оберіть хоча б один формат",
             .de: "Mindestens ein Format wählen",
-        ],
-        "status.undone": [.en: "Undo complete", .ru: "Откат выполнен", .uk: "Скасовано", .de: "Rückgängig gemacht"],
-        "status.cancelled": [.en: "Cancelled", .ru: "Отменено", .uk: "Скасовано", .de: "Abgebrochen"],
-        "status.willMove": [
+        ]
+        t["status.undone"] = [.en: "Undo complete", .ru: "Откат выполнен", .uk: "Скасовано", .de: "Rückgängig gemacht"]
+        t["status.cancelled"] = [.en: "Cancelled", .ru: "Отменено", .uk: "Скасовано", .de: "Abgebrochen"]
+        t["status.willMove"] = [
             .en: "To move: %d",
             .ru: "К перемещению: %d",
             .uk: "До переміщення: %d",
             .de: "Zu verschieben: %d",
-        ],
-        "status.moved": [.en: "Moved: %d", .ru: "Перемещено: %d", .uk: "Переміщено: %d", .de: "Verschoben: %d"],
-        "status.auRestored": [
+        ]
+        t["status.moved"] = [.en: "Moved: %d", .ru: "Перемещено: %d", .uk: "Переміщено: %d", .de: "Verschoben: %d"]
+        t["status.auRestored"] = [
             .en: "AU restored: %d",
             .ru: "AU возвращено: %d",
             .uk: "AU повернено: %d",
             .de: "AU wiederhergestellt: %d",
-        ],
-        "au.nested": [
-            .en: "%d Audio Units are in subfolders. macOS only loads them from the Components folder itself.",
-            .ru: "%d Audio Units лежат в подпапках. macOS загружает их только из самой папки Components.",
-            .uk: "%d Audio Units лежать у підтеках. macOS завантажує їх лише з самої теки Components.",
-            .de: "%d Audio Units liegen in Unterordnern. macOS lädt sie nur direkt aus dem Components-Ordner.",
-        ],
-        "button.restoreAU": [.en: "Restore AU", .ru: "Вернуть AU", .uk: "Повернути AU", .de: "AU zurück"],
-        "status.failed": [.en: "Error: %@", .ru: "Ошибка: %@", .uk: "Помилка: %@", .de: "Fehler: %@"],
-        "note.kept": [
+        ]
+        t["status.failed"] = [.en: "Error: %@", .ru: "Ошибка: %@", .uk: "Помилка: %@", .de: "Fehler: %@"]
+        t["note.kept"] = [
             .en: "Kept in place (another plugin needs it): %@",
             .ru: "Оставлен на месте (нужен другому плагину): %@",
             .uk: "Залишено на місці (потрібен іншому плагіну): %@",
             .de: "Bleibt an Ort und Stelle (wird von einem anderen Plugin benötigt): %@",
-        ],
-        "note.waves": [
+        ]
+        t["note.waves"] = [
             .en: "Skipped (Waves): %@",
             .ru: "Пропущен (Waves): %@",
             .uk: "Пропущено (Waves): %@",
             .de: "Übersprungen (Waves): %@",
-        ],
-        "note.unknown": [
+        ]
+        t["note.unknown"] = [
             .en: "Unknown developer: %@",
             .ru: "Неизвестный разработчик: %@",
             .uk: "Невідомий розробник: %@",
             .de: "Unbekannter Hersteller: %@",
-        ],
-        "note.exists": [
+        ]
+        t["note.exists"] = [
             .en: "Already exists: %@",
             .ru: "Уже существует: %@",
             .uk: "Вже існує: %@",
             .de: "Existiert bereits: %@",
-        ],
-        "note.restored": [
+        ]
+        t["note.restored"] = [
             .en: "Restored: %@",
             .ru: "Возвращён: %@",
             .uk: "Повернено: %@",
             .de: "Wiederhergestellt: %@",
-        ],
-        "note.skipped": [
+        ]
+        t["note.skipped"] = [
             .en: "Not restored: %@",
             .ru: "Не возвращён: %@",
             .uk: "Не повернено: %@",
             .de: "Nicht wiederhergestellt: %@",
-        ],
-    ]
+        ]
+        return t
+    }()
 }

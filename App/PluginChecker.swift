@@ -1,6 +1,6 @@
 import Foundation
 
-enum Issue: Equatable {
+enum Issue: Equatable, Codable {
     case noBinary
     case wrongArch([String])
     case rosetta
@@ -61,6 +61,11 @@ enum PluginChecker {
             return issues + validateAU(code)
         }
         return issues + probe(bundle)
+    }
+
+    /// What's certain from the files alone, before any check runs: macOS ignores an AU in a subfolder.
+    static func knownIssues(_ bundle: PluginBundle) -> [Issue]? {
+        bundle.format == .au && bundle.nested ? [.notRegistered] : nil
     }
 
     // MARK: - Audio Units
@@ -132,7 +137,7 @@ enum PluginChecker {
 
     /// Runs a tool with its output in a temp file (auval prints a lot), killing it after `timeout`.
     /// Returns nil on timeout unless the output already contains `successMarker`.
-    private static func runLogged(_ tool: URL, _ args: [String], timeout: TimeInterval,
+    static func runLogged(_ tool: URL, _ args: [String], timeout: TimeInterval,
                                   successMarker: String? = nil) -> String? {
         let log = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".log")
         FileManager.default.createFile(atPath: log.path, contents: nil)

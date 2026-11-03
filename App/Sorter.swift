@@ -40,6 +40,9 @@ final class Sorter: ObservableObject {
     @Published var running = false
     @Published var applied = false
     @Published var latestLog: String?
+    /// A preview has finished, so `moves` says what is really left.
+    @Published private var previewed = false
+    var loaded: Bool { demo || previewed }
 
     private let logDir = NSHomeDirectory()
     private let demo: Bool
@@ -62,15 +65,17 @@ final class Sorter: ObservableObject {
     private var env: [String: String] {
         ["PLUGIN_SORT_FORMATS": formats,
          "PLUGIN_SORT_LOG_DIR": logDir,
-         "PLUGIN_SORT_OWNER": NSUserName()]
+         "PLUGIN_SORT_OWNER": NSUserName(),
+         "PLUGIN_SORT_KEEP_FILE": PluginFixes.keepFile.path]
     }
 
     func preview(keepStatus: Bool = false) {
         guard !demo else { return }
-        guard !formats.isEmpty else { moves = []; notes = []; status = .noFormats; return }
+        guard !formats.isEmpty else { moves = []; notes = []; status = .noFormats; previewed = true; return }
         run([], admin: false) { output in
             let result = Self.parse(output)
             self.applied = false
+            self.previewed = true
             self.moves = result.moves
             self.nestedAU = result.nestedAU
             if !keepStatus {

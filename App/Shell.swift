@@ -12,7 +12,8 @@ enum Shell {
         var cancelled: Bool { error.contains("-128") }
     }
 
-    static let script = Bundle.main.path(forResource: "sort-plugins", ofType: "sh") ?? ""
+    /// Worked out on every run: a lookup made while the app was being rebuilt must not stick.
+    static var script: String { Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/sort-plugins.sh").path }
 
     /// Blocking. With `admin` the standard macOS administrator password dialog is shown.
     static func runScript(_ args: [String], admin: Bool, env: [String: String] = [:]) -> Result {
@@ -42,7 +43,8 @@ enum Shell {
 
     /// Environment the script needs when it runs as root through osascript, where SUDO_USER is unset.
     static var ownerEnv: [String: String] {
-        ["PLUGIN_SORT_LOG_DIR": NSHomeDirectory(), "PLUGIN_SORT_OWNER": NSUserName()]
+        ["PLUGIN_SORT_LOG_DIR": NSHomeDirectory(), "PLUGIN_SORT_OWNER": NSUserName(),
+         "PLUGIN_SORT_KEEP_FILE": PluginFixes.keepFile.path]
     }
 
     private static func adminAppleScript(_ args: [String], env: [String: String]) -> String {

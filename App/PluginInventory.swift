@@ -42,8 +42,18 @@ struct PluginBundle: Identifiable {
     let au: AUCode?
     /// Inside a vendor folder rather than directly in the format folder.
     let nested: Bool
+    /// Developer part of the bundle identifier ("fabfilter" in com.fabfilter.Pro-Q.4), used to keep
+    /// same-named plugins of different developers apart.
+    var idVendor = ""
+    /// An Audio Unit's own name, without the developer ("Ozone 11 Clarity" in "iZotope: Ozone 11 Clarity").
+    var auName = ""
 
-    var displayPath: String { url.path.replacingOccurrences(of: PluginInventory.root.path + "/", with: "") }
+    /// Path from the format folder on, e.g. "VST3/FabFilter/FabFilter Pro-Q 4.vst3".
+    var displayPath: String {
+        let parts = url.pathComponents
+        guard let start = parts.lastIndex(of: format.folder) else { return url.path }
+        return parts[start...].joined(separator: "/")
+    }
 }
 
 /// A plugin with all its formats, e.g. Pro-Q 4 as VST3 + AU + CLAP.
@@ -68,7 +78,7 @@ enum PluginInventory {
         #endif
     }
 
-    static func scan() -> [ManagedPlugin] {
+    static func scan(root: URL = PluginInventory.root) -> [ManagedPlugin] {
         var bundles: [PluginBundle] = []
         for format in PluginFormat.allCases {
             let dir = root.appendingPathComponent(format.folder, isDirectory: true)
@@ -81,25 +91,38 @@ enum PluginInventory {
         }
 
         // Formats of one plugin share a file name: "FabFilter Pro-Q 4.vst3" and "FabFilter Pro-Q 4.component"
-        let grouped = Dictionary(grouping: bundles) { key(for: $0.url) }
+        // …and a developer: two "Compressor"s from different developers must never become one row
+        var keys = bundles.map { key(for: $0.url) + "|" + $0.idVendor }
+        // Some AUs have a file name unlike the plugin's ("iZOzone11ClarityAUHook"): join those by the AU's own name
+        let counts = Dictionary(keys.map { ($0, 1) }, uniquingKeysWith: +)
+        for (n, bundle) in bundles.enumerated() where bundle.format == .au && !bundle.auName.isEmpty && counts[keys[n]] == 1 {
+            let named = key(for: URL(fileURLWithPath: bundle.auName)) + "|" + bundle.idVendor
+            if counts[named] != nil { keys[n] = named }
+        }
+        let grouped = Dictionary(grouping: bundles.indices) { keys[$0] }.mapValues { $0.map { bundles[$0] } }
         return grouped.map { key, items in
             let sorted = items.sorted { $0.format.rawValue < $1.format.rawValue }
-            let name = sorted.map { $0.url.deletingPathExtension().lastPathComponent }.min { $0.count < $1.count } ?? key
-            return ManagedPlugin(key: key, name: name,
-                                 vendor: sorted.lazy.map(\.vendor).first { !$0.isEmpty } ?? "",
-                                 bundles: sorted)
+            let names: [String] = sorted.map { $0.url.deletingPathExtension().lastPathComponent }
+            let name: String = names.min { $0.count < $1.count } ?? key
+            // Best vendor name first: a vendor folder (already pretty), then the AU's "Vendor: Name",
+            // then whatever the bundle id gives
+            let named: [PluginBundle] = sorted.filter { !$0.vendor.isEmpty }
+            let best: PluginBundle? = named.first(where: \.nested) ?? named.first { $0.format == .au } ?? named.first
+            let vendor: String = best?.vendor ?? ""
+            return ManagedPlugin(key: key, name: name, vendor: vendor, bundles: sorted)
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    /// Lowercase letters and digits of the file name, minus suffixes some vendors add to the AU ("ValhallaRoomAU64").
-    private static func key(for url: URL) -> String {
-        var key = url.deletingPathExtension().lastPathComponent.lowercased().filter { $0.isLetter || $0.isNumber }
-        for suffix in ["au64", "au"] where key.hasSuffix(suffix) && key.count > suffix.count + 2 {
-            key.removeLast(suffix.count)
+    /// Lowercase letters and digits of the file name, minus the suffix some vendors add to the AU
+    /// ("ValhallaRoomAU64"). Only an uppercase AU counts, so "Plateau" stays "plateau".
+    static func key(for url: URL) -> String {
+        var name = url.deletingPathExtension().lastPathComponent
+        for suffix in ["AU64", "AU"] where name.hasSuffix(suffix) && name.count > suffix.count + 2 {
+            name.removeLast(suffix.count)
             break
         }
-        return key
+        return name.lowercased().filter { $0.isLetter || $0.isNumber }
     }
 
     private static func read(_ url: URL, format: PluginFormat, formatRoot: URL) -> PluginBundle {
@@ -109,18 +132,21 @@ enum PluginInventory {
 
         var vendor = nested ? parent.lastPathComponent : ""
         var au: AUCode?
+        var auName = ""
         if format == .au, let component = (info["AudioComponents"] as? [[String: Any]])?.first {
-            if vendor.isEmpty, let name = component["name"] as? String, let colon = name.range(of: ": ") {
-                vendor = String(name[..<colon.lowerBound])
+            if let name = component["name"] as? String {
+                let colon = name.range(of: ": ")
+                auName = colon.map { String(name[$0.upperBound...]) } ?? name
+                if vendor.isEmpty, let colon = colon { vendor = String(name[..<colon.lowerBound]) }
             }
             if let type = component["type"] as? String, let subtype = component["subtype"] as? String,
                let manufacturer = component["manufacturer"] as? String {
                 au = AUCode(type: type, subtype: subtype, manufacturer: manufacturer)
             }
         }
-        if vendor.isEmpty, let id = info["CFBundleIdentifier"] as? String {
-            let skip: Set<String> = ["com", "co", "uk", "net", "org", "io", "app", "audio", "de", "fr"]
-            vendor = id.split(separator: ".").map(String.init).first { !skip.contains($0.lowercased()) } ?? ""
+        let identifier = info["CFBundleIdentifier"] as? String
+        if vendor.isEmpty, let id = identifier {
+            vendor = id.split(separator: ".").map(String.init).first { !domainParts.contains($0.lowercased()) } ?? ""
         }
 
         let executable = (info["CFBundleExecutable"] as? String).map {
@@ -133,7 +159,18 @@ enum PluginInventory {
                             executable: exists ? executable : nil,
                             archs: exists ? executable.map(archs) ?? [] : [],
                             quarantined: getxattr(url.path, "com.apple.quarantine", nil, 0, 0, 0) >= 0,
-                            au: au, nested: nested)
+                            au: au, nested: nested, idVendor: idVendor(identifier), auName: auName)
+    }
+
+    /// Domain parts skipped to find the developer in a bundle id; keep in sync with vendor_from_id in the script.
+    static let domainParts: Set<String> = ["com", "co", "uk", "net", "org", "io", "app", "audio",
+                                           "de", "fr", "nl", "se", "dk", "ch", "at", "it", "jp", "au", "ca", "us"]
+
+    /// "com.fabfilter.Pro-Q.4" → "fabfilter", "co.uk.gvst.GClip" → "gvst".
+    static func idVendor(_ identifier: String?) -> String {
+        guard let identifier = identifier else { return "" }
+        let part = identifier.split(separator: ".").map(String.init).first { !domainParts.contains($0.lowercased()) }
+        return (part ?? "").lowercased().filter { $0.isLetter || $0.isNumber }
     }
 
     /// CPU architectures from the Mach-O header, universal or thin.

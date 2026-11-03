@@ -6,7 +6,9 @@
 # Audio Units are never sorted: macOS only registers components that sit directly
 # in Components, so an AU inside a subfolder disappears from every host.
 
-ROOT="/Library/Audio/Plug-Ins"
+# PLUGIN_SORT_ROOT points the script at another tree (used by the tests); no root needed there
+ROOT="${PLUGIN_SORT_ROOT:-/Library/Audio/Plug-Ins}"
+needs_root() { [ -z "$PLUGIN_SORT_ROOT" ] && [ "$EUID" -ne 0 ]; }
 FORMATS="${PLUGIN_SORT_FORMATS:-VST3 VST}"
 COMPONENTS="$ROOT/Components"
 
@@ -18,15 +20,37 @@ Usage:
   sudo $0 --undo LOG    move everything from LOG back
   sudo $0 --restore-au  move Audio Units sorted by older versions back to Components
   sudo $0 --trash PATH… move plugin bundles to the user's Trash
+  sudo $0 --unquarantine PATH…  remove the quarantine flag from plugin bundles
+  sudo $0 --relocate SRC DST    move one plugin bundle to another place in the plugin tree
+  $0 --reset-au         make macOS rescan Audio Units
 
 Environment:
   PLUGIN_SORT_FORMATS  folders to process (default: "VST3 VST", Components is ignored)
   PLUGIN_SORT_LOG_DIR  where to write the move log (default: invoking user's home)
   PLUGIN_SORT_OWNER    user that should own the log (default: \$SUDO_USER)
+  PLUGIN_SORT_ROOT     plugin tree to work on (default: /Library/Audio/Plug-Ins)
+  PLUGIN_SORT_TRASH    where --trash moves bundles (default: the owner's ~/.Trash)
+  PLUGIN_SORT_KEEP_FILE  file with bundle names (one per line) to leave in place when sorting
 EOF
 }
 
 lower() { echo "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# Bundles another plugin loads from a fixed path stay where they are: Serum 2's AU wraps its
+# VST3 at VST3/Serum2.vst3. The app adds more to PLUGIN_SORT_KEEP_FILE when it finds them.
+is_kept() {
+  case "$1" in Serum2.vst3) return 0 ;; esac
+  [ -n "$PLUGIN_SORT_KEEP_FILE" ] && [ -f "$PLUGIN_SORT_KEEP_FILE" ] && grep -Fxq -- "$1" "$PLUGIN_SORT_KEEP_FILE"
+}
+
+# True for a plugin bundle path inside $ROOT, the only places the privileged commands may touch
+is_plugin_path() {
+  case "$1" in
+    *"/../"*|*"/./"*) return 1 ;;
+    "$ROOT"/*.vst3|"$ROOT"/*.vst|"$ROOT"/*.component|"$ROOT"/*.clap) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 # Display names for vendor ids (bash 3.2 on macOS has no associative arrays)
 pretty_name() {
@@ -96,6 +120,7 @@ drop_empty_vendor_dirs() {
   for fmt in VST3 VST Components; do
     [ -d "$ROOT/$fmt" ] && find "$ROOT/$fmt" -mindepth 1 -maxdepth 1 -type d ! -name '*.*' -empty -delete
   done
+  return 0
 }
 
 # Moves back every component recorded in the move logs (versions before 1.1 sorted AU too)
@@ -110,32 +135,79 @@ restore_au() {
       fi
     done < "$log"
   done
+  # Components that got into subfolders some other way (logs deleted, an installer, by hand)
+  local nested name
+  while IFS= read -r nested; do
+    [ -n "$nested" ] || continue
+    name="${nested##*/}"
+    if [ -e "$COMPONENTS/$name" ]; then
+      echo "skip: ${nested#$ROOT/}"
+    else
+      mv "$nested" "$COMPONENTS/$name" && echo "restored: ${nested#$ROOT/} -> ${COMPONENTS#$ROOT/}/$name" \
+        && restored=$((restored + 1))
+    fi
+  done <<EOF_NESTED
+$(find "$COMPONENTS" -mindepth 2 -maxdepth 2 -name '*.component' 2>/dev/null)
+EOF_NESTED
   drop_empty_vendor_dirs
-  # make macOS rescan Audio Units
-  killall -9 AudioComponentRegistrar 2>/dev/null
+  reset_au_cache
   echo "Restored AU: $restored"
 }
 
 # Moves plugin bundles to the owner's Trash. Only bundles inside $ROOT are accepted.
 trash_plugins() {
-  local trash p name dest
-  trash="$(eval echo ~"${OWNER:-$USER}")/.Trash"
+  local trash p name dest n
+  trash="${PLUGIN_SORT_TRASH:-$(eval echo ~"${OWNER:-$USER}")/.Trash}"
   for p in "$@"; do
-    case "$p" in
-      *"/../"*) echo "skip: $p"; continue ;;
-      "$ROOT"/*.vst3|"$ROOT"/*.vst|"$ROOT"/*.component|"$ROOT"/*.clap) ;;
-      *) echo "skip: $p"; continue ;;
-    esac
-    [ -e "$p" ] || { echo "skip: $p"; continue; }
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
     name="${p##*/}"
     dest="$trash/$name"
-    [ -e "$dest" ] && dest="$trash/${name%.*} $(date +%H.%M.%S).${name##*.}"
+    n=2
+    while [ -e "$dest" ]; do
+      dest="$trash/${name%.*} $n.${name##*.}"
+      n=$((n + 1))
+    done
     mv "$p" "$dest" || continue
     [ -n "$OWNER" ] && chown -R "$OWNER" "$dest"
     echo "trashed: ${p#$ROOT/}"
   done
   drop_empty_vendor_dirs
-  killall -9 AudioComponentRegistrar 2>/dev/null
+  reset_au_cache
+}
+
+unquarantine_plugins() {
+  local p done=0
+  for p in "$@"; do
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
+    xattr -dr com.apple.quarantine "$p" 2>/dev/null
+    if xattr "$p" 2>/dev/null | grep -q com.apple.quarantine; then
+      echo "failed: ${p#$ROOT/}"
+    else
+      echo "unquarantined: ${p#$ROOT/}"
+      done=$((done + 1))
+    fi
+  done
+  [ "$done" -gt 0 ]
+}
+
+# Moves one bundle within the plugin tree, e.g. a VST3 another plugin expects at a fixed path
+relocate_plugin() {
+  local src="$1" dst="$2"
+  if ! is_plugin_path "$src" || ! is_plugin_path "$dst" || [ ! -e "$src" ] || [ -e "$dst" ] \
+     || [ ! -d "$(dirname "$dst")" ] || [ "${src##*.}" != "${dst##*.}" ]; then
+    echo "skip: $src"
+    return 1
+  fi
+  mv "$src" "$dst" || { echo "failed: ${src#$ROOT/}"; return 1; }
+  echo "relocated: ${src#$ROOT/} -> ${dst#$ROOT/}"
+  drop_empty_vendor_dirs
+  reset_au_cache
+}
+
+# Makes macOS rescan Audio Units. Never fails: the registrar may simply not be running.
+reset_au_cache() {
+  [ -z "$PLUGIN_SORT_ROOT" ] && killall -9 AudioComponentRegistrar 2>/dev/null
+  return 0
 }
 
 nested_au() {
@@ -151,15 +223,20 @@ MODE="dry"
 case "$1" in
   --apply)      MODE="apply" ;;
   --undo)       undo "$2"; exit ;;
-  --restore-au) [ "$EUID" -eq 0 ] || { echo "Root required: sudo $0 --restore-au"; exit 1; }
+  --restore-au) needs_root && { echo "Root required: sudo $0 --restore-au"; exit 1; }
                 restore_au; exit ;;
-  --trash)      [ "$EUID" -eq 0 ] || { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
+  --trash)      needs_root && { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
                 shift; trash_plugins "$@"; exit ;;
+  --unquarantine) needs_root && { echo "Root required: sudo $0 --unquarantine PATH…"; exit 1; }
+                shift; unquarantine_plugins "$@"; exit ;;
+  --relocate)   needs_root && { echo "Root required: sudo $0 --relocate SRC DST"; exit 1; }
+                relocate_plugin "$2" "$3"; exit ;;
+  --reset-au)   reset_au_cache; echo "AU cache reset"; exit 0 ;;
   "")           ;;
   *)            usage; exit 1 ;;
 esac
 
-if [ "$MODE" = "apply" ] && [ "$EUID" -ne 0 ]; then
+if [ "$MODE" = "apply" ] && needs_root; then
   echo "Root required: sudo $0 --apply"; exit 1
 fi
 
@@ -179,7 +256,7 @@ for fmt in $FORMATS; do
     case "$name" in WaveShell*) echo "  skip (Waves): $name"; continue ;; esac
 
     # Bundles another plugin loads from a fixed path (Serum 2's AU wraps its VST3)
-    case "$name" in Serum2.vst3) echo "  keep: $name"; continue ;; esac
+    if is_kept "$name"; then echo "  keep: $name"; continue; fi
 
     id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plug/Contents/Info.plist" 2>/dev/null)
     vendor=$(vendor_from_id "$id")
@@ -211,3 +288,4 @@ if [ "$MODE" = "apply" ]; then
 else
   echo "Would move: $moved (dry run, use --apply to move)"
 fi
+exit 0

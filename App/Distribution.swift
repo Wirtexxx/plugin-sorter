@@ -5,18 +5,32 @@ struct Distribution: View {
     let groups: [VendorGroup]
     var barWidth: CGFloat = 5
 
+    /// A playhead sweeps across the wave, like a plugin's live display.
+    @State private var sweep = false
+
     var body: some View {
         GeometryReader { geo in
             let perGroup = groups.isEmpty ? 0 : max(3, Int(geo.size.width / barWidth) / groups.count)
             let levels = Self.levels(groups, perGroup: perGroup, idle: Int(geo.size.width / barWidth))
             VStack(spacing: 0) {
-                WaveBars(levels: levels, mirrored: false)
-                    .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.55)]),
-                                         startPoint: .top, endPoint: .bottom))
-                Rectangle().fill(Color.text.opacity(0.12)).frame(height: 1)
-                WaveBars(levels: levels.map { $0 * 0.8 }, mirrored: true)
-                    .fill(LinearGradient(gradient: Gradient(colors: [Color.wave, Color.wave.opacity(0.15)]),
-                                         startPoint: .top, endPoint: .bottom))
+                ZStack(alignment: .leading) {
+                    VStack(spacing: 0) {
+                        WaveBars(levels: levels, mirrored: false)
+                            .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.55)]),
+                                                 startPoint: .top, endPoint: .bottom))
+                        Rectangle().fill(Color.text.opacity(0.12)).frame(height: 1)
+                        WaveBars(levels: levels.map { $0 * 0.8 }, mirrored: true)
+                            .fill(LinearGradient(gradient: Gradient(colors: [Color.wave, Color.wave.opacity(0.15)]),
+                                                 startPoint: .top, endPoint: .bottom))
+                    }
+                    if !groups.isEmpty && !Motion.reduced {
+                        // A crisp line, no glow: the panels stay sharp
+                        Rectangle()
+                            .fill(Color.text.opacity(0.55))
+                            .frame(width: 1)
+                            .offset(x: sweep ? geo.size.width : 0)
+                    }
+                }
                 HStack(spacing: 0) {
                     ForEach(groups) { group in
                         Text(group.vendor.uppercased())
@@ -29,6 +43,10 @@ struct Distribution: View {
                 }
                 .frame(height: 18)
             }
+        }
+        .onAppear {
+            guard !Motion.reduced else { return }
+            withAnimation(Animation.linear(duration: 6).repeatForever(autoreverses: false)) { sweep = true }
         }
     }
 

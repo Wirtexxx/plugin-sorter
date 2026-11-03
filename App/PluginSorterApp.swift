@@ -12,6 +12,10 @@ enum Entry {
         if CommandLine.arguments.dropFirst().first == "--probe" {
             PluginChecker.runProbe(Array(CommandLine.arguments.dropFirst()))
         }
+        // The FL tab reads the categories VST3 and CLAP plugins report about themselves in this mode
+        if CommandLine.arguments.dropFirst().first == "--tags" {
+            PluginTags.runHelper(Array(CommandLine.arguments.dropFirst()))
+        }
         PluginSorterApp.main()
     }
 }
@@ -25,6 +29,11 @@ struct PluginSorterApp: App {
                 .frame(minWidth: 860, minHeight: 620)
         }
         .commands { CommandGroup(replacing: .newItem) {} }
+
+        // Plugin Sorter → Settings… (⌘,)
+        Settings {
+            SettingsView()
+        }
     }
 }
 

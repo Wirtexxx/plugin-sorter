@@ -54,6 +54,8 @@ VST3/                                VST3/
 - 🌊 **Leaves Waves alone.** WaveShells are managed by Waves Central and are skipped.
 - 🖼️ **Plugin pictures in FL Studio.** Screenshots of every plugin's interface for FL's
   browser and plugin picker, the way FL's own plugins look there.
+- 🗂️ **FL Studio categories in one click.** Favourites go under the picker's tabs (Dynamics,
+  Filter, Delay reverb…) by the category each plugin reports about itself.
 - 🩺 **Plugin manager.** Checks that every plugin actually loads (Apple's `auval` for AU,
   a test load for VST, VST3 and CLAP) and moves the ones you don't need to the Trash.
 - 🧩 **Keeps Audio Units working.** AU stay in `Components`, and AU moved by 1.0 can be
@@ -87,45 +89,19 @@ cd plugin-sorter
 
 ## Usage
 
-### App
-
-1. Open **Plugin Sorter**. It scans your plugin folders right away.
-2. Toggle **VST3 / VST** to pick which folders to process.
-3. Review the list and press **Sort**. macOS asks for an administrator password
-   because `/Library/Audio/Plug-Ins` belongs to the system.
-4. Changed your mind? Press **Undo**.
-
-### Pictures in FL Studio
-
-FL Studio shows a picture next to its own plugins in the browser, but third-party ones get
-only a name. The **FL Studio** tab fixes that:
+### One window
 
 <p align="center">
-  <img src="docs/screenshot-fl.png" width="760" alt="FL Studio tab">
+  <img src="docs/screenshot-expanded.png" width="760" alt="A plugin opened in the list">
 </p>
 
-1. Open the **FL Studio** tab. It lists the favourites from FL's plugin database
-   (`~/Documents/Image-Line/FL Studio/Presets/Plugin database`).
-2. Press **Add pictures**. For every plugin without a picture the app opens its Audio Unit
-   editor for a moment, takes a screenshot and saves it next to the plugin's `.fst` preset,
-   exactly where FL keeps its own pictures. Plugins that can't be opened get a card instead.
-3. Restart FL Studio.
+Open **Plugin Sorter** and every plugin in `/Library/Audio/Plug-Ins` is right there, one row per
+plugin with all its formats. Each row shows whether it works, whether it's in FL Studio's favourites
+(the star), its FL category and its size.
 
-Drop any image on a tile to use your own, or right-click it to retake the screenshot, switch to
-a card or remove the picture. **Remove mine** deletes everything Plugin Sorter added and
-restores FL's `.nfo` files byte for byte.
-
-> Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
-> Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
-
-### Manager: check and remove plugins
-
-<p align="center">
-  <img src="docs/screenshot-manager.png" width="760" alt="Manager tab">
-</p>
-
-The **Manager** tab lists every plugin in `/Library/Audio/Plug-Ins` with all its formats.
-**Check all** verifies that each one can really be loaded:
+- **Search and filters** at the top: **All**, **Problems**, **Not in FL**.
+- **Checks run by themselves** in the background and are remembered, so the lights are on as soon as
+  the window opens; only new and updated plugins are checked again.
 
 | Format | How it's checked |
 | ------ | ---------------- |
@@ -134,9 +110,33 @@ The **Manager** tab lists every plugin in `/Library/Audio/Plug-Ins` with all its
 | VST | loaded in a helper process, `VSTPluginMain` must exist |
 | CLAP | loaded in a helper process, `clap_entry` must exist |
 
-It also flags binaries built for another CPU, Intel-only plugins on Apple Silicon, quarantined
-downloads and Audio Units that macOS can't see. Click a plugin to see the exact reason, and
-use the trash button to move all its formats to the Trash after confirming the file list.
+- **Click a plugin** to open it in place: what's wrong in plain words with a one-click **Fix**
+  (remove quarantine, move an AU back to Components, reset the AU cache, put a moved bundle back
+  where another plugin loads it), **Show in Finder**, **Move to Trash**, its formats, its picture in FL
+  and its developer's data folders (shown, never deleted).
+- **The star** adds the plugin to FL's browser and plugin picker or removes it; inside the row, each
+  format can be picked on its own. **The category** next to it is a menu of FL's category folders.
+- **Click a column title** to sort by name or by size.
+
+Three jobs sit at the bottom, each showing what's left:
+
+- **Plugin folders** — shows what moves into which developer folder, then sorts it. macOS asks for an
+  administrator password because `/Library/Audio/Plug-Ins` belongs to the system.
+- **Categories in FL** — files every third-party favourite into FL's category folders, so the tabs at
+  the bottom of FL's plugin picker work for them too. The category comes from the plugin itself (VST3
+  sub-categories, CLAP features), then from its name, and falls back to *Effect*.
+- **Pictures in FL** — FL shows a picture next to its own plugins but not next to third-party ones.
+  This opens each plugin's Audio Unit editor for a moment, takes a screenshot and saves it where FL
+  keeps its own pictures; plugins that can't be opened get a card. Drop any image on a plugin's
+  picture to use your own.
+
+Once all three are done they fold into a small strip; click it to open them again. Every job can be
+undone. If FL Studio is open while the app changes its plugin database, it asks first:
+FL shows the changes after a restart. The gear menu has a full recheck, **Reset AU cache**, putting back
+favourites removed from FL, and the settings (language, colour skin).
+
+> Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
+> Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
 
 ### Command line
 
@@ -184,9 +184,24 @@ identifier. Missing your favourite developer? Pull requests are welcome.
 ```
 App/            SwiftUI app: model, window, theme, translations
 scripts/        sort-plugins.sh: the engine, usable on its own
+Tests/          Swift Testing suite for the parsers, checks and the script
 tools/          icon and README screenshot renderers
 build.sh        builds a universal Plugin Sorter.app without Xcode
+Package.swift   test-only package around the UI-free part of App/
 ```
+
+## Development
+
+Everything works with just the Command Line Tools:
+
+```bash
+swift test                  # parsers, inventory, checks and sort-plugins.sh on temporary folders
+./build.sh --install        # build and install the app
+./build.sh --screenshot     # re-render the README screenshots
+```
+
+Tests never touch `/Library/Audio/Plug-Ins` or FL Studio's database: the script runs against a
+temporary tree via `PLUGIN_SORT_ROOT`, and plugin bundles and `.fst` presets are generated on the fly.
 
 ## License
 

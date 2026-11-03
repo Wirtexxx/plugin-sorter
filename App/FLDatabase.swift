@@ -113,27 +113,51 @@ struct FLPlugin: Identifiable {
 final class PictureManifest {
     struct Record: Codable {
         var source: FLPlugin.Source
-        /// Contents of the .nfo before we touched it; nil when it didn't exist.
+        /// The .nfo's exact bytes before we touched it; nil when it didn't exist.
+        var originalNfoData: Data?
+        /// Older manifests kept the .nfo as text; still read so their pictures can be removed.
         var originalNfo: String?
     }
 
     private(set) var records: [String: Record] = [:]
     private let url: URL
 
-    init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Plugin Sorter", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        url = dir.appendingPathComponent("fl-pictures.json")
+    static let defaultURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Plugin Sorter/fl-pictures.json")
+
+    init(url: URL = PictureManifest.defaultURL) {
+        self.url = url
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let data = try? Data(contentsOf: url),
            let saved = try? JSONDecoder().decode([String: Record].self, from: data) {
             records = saved
         }
     }
 
+    /// The one the app uses: the FL tab and the favourites both change it, from their own queues.
+    static let shared = PictureManifest()
+
+    private let lock = NSLock()
+
     subscript(picture: URL) -> Record? {
-        get { records[picture.path] }
-        set { records[picture.path] = newValue; save() }
+        get { lock.lock(); defer { lock.unlock() }; return records[Self.key(picture)] }
+        set { lock.lock(); defer { lock.unlock() }; records[Self.key(picture)] = newValue; save() }
+    }
+
+    /// Follows a picture that moved with its favourite into another folder.
+    func move(_ picture: URL, to destination: URL) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let record = records.removeValue(forKey: Self.key(picture)) else { return }
+        records[Self.key(destination)] = record
+        save()
+    }
+
+    /// The same file can be reached through a symlinked folder (/var vs /private/var, a linked Documents),
+    /// so records are keyed by the folder with links resolved. The picture itself may not exist yet.
+    private static func key(_ picture: URL) -> String {
+        picture.deletingLastPathComponent().resolvingSymlinksInPath()
+            .appendingPathComponent(picture.lastPathComponent).path
     }
 
     private func save() {
@@ -150,7 +174,7 @@ enum FLDatabase {
     static var exists: Bool { FileManager.default.fileExists(atPath: root.path) }
 
     /// Every favourite in Effects and Generators, including category subfolders.
-    static func scan(_ manifest: PictureManifest) -> [FLPlugin] {
+    static func scan(_ manifest: PictureManifest, root: URL = FLDatabase.root) -> [FLPlugin] {
         var plugins: [FLPlugin] = []
         for section in ["Effects", "Generators"] {
             let dir = root.appendingPathComponent(section, isDirectory: true)
@@ -171,27 +195,70 @@ enum FLDatabase {
 
     /// Writes Name.png and points Name.nfo at it, the same way FL's stock entries do.
     static func install(_ png: Data, for plugin: FLPlugin, source: FLPlugin.Source, manifest: PictureManifest) throws {
-        let original = try? String(contentsOf: plugin.nfo, encoding: .utf8)
-        let isFirstWrite = manifest[plugin.picture] == nil
+        // Work on bytes: FL's files aren't always UTF-8, and String I/O can also drop a BOM.
+        // Only the Bitmap= line changes; every other byte stays as it was.
+        let original = try? Data(contentsOf: plugin.nfo)
+        let previous = manifest[plugin.picture]
         try png.write(to: plugin.picture, options: .atomic)
+        try nfoPointing(at: plugin.picture.lastPathComponent, from: original).write(to: plugin.nfo, options: .atomic)
 
-        let newline = original?.contains("\r\n") == true ? "\r\n" : "\n"
-        var lines = (original ?? "")
-            .components(separatedBy: CharacterSet.newlines)
-            .filter { !$0.isEmpty && !$0.replacingOccurrences(of: "\u{FEFF}", with: "").lowercased().hasPrefix("bitmap=") }
-        lines.append("Bitmap=\(plugin.picture.lastPathComponent)")
-        try lines.joined(separator: newline).write(to: plugin.nfo, atomically: true, encoding: .utf8)
+        var record = PictureManifest.Record(source: source, originalNfoData: original, originalNfo: nil)
+        if let previous = previous {
+            // A second write keeps what was there before the first one
+            record.originalNfoData = previous.originalNfoData
+            record.originalNfo = previous.originalNfo
+        }
+        manifest[plugin.picture] = record
+    }
 
-        let previous = manifest[plugin.picture]?.originalNfo
-        manifest[plugin.picture] = PictureManifest.Record(source: source, originalNfo: isFirstWrite ? original : previous)
+    /// "Bitmap=…" in any letter case, compared as ASCII bytes.
+    private static func isBitmapLine(_ line: [UInt8]) -> Bool {
+        let prefix: [UInt8] = Array("bitmap=".utf8)
+        guard line.count >= prefix.count else { return false }
+        for i in 0..<prefix.count {
+            let byte: UInt8 = line[i] >= 0x41 && line[i] <= 0x5A ? line[i] + 0x20 : line[i]
+            if byte != prefix[i] { return false }
+        }
+        return true
+    }
+
+    /// The .nfo with its Bitmap= line replaced, keeping the BOM, line endings and all other bytes.
+    static func nfoPointing(at picture: String, from original: Data?) -> Data {
+        let bom: [UInt8] = [0xEF, 0xBB, 0xBF]
+        var bytes = [UInt8](original ?? Data())
+        let hadBOM = bytes.starts(with: bom)
+        if hadBOM { bytes.removeFirst(bom.count) }
+        var crlf = false
+        for i in bytes.indices.dropLast() where bytes[i] == 0x0D && bytes[i + 1] == 0x0A {
+            crlf = true
+            break
+        }
+
+        var lines: [[UInt8]] = []
+        for slice in bytes.split(separator: 0x0A, omittingEmptySubsequences: true) {
+            var line = Array(slice)
+            if line.last == 0x0D { line.removeLast() }
+            if !line.isEmpty && !isBitmapLine(line) { lines.append(line) }
+        }
+        lines.append(Array("Bitmap=\(picture)".utf8))
+
+        let newline: [UInt8] = crlf ? [0x0D, 0x0A] : [0x0A]
+        var out = hadBOM ? bom : []
+        for (n, line) in lines.enumerated() {
+            if n > 0 { out += newline }
+            out += line
+        }
+        return Data(out)
     }
 
     /// Deletes a picture added by Plugin Sorter and restores the original .nfo.
     static func remove(_ plugin: FLPlugin, manifest: PictureManifest) {
         guard let record = manifest[plugin.picture] else { return }
         try? FileManager.default.removeItem(at: plugin.picture)
-        if let original = record.originalNfo {
-            try? original.write(to: plugin.nfo, atomically: true, encoding: .utf8)
+        if let original = record.originalNfoData {
+            try? original.write(to: plugin.nfo, options: .atomic)
+        } else if let legacy = record.originalNfo {
+            try? Data(legacy.utf8).write(to: plugin.nfo, options: .atomic)
         } else {
             try? FileManager.default.removeItem(at: plugin.nfo)
         }
