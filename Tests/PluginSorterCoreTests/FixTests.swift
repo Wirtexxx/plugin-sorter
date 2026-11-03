@@ -62,6 +62,14 @@ struct FixTests {
         #expect(PluginFixes.missingBundle(in: "could not load '\(path)'", root: root)?.path == path)
     }
 
+    @Test func pathsInsideBundlesAndSeveralPathsInOneError() {
+        let missing = root.appendingPathComponent("VST3/Serum2.vst3").path
+        let other = root.appendingPathComponent("VST3/X.vst3").path
+        // dlopen-style: the binary inside the bundle, then a quoted second path
+        let error = "dlopen(\(missing)/Contents/MacOS/Serum2, 6): tried: '\(other)' (no such file)"
+        #expect(PluginFixes.missingBundle(in: error, root: root)?.path == missing)
+    }
+
     @Test func existingOrForeignPathsAreNotMissing() throws {
         let existing = try bundle("My Plugin.vst3").url.path
         #expect(PluginFixes.missingBundle(in: "could not load \(existing)", root: root) == nil)

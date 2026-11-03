@@ -57,9 +57,11 @@ enum PluginFixes {
 
     /// The first plugin bundle path inside `root` mentioned in an error that doesn't exist on disk.
     static func missingBundle(in message: String, root: URL) -> URL? {
-        // Paths can contain spaces, so match lazily up to a bundle extension followed by a boundary
+        // Paths can contain spaces, so match lazily up to a bundle extension followed by a boundary.
+        // No quotes or line breaks inside, so one path never runs into the next; "/" ends the bundle
+        // when the error names a file inside it (…/Serum2.vst3/Contents/MacOS/Serum2).
         let pattern = NSRegularExpression.escapedPattern(for: root.path)
-            + "/.+?\\.(?:vst3|component|clap|vst)(?=$|[\\s\"',:;)])"
+            + "/[^'\"\\n]+?\\.(?:vst3|component|clap|vst)(?=$|[/\\s\"',:;)])"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(message.startIndex..., in: message)
         for match in regex.matches(in: message, range: range) {
