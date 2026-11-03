@@ -97,7 +97,7 @@ struct FavoritesView: View {
 
     private var bottomBar: some View {
         HStack(spacing: 10) {
-            Text(t.favoritesStatus(library.status).uppercased()).caption().lineLimit(1)
+            Text(statusText.uppercased()).caption().lineLimit(1)
             Spacer()
             if library.busy { ProgressView().controlSize(.small) }
             Button(t("fav.restore").uppercased()) { library.restore() }
@@ -106,10 +106,21 @@ struct FavoritesView: View {
             Button(t("button.refresh").uppercased()) { library.scan() }
                 .buttonStyle(PluginButtonStyle())
                 .disabled(library.busy)
+            Rectangle().fill(Color.edge).frame(width: 1, height: 16)
+            Button(t("fav.unsort").uppercased()) { library.unsort() }
+                .buttonStyle(PluginButtonStyle())
+                .disabled(library.busy || !library.canUnsort)
+            Button(t("fav.sort").uppercased()) { library.sortByCategory() }
+                .buttonStyle(PluginButtonStyle(primary: true))
+                .disabled(library.busy || library.unsorted.isEmpty)
         }
         .padding(.horizontal, 12)
         .frame(height: 44)
         .panel()
+    }
+
+    private var statusText: String {
+        library.current.isEmpty ? t.favoritesStatus(library.status) : "\(t("fav.reading")) · \(library.current)"
     }
 }
 
@@ -137,7 +148,7 @@ struct FavoriteRowView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(state == .removed ? .label : .text)
                     .lineLimit(1)
-                Text("\(row.vendor.uppercased()) · \(t(row.section == "Generators" ? "fav.generator" : "fav.effect").uppercased())")
+                Text(subtitle.uppercased())
                     .caption()
                     .lineLimit(1)
             }
@@ -171,5 +182,22 @@ struct FavoriteRowView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .panel(.inset, radius: 5)
+        .contextMenu {
+            if !row.isNative && row.entries.contains(where: library.isFavorite) {
+                Menu(t("fav.category")) {
+                    ForEach(FLCategories.folders(row.section), id: \.self) { folder in
+                        Button(folder) { library.setCategory(row, to: folder) }
+                    }
+                    Divider()
+                    Button(t("fav.noCategory")) { library.setCategory(row, to: nil) }
+                }
+            }
+        }
+    }
+
+    private var subtitle: String {
+        var parts = [row.vendor, t(row.section == "Generators" ? "fav.generator" : "fav.effect")]
+        if let category = library.category(of: row) { parts.append(category) }
+        return parts.joined(separator: " · ")
     }
 }

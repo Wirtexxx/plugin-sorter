@@ -83,6 +83,8 @@ struct L10n {
         case .idle:               return ""
         case .removed(let n):     return self("fav.status.removed", n)
         case .restored(let n):    return self("fav.status.restored", n)
+        case .sorted(let n):      return self("fav.status.sorted", n)
+        case .unsorted(let n):    return self("fav.status.unsorted", n)
         case .failed(let error):  return self("status.failed", error)
         }
     }
@@ -127,10 +129,10 @@ struct L10n {
         t["fl.mode.favorites"] = [.en: "Favourites", .ru: "Избранное", .uk: "Обране", .de: "Favoriten"]
         t["fav.title"] = [.en: "FL Studio favourites", .ru: "Избранное FL Studio", .uk: "Обране FL Studio", .de: "FL-Studio-Favoriten"]
         t["fav.hint"] = [
-            .en: "Star the plugins you want in FL's browser and plugin picker; format chips pick VST3, AU or CLAP. Removed favourites are kept and can be put back. Restart FL Studio to see changes.",
-            .ru: "Отметьте звездой плагины, которые нужны в браузере и плагин-пикере FL; чипы форматов выбирают VST3, AU или CLAP. Убранное избранное сохраняется, его можно вернуть. Перезапустите FL Studio, чтобы увидеть изменения.",
-            .uk: "Позначте зірочкою плагіни, потрібні в браузері та плагін-пікері FL; чипи форматів обирають VST3, AU чи CLAP. Прибране обране зберігається, його можна повернути. Перезапустіть FL Studio, щоб побачити зміни.",
-            .de: "Markiere die Plugins mit einem Stern, die im FL-Browser und Plugin-Picker erscheinen sollen; die Format-Chips wählen VST3, AU oder CLAP. Entfernte Favoriten werden aufbewahrt und lassen sich zurückholen. Starte FL Studio neu, um die Änderungen zu sehen.",
+            .en: "Star the plugins you want in FL's browser and plugin picker; format chips pick VST3, AU or CLAP. Removed favourites are kept and can be put back. “Sort by category” files them under the picker's tabs; right-click a plugin to pick one yourself. Restart FL Studio to see changes.",
+            .ru: "Отметьте звездой плагины, которые нужны в браузере и плагин-пикере FL; чипы форматов выбирают VST3, AU или CLAP. Убранное избранное сохраняется, его можно вернуть. «Разложить по категориям» раскладывает плагины по вкладкам пикера; правый клик по плагину — выбрать категорию вручную. Перезапустите FL Studio, чтобы увидеть изменения.",
+            .uk: "Позначте зірочкою плагіни, потрібні в браузері та плагін-пікері FL; чипи форматів обирають VST3, AU чи CLAP. Прибране обране зберігається, його можна повернути. «Розкласти за категоріями» розкладає плагіни по вкладках пікера; правий клік по плагіну — обрати категорію вручну. Перезапустіть FL Studio, щоб побачити зміни.",
+            .de: "Markiere die Plugins mit einem Stern, die im FL-Browser und Plugin-Picker erscheinen sollen; die Format-Chips wählen VST3, AU oder CLAP. Entfernte Favoriten werden aufbewahrt und lassen sich zurückholen. „Nach Kategorie sortieren“ verteilt sie auf die Tabs des Pickers; Rechtsklick wählt eine Kategorie von Hand. Starte FL Studio neu, um die Änderungen zu sehen.",
         ]
         t["fav.favorites"] = [.en: "Favourites", .ru: "В избранном", .uk: "В обраному", .de: "Favoriten"]
         t["fav.installed"] = [.en: "Scanned", .ru: "Найдено FL", .uk: "Знайдено FL", .de: "Gescannt"]
@@ -148,6 +150,18 @@ struct L10n {
         t["fav.generator"] = [.en: "Instrument", .ru: "Инструмент", .uk: "Інструмент", .de: "Instrument"]
         t["fav.status.removed"] = [.en: "Removed from favourites: %d", .ru: "Убрано из избранного: %d", .uk: "Прибрано з обраного: %d", .de: "Aus Favoriten entfernt: %d"]
         t["fav.status.restored"] = [.en: "Put back: %d", .ru: "Возвращено: %d", .uk: "Повернено: %d", .de: "Zurückgeholt: %d"]
+        t["fav.status.sorted"] = [
+            .en: "Sorted into categories: %d. Restart FL Studio",
+            .ru: "Разложено по категориям: %d. Перезапустите FL Studio",
+            .uk: "Розкладено за категоріями: %d. Перезапустіть FL Studio",
+            .de: "In Kategorien sortiert: %d. Starte FL Studio neu",
+        ]
+        t["fav.status.unsorted"] = [.en: "Back where they were: %d", .ru: "Возвращено на место: %d", .uk: "Повернено на місце: %d", .de: "Zurück an alter Stelle: %d"]
+        t["fav.sort"] = [.en: "Sort by category", .ru: "Разложить по категориям", .uk: "Розкласти за категоріями", .de: "Nach Kategorie sortieren"]
+        t["fav.unsort"] = [.en: "Undo categories", .ru: "Отменить категории", .uk: "Скасувати категорії", .de: "Kategorien zurücksetzen"]
+        t["fav.reading"] = [.en: "Reading categories", .ru: "Читаю категории", .uk: "Читаю категорії", .de: "Lese Kategorien"]
+        t["fav.category"] = [.en: "Category", .ru: "Категория", .uk: "Категорія", .de: "Kategorie"]
+        t["fav.noCategory"] = [.en: "No category", .ru: "Без категории", .uk: "Без категорії", .de: "Ohne Kategorie"]
         t["badge.removed"] = [.en: "Deleted", .ru: "Удалён", .uk: "Видалено", .de: "Gelöscht"]
         t["badge.moved"] = [.en: "Moved", .ru: "Перенесён", .uk: "Перенесено", .de: "Verschoben"]
         t["settings.language"] = [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"]
