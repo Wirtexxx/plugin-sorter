@@ -1,0 +1,54 @@
+import Foundation
+
+/// Disk space used by plugins and by the data their developers keep elsewhere.
+enum DiskUsage {
+    /// Where developers keep presets, samples and libraries next to the plugin itself.
+    static let dataRoots: [URL] = {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return [
+            URL(fileURLWithPath: "/Library/Application Support", isDirectory: true),
+            home.appendingPathComponent("Library/Application Support", isDirectory: true),
+            URL(fileURLWithPath: "/Library/Audio/Presets", isDirectory: true),
+            home.appendingPathComponent("Library/Audio/Presets", isDirectory: true),
+        ]
+    }()
+
+    /// Space a file or folder takes on disk, counting everything inside it.
+    static func size(of url: URL) -> Int64 {
+        let keys: Set<URLResourceKey> = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .isRegularFileKey]
+        if let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true {
+            return Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
+        }
+        guard let walker = FileManager.default.enumerator(at: url, includingPropertiesForKeys: Array(keys)) else { return 0 }
+        var total: Int64 = 0
+        for case let file as URL in walker {
+            guard let values = try? file.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
+            total += Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
+        }
+        return total
+    }
+
+    /// Folders named after a developer in the data locations: "FabFilter", "Valhalla DSP" for "Valhalla DSP, LLC",
+    /// "Xfer" for "Xfer Records". Short or generic names only match exactly.
+    static func vendorFolders(for vendor: String, in roots: [URL] = dataRoots) -> [URL] {
+        let key = normalize(vendor)
+        guard key.count >= 3 else { return [] }
+        var found: [URL] = []
+        for root in roots {
+            let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey],
+                                                                         options: [.skipsHiddenFiles])) ?? []
+            for folder in folders where folder.hasDirectoryPath {
+                let name = normalize(folder.lastPathComponent)
+                guard name.count >= 3 else { continue }
+                let related = name == key || (min(name.count, key.count) >= 4 && (key.hasPrefix(name) || name.hasPrefix(key)))
+                if related && !ignored.contains(name) { found.append(folder) }
+            }
+        }
+        return found
+    }
+
+    /// System and app folders that must never be shown as a developer's data.
+    private static let ignored: Set<String> = ["apple", "pluginsorter", "audio", "plugins", "plugin"]
+
+    static func normalize(_ s: String) -> String { s.lowercased().filter { $0.isLetter || $0.isNumber } }
+}

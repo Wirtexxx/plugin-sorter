@@ -18,6 +18,7 @@ let package = Package(
                 "Shell.swift",
                 "PluginFixes.swift",
                 "FLFavorites.swift",
+                "DiskUsage.swift",
             ]
         ),
         .testTarget(
