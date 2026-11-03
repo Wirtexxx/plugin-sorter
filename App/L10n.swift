@@ -228,6 +228,8 @@ struct L10n {
         ]
         t["gear.recheck"] = [.en: "Check all plugins again", .ru: "Проверить все плагины заново", .uk: "Перевірити всі плагіни заново", .de: "Alle Plugins neu prüfen"]
         t["gear.restore"] = [.en: "Put back favourites removed from FL", .ru: "Вернуть убранное из избранного FL", .uk: "Повернути прибране з обраного FL", .de: "Aus FL entfernte Favoriten zurückholen"]
+        t["row.writeSupport"] = [.en: "Write to support", .ru: "Написать в поддержку", .uk: "Написати в підтримку", .de: "An den Support schreiben"]
+        t["row.copyDraft"] = [.en: "Copy the message", .ru: "Скопировать письмо", .uk: "Скопіювати лист", .de: "Nachricht kopieren"]
         t["gear.export"] = [.en: "Export the list", .ru: "Экспорт списка", .uk: "Експорт списку", .de: "Liste exportieren"]
         t["export.md"] = [.en: "Markdown (.md)", .ru: "Markdown (.md)", .uk: "Markdown (.md)", .de: "Markdown (.md)"]
         t["export.csv"] = [.en: "CSV (.csv)", .ru: "CSV (.csv)", .uk: "CSV (.csv)", .de: "CSV (.csv)"]

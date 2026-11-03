@@ -170,7 +170,10 @@ struct PluginDetailsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let text = problemText(plugin) {
-                    problem(text) { actions(plugin) }
+                    problem(text) {
+                        actions(plugin)
+                        supportButtons(plugin)
+                    }
                 } else {
                     flow { actions(plugin) }
                 }
@@ -235,6 +238,30 @@ struct PluginDetailsView: View {
         Button(t("mgr.trash")) { confirmTrash(plugin) }
             .buttonStyle(PillButtonStyle(destructive: true))
             .disabled(manager.busy)
+    }
+
+    /// A draft for the developer's support: written in a mail, or copied for where mail isn't set up.
+    @ViewBuilder private func supportButtons(_ plugin: ManagedPlugin) -> some View {
+        Button(t("row.writeSupport")) { NSWorkspace.shared.open(supportDraft(plugin).mailto) }
+            .buttonStyle(PillButtonStyle())
+        Button(t("row.copyDraft")) {
+            let draft = supportDraft(plugin)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(draft.subject + "\n\n" + draft.body, forType: .string)
+        }
+        .buttonStyle(PillButtonStyle())
+    }
+
+    private func supportDraft(_ plugin: ManagedPlugin) -> SupportDraft {
+        var issues: [String: [Issue]] = [:]
+        for bundle in plugin.activeBundles {
+            if case .done(let found) = manager.state(of: bundle) { issues[bundle.id] = found }
+        }
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        let app = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let context = SupportContext(macOS: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
+                                     cpu: PluginInventory.hostArch, appVersion: app)
+        return SupportDraft.make(plugin: plugin, issues: issues, context: context)
     }
 
     private func bundles(_ plugin: ManagedPlugin) -> some View {

@@ -28,6 +28,7 @@ let package = Package(
                 "Cleanup.swift",
                 "Uninstall.swift",
                 "CatalogExport.swift",
+                "SupportDraft.swift",
             ]
         ),
         .testTarget(
