@@ -6,6 +6,8 @@ struct MainView: View {
     @ObservedObject var model: AppModel
     let t: L10n
 
+    @State private var gearHovered = false
+
     var body: some View {
         VStack(spacing: 10) {
             header
@@ -127,22 +129,28 @@ struct MainView: View {
             Divider()
             Button(t("gear.settings")) { openSettings() }
         } label: {
-            Image(systemName: "gearshape")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.label)
+            // Invisible: the system menu keeps room for an arrow, which would push a visible
+            // label off-centre, and it ignores the label's colour
+            Image(nsImage: NSImage(size: NSSize(width: 32, height: 32)))
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
         .frame(width: 32, height: 32)
-        .background(Circle().fill(Color.raised))
+        .background(ZStack {
+            Circle().fill(gearHovered ? Color.inset : Color.raised)
+            Image(systemName: "gearshape")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(gearHovered ? .text : .label)
+        })
+        .contentShape(Circle())
+        .onHover { gearHovered = $0 }
     }
 
     private func openSettings() {
-        // The Settings scene's window; the selector was renamed in macOS 13
-        if #available(macOS 13, *) {
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        } else {
-            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-        }
+        // The app menu's own Settings… item (⌘,). macOS 14 made the showSettingsWindow: selector
+        // do nothing, and SettingsLink doesn't exist before it; this item works on every version
+        guard let menu = NSApp.mainMenu?.items.first?.submenu,
+              let item = menu.items.firstIndex(where: { $0.keyEquivalent == "," }) else { return }
+        menu.performActionForItem(at: item)
     }
 
     private func checkingLine(_ checking: CheckProgress) -> some View {
