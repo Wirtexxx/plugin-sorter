@@ -134,9 +134,23 @@ final class PictureManifest {
         }
     }
 
+    /// The one the app uses: the FL tab and the favourites both change it, from their own queues.
+    static let shared = PictureManifest()
+
+    private let lock = NSLock()
+
     subscript(picture: URL) -> Record? {
-        get { records[Self.key(picture)] }
-        set { records[Self.key(picture)] = newValue; save() }
+        get { lock.lock(); defer { lock.unlock() }; return records[Self.key(picture)] }
+        set { lock.lock(); defer { lock.unlock() }; records[Self.key(picture)] = newValue; save() }
+    }
+
+    /// Follows a picture that moved with its favourite into another folder.
+    func move(_ picture: URL, to destination: URL) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let record = records.removeValue(forKey: Self.key(picture)) else { return }
+        records[Self.key(destination)] = record
+        save()
     }
 
     /// The same file can be reached through a symlinked folder (/var vs /private/var, a linked Documents),

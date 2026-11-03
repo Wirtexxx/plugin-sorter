@@ -18,7 +18,7 @@ final class FLLibrary: ObservableObject {
     @Published var current = ""
     @Published var status: FLStatus = .idle
 
-    private let manifest = PictureManifest()
+    private let manifest = PictureManifest.shared
     private let queue = DispatchQueue(label: "plugin-sorter.fl", qos: .userInitiated)
     private let demo: Bool
 

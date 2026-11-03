@@ -77,7 +77,7 @@ final class Thumbnails: ObservableObject {
     func load() {
         guard isEnabled else { return }
         DispatchQueue.global(qos: .utility).async {
-            let plugins = FLDatabase.scan(PictureManifest())
+            let plugins = FLDatabase.scan(PictureManifest.shared)
             DispatchQueue.main.async { self.update(from: plugins) }
         }
     }
