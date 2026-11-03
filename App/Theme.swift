@@ -309,7 +309,7 @@ struct FilterPill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 if let count = count {
                     Text("\(count)")
                         .font(.system(size: 12, weight: .medium))
@@ -323,6 +323,7 @@ struct FilterPill: View {
             .clipShape(Capsule())
             .shadow(color: isOn ? Color.accent.opacity(0.35) : .clear, radius: 10)
             .contentShape(Capsule())
+            .fixedSize()
         }
         .buttonStyle(PlainButtonStyle())
         .animation(.easeOut(duration: 0.15), value: isOn)

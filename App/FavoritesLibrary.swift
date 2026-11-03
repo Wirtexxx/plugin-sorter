@@ -48,6 +48,18 @@ final class FavoritesLibrary: ObservableObject {
     /// Formats in the order a star picks them when a plugin isn't a favourite yet.
     private static let preference = ["VST3", "CLAP", "AudioUnit", "VST"]
 
+    private var demo = false
+
+    init() {}
+
+    /// Fixed content for README screenshots; never touches FL's database.
+    init(demoEntries: [InstalledEntry], favorites: [Favorite]) {
+        demo = true
+        entries = demoEntries
+        self.favorites = favorites
+        for entry in demoEntries { availability[entry.id] = .available }
+    }
+
     var canRestore: Bool { !backup.records.isEmpty }
     var canUnsort: Bool { !journal.moves.isEmpty }
 
@@ -94,6 +106,7 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     func scan() {
+        guard !demo else { return }
         queue.async {
             let entries = FLFavorites.installed()
             let favorites = FLFavorites.favorites(installed: entries)

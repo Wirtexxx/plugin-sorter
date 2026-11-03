@@ -162,6 +162,44 @@ struct L10n {
         t["fav.reading"] = [.en: "Reading categories", .ru: "Читаю категории", .uk: "Читаю категорії", .de: "Lese Kategorien"]
         t["fav.category"] = [.en: "Category", .ru: "Категория", .uk: "Категорія", .de: "Kategorie"]
         t["fav.noCategory"] = [.en: "No category", .ru: "Без категории", .uk: "Без категорії", .de: "Ohne Kategorie"]
+        t["main.search"] = [.en: "Find a plugin", .ru: "Найти плагин", .uk: "Знайти плагін", .de: "Plugin suchen"]
+        t["filter.all"] = [.en: "All", .ru: "Все", .uk: "Усі", .de: "Alle"]
+        t["filter.problems"] = [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"]
+        t["filter.notInFL"] = [.en: "Not in FL", .ru: "Не в FL", .uk: "Не в FL", .de: "Nicht in FL"]
+        t["filter.new"] = [.en: "New", .ru: "Новые", .uk: "Нові", .de: "Neu"]
+        t["filter.duplicates"] = [.en: "Duplicates", .ru: "Дубли", .uk: "Дублі", .de: "Duplikate"]
+        t["col.plugin"] = [.en: "Plugin", .ru: "Плагин", .uk: "Плагін", .de: "Plugin"]
+        t["col.formats"] = [.en: "Formats", .ru: "Форматы", .uk: "Формати", .de: "Formate"]
+        t["col.category"] = [.en: "FL category", .ru: "Категория FL", .uk: "Категорія FL", .de: "FL-Kategorie"]
+        t["col.size"] = [.en: "Size", .ru: "Размер", .uk: "Розмір", .de: "Größe"]
+        t["main.checking"] = [.en: "Checking %d of %d · %@", .ru: "Проверяю %d из %d · %@", .uk: "Перевіряю %d з %d · %@", .de: "Prüfe %d von %d · %@"]
+        t["main.empty"] = [.en: "Nothing here", .ru: "Здесь пусто", .uk: "Тут порожньо", .de: "Nichts hier"]
+        t["row.notSeen"] = [
+            .en: "FL hasn't seen this plugin yet — refresh the plugin list in FL",
+            .ru: "FL ещё не видел этот плагин — обновите список плагинов в FL",
+            .uk: "FL ще не бачив цей плагін — оновіть список плагінів у FL",
+            .de: "FL kennt dieses Plugin noch nicht — aktualisiere die Plugin-Liste in FL",
+        ]
+        t["row.addFavorite"] = [.en: "Add to FL favourites", .ru: "Добавить в избранное FL", .uk: "Додати в обране FL", .de: "Zu FL-Favoriten hinzufügen"]
+        t["row.removeFavorite"] = [.en: "Remove from FL favourites", .ru: "Убрать из избранного FL", .uk: "Прибрати з обраного FL", .de: "Aus FL-Favoriten entfernen"]
+        t["row.fix"] = [.en: "Fix", .ru: "Починить", .uk: "Полагодити", .de: "Reparieren"]
+        t["row.recheck"] = [.en: "Check again", .ru: "Проверить ещё раз", .uk: "Перевірити ще раз", .de: "Erneut prüfen"]
+        t["row.stale"] = [
+            .en: "Deleted, but still in FL's favourites",
+            .ru: "Удалён, но остался в избранном FL",
+            .uk: "Видалений, але залишився в обраному FL",
+            .de: "Gelöscht, aber noch in den FL-Favoriten",
+        ]
+        t["row.removeFromFL"] = [.en: "Remove from FL", .ru: "Убрать из FL", .uk: "Прибрати з FL", .de: "Aus FL entfernen"]
+        t["row.picture"] = [.en: "Picture in FL", .ru: "Картинка в FL", .uk: "Картинка в FL", .de: "Bild in FL"]
+        t["row.dropHint"] = [.en: "Drop an image here", .ru: "Перетащите картинку сюда", .uk: "Перетягніть картинку сюди", .de: "Bild hierher ziehen"]
+        t["row.inFL"] = [.en: "In FL", .ru: "В FL", .uk: "У FL", .de: "In FL"]
+        t["row.formatsHint"] = [
+            .en: "Click a format to add or remove it in FL's favourites",
+            .ru: "Клик по формату добавляет его в избранное FL или убирает",
+            .uk: "Клік по формату додає його в обране FL або прибирає",
+            .de: "Ein Klick auf ein Format nimmt es in die FL-Favoriten auf oder entfernt es",
+        ]
         t["badge.removed"] = [.en: "Deleted", .ru: "Удалён", .uk: "Видалено", .de: "Gelöscht"]
         t["badge.moved"] = [.en: "Moved", .ru: "Перенесён", .uk: "Перенесено", .de: "Verschoben"]
         t["settings.language"] = [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"]

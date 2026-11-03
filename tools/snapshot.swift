@@ -1,5 +1,5 @@
 // Renders the main window with demo data for the README:
-// snapshot <out.png> [lang] [sorter|fl|manager|settings] [violet|mint|amber|ice]
+// snapshot <out.png> [lang] [main|main-expanded|settings] [violet|mint|amber|ice]
 import SwiftUI
 import AppKit
 
@@ -37,29 +37,25 @@ struct Snapshot {
         sorter.notes = [Note(kind: .waves, text: "WaveShell1-AU 17.1.component")]
         sorter.status = .willMove(sorter.moves.count)
 
-        let mode = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "sorter"
-        let tab = mode == "favorites" ? .fl : Tab(rawValue: mode) ?? .sorter
-        // Favourites come from the real FL database: local checks only, not for the README
-        let favorites = FavoritesLibrary()
-        if mode == "favorites" {
-            favorites.scan()
-            RunLoop.main.run(until: Date().addingTimeInterval(4))
-        }
+        let mode = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "main"
         // Real FL pictures only on request: they show other vendors' interfaces, not for the README
         Thumbnails.shared.isEnabled = ProcessInfo.processInfo.environment["PS_THUMBS"] != nil
-        if Thumbnails.shared.isEnabled {
-            Thumbnails.shared.load()
-            RunLoop.main.run(until: Date().addingTimeInterval(2))
+
+        let model: AppModel
+        // The real plugins and FL database, for local checks only (PS_REAL=1)
+        if ProcessInfo.processInfo.environment["PS_REAL"] != nil {
+            model = AppModel()
+            model.refresh()
+            RunLoop.main.run(until: Date().addingTimeInterval(8))
+        } else {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("plugin-sorter-demo", isDirectory: true)
+            let manager = demoManager()
+            let (favorites, titles) = demoFavorites(for: manager, in: dir)
+            model = AppModel(sorter: sorter, manager: manager, favorites: favorites, pictures: demoLibrary(titles, in: dir))
+            model.flRoot = dir
         }
-        let library = demoLibrary()
-        var manager = demoManager()
-        // The real manager, sorted by size, for local checks only (PS_REAL_MANAGER=1)
-        if ProcessInfo.processInfo.environment["PS_REAL_MANAGER"] != nil {
-            manager = ManagerLibrary()
-            manager.scan()
-            RunLoop.main.run(until: Date().addingTimeInterval(6))
-            manager.sortBySize = true
-            if let first = manager.visible.first { manager.expanded = [first.id] }
+        if mode == "main-expanded" {
+            model.expanded = model.rows.first { $0.name == "Serum2" }?.id ?? model.rows.first?.id
         }
 
         let view: NSView
@@ -72,8 +68,8 @@ struct Snapshot {
             let size = NSSize(width: 900, height: 640)
             let main = NSHostingView(rootView: ZStack {
                 Color.chassis
-                ContentView(sorter: sorter, library: library, manager: manager, favorites: favorites, tab: tab,
-                            flMode: mode == "favorites" ? .favorites : .pictures)
+                MainView(model: model, t: L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .en))
+                    .padding(10)
             }
             .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 12)))
@@ -120,36 +116,46 @@ struct Snapshot {
             }
             return ManagedPlugin(key: name, name: name, vendor: vendor, bundles: bundles)
         }
-        manager.expanded = ["Serum2"]
-        manager.status = .checked(ok: 4, warnings: 1, failed: 2)
         return manager
     }
 
-    /// FL tab demo: generated cards, plus real screenshots from $PS_SHOTS/<title>.png when given.
-    private static func demoLibrary() -> FLLibrary {
-        let library = FLLibrary(demo: true)
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("plugin-sorter-demo", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let shots = ProcessInfo.processInfo.environment["PS_SHOTS"].map { URL(fileURLWithPath: $0) }
-
-        let demo: [(String, String, FLPlugin.Source?)] = [
-            ("Pro-Q 4", "FabFilter", .screenshot), ("ValhallaSupermassive", "Valhalla DSP", .screenshot),
-            ("OTT", "Xfer Records", .screenshot), ("soothe2", "oeksound", .screenshot),
-            ("kHs Chorus", "Kilohearts", .screenshot), ("CLA-76 Stereo", "Waves", .card),
-            ("GClip", "GVST", .card), ("Serum 2", "Xfer Records", nil),
+    /// FL's view of the demo plugins: scanned as VST3, most of them favourites, some in categories.
+    private static func demoFavorites(for manager: ManagerLibrary, in dir: URL) -> (FavoritesLibrary, [String: String]) {
+        let categories: [String: String?] = [
+            "FabFilter Pro-Q 4": "Filter", "OTT": "Dynamics", "Serum2": "Synth classic",
+            "ValhallaSupermassive": "Delay reverb", "kHs Chorus": nil,
         ]
-        library.plugins = demo.map { title, vendor, source in
-            let fst = dir.appendingPathComponent(title + ".fst")
-            let picture = fst.deletingPathExtension().appendingPathExtension("png")
-            try? FileManager.default.removeItem(at: picture)
-            if source != nil {
-                let shot = shots.flatMap { NSImage(contentsOf: $0.appendingPathComponent(title.replacingOccurrences(of: " ", with: "_") + ".png")) }
-                try? FLCard.png(title: title, vendor: vendor, shot: shot)?.write(to: picture)
-            }
-            return FLPlugin(fst: fst, title: title, info: FSTInfo(name: title, vendor: vendor, path: ""),
-                            hasPicture: source != nil, source: source)
+        var entries: [InstalledEntry] = []
+        var favorites: [Favorite] = []
+        var titles: [String: String] = [:]
+        for plugin in manager.plugins where plugin.name != "OldReverb" {
+            let section = plugin.name == "Serum2" ? "Generators" : "Effects"
+            let bundle = plugin.bundles.first { $0.format == .vst3 } ?? plugin.bundles[0]
+            let entry = InstalledEntry(fst: dir.appendingPathComponent("Installed/\(section)/VST3/\(plugin.name).fst"),
+                                       section: section, format: "VST3", name: plugin.name, vendor: plugin.vendor,
+                                       files: [bundle.url.path])
+            entries.append(entry)
+            guard let folder = categories[plugin.name] else { continue }
+            let path = [section, folder, plugin.name + ".fst"].compactMap { $0 }.joined(separator: "/")
+            favorites.append(Favorite(fst: dir.appendingPathComponent(path), title: plugin.name, section: section, entry: entry))
+            titles[plugin.name] = dir.appendingPathComponent(path).path
         }
-        library.status = .done(shots: 5, cards: 2)
+        return (FavoritesLibrary(demoEntries: entries, favorites: favorites), titles)
+    }
+
+    /// Pictures for the demo favourites: generated cards, plus real screenshots from $PS_SHOTS/<title>.png when given.
+    private static func demoLibrary(_ favorites: [String: String], in dir: URL) -> FLLibrary {
+        let library = FLLibrary(demo: true)
+        let shots = ProcessInfo.processInfo.environment["PS_SHOTS"].map { URL(fileURLWithPath: $0) }
+        library.plugins = favorites.sorted { $0.key < $1.key }.map { title, path in
+            let fst = URL(fileURLWithPath: path)
+            try? FileManager.default.createDirectory(at: fst.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let picture = fst.deletingPathExtension().appendingPathExtension("png")
+            let shot = shots.flatMap { NSImage(contentsOf: $0.appendingPathComponent(title.replacingOccurrences(of: " ", with: "_") + ".png")) }
+            try? FLCard.png(title: title, vendor: "", shot: shot)?.write(to: picture)
+            return FLPlugin(fst: fst, title: title, info: FSTInfo(name: title, vendor: "", path: ""),
+                            hasPicture: true, source: shot == nil ? .card : .screenshot)
+        }
         return library
     }
 }

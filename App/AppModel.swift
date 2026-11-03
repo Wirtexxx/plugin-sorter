@@ -39,6 +39,8 @@ final class AppModel: ObservableObject {
     @Published var confirmFL: (() -> Void)?
     /// "Don't ask again" in the FL dialog, until the app quits.
     var skipFLCheck = false
+    /// FL's plugin database; a demo folder for README screenshots.
+    var flRoot = FLDatabase.root
 
     private var bag: Set<AnyCancellable> = []
     private var bannerTimer: Timer?
@@ -115,6 +117,57 @@ final class AppModel: ObservableObject {
         } else {
             confirmFL = action
         }
+    }
+
+    // MARK: - FL for one row
+
+    /// Formats in the order a star picks them, as in the favourites list.
+    private static let preference = ["VST3", "CLAP", "AudioUnit", "VST"]
+
+    /// The section FL files the plugin under, "Effects" or "Generators".
+    func section(of row: CatalogRow) -> String {
+        row.favorites.first?.section ?? row.entries.first?.section ?? "Effects"
+    }
+
+    /// The FL category folder of the plugin's favourite, nil at the top of its section.
+    func category(of row: CatalogRow) -> String? {
+        row.favorites.lazy.compactMap { FLCategories.folder(of: $0, root: self.flRoot) }.first
+    }
+
+    /// The picture FL shows for the plugin's favourite.
+    func picture(of row: CatalogRow) -> FLPlugin? {
+        let paths = Set(row.favorites.map(\.fst.path))
+        return pictures.plugins.first { paths.contains($0.fst.path) }
+    }
+
+    func isFavorite(_ entry: InstalledEntry) -> Bool { favorites.isFavorite(entry) }
+
+    /// The star: removes every favourite of the plugin, or adds its preferred format.
+    func toggleFavorite(_ row: CatalogRow) {
+        whenFLClosed {
+            if row.isFavorite {
+                self.favorites.remove(row.favorites)
+            } else if let entry = self.preferred(row) {
+                self.favorites.toggle(entry)
+            }
+        }
+    }
+
+    /// A format pill in the details: that one format in or out of the favourites.
+    func toggle(_ entry: InstalledEntry) {
+        whenFLClosed { self.favorites.toggle(entry) }
+    }
+
+    func setCategory(_ row: CatalogRow, to folder: String?) {
+        let favoriteRow = FavoriteRow(key: row.id, name: row.name, vendor: row.vendor,
+                                      section: section(of: row), entries: row.entries)
+        whenFLClosed { self.favorites.setCategory(favoriteRow, to: folder) }
+    }
+
+    private func preferred(_ row: CatalogRow) -> InstalledEntry? {
+        let usable = row.entries.filter { favorites.availability[$0.id] != .removed }
+        let rank = { (entry: InstalledEntry) in Self.preference.firstIndex(of: entry.format) ?? Self.preference.count }
+        return (usable.isEmpty ? row.entries : usable).min { rank($0) < rank($1) }
     }
 
     private func observeStatuses() {

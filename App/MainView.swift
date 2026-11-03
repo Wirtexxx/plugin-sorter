@@ -1,0 +1,152 @@
+import SwiftUI
+
+/// The whole window: header with search and filters, every plugin, and the tasks below.
+struct MainView: View {
+    @ObservedObject var model: AppModel
+    let t: L10n
+
+    var body: some View {
+        VStack(spacing: 10) {
+            header
+            list
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                GradientTitle(text: "PLUGIN SORTER")
+                    .padding(.trailing, 4)
+                    .help(t("subtitle"))
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 12))
+                        .foregroundColor(.label)
+                    TextField(t("main.search"), text: $model.query)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .font(.system(size: 13))
+                        .foregroundColor(.text)
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 32)
+                .background(Capsule().fill(Color.inset))
+                filters
+                gearMenu
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            if let checking = model.manager.checking {
+                checkingLine(checking)
+            }
+        }
+        .card()
+    }
+
+    private var filters: some View {
+        HStack(spacing: 6) {
+            filterPill(.all, "filter.all")
+            filterPill(.problems, "filter.problems")
+            filterPill(.notInFL, "filter.notInFL")
+            // Places for later features: shown only once they find something
+            if model.count(.new) > 0 { filterPill(.new, "filter.new") }
+            if model.count(.duplicates) > 0 { filterPill(.duplicates, "filter.duplicates") }
+        }
+    }
+
+    private func filterPill(_ filter: CatalogFilter, _ key: String) -> some View {
+        FilterPill(title: t(key), count: model.count(filter), isOn: model.filter == filter) {
+            model.filter = filter
+        }
+    }
+
+    /// Filled in with the settings menu in a later step.
+    @ViewBuilder private var gearMenu: some View {
+        Image(systemName: "gearshape")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(.label)
+            .frame(width: 32, height: 32)
+            .background(Circle().fill(Color.raised))
+    }
+
+    private func checkingLine(_ checking: CheckProgress) -> some View {
+        VStack(spacing: 6) {
+            HStack {
+                Text(t("main.checking", checking.done + 1, checking.total, checking.current))
+                    .font(.system(size: 12))
+                    .foregroundColor(.label)
+                    .lineLimit(1)
+                Spacer()
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.inset)
+                    Capsule()
+                        .fill(accentGradient)
+                        .frame(width: max(4, geo.size.width * CGFloat(checking.done) / CGFloat(max(checking.total, 1))))
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
+    // MARK: - List
+
+    private var list: some View {
+        let rows = model.rows
+        return VStack(spacing: 0) {
+            columnHeaders
+            if rows.isEmpty {
+                Text(t("main.empty"))
+                    .font(.system(size: 13))
+                    .foregroundColor(.label)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(rows) { row in
+                            PluginRowView(row: row, model: model, t: t)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                }
+            }
+        }
+        .frame(maxHeight: .infinity)
+        .card()
+    }
+
+    private var columnHeaders: some View {
+        HStack(spacing: PluginRowView.spacing) {
+            Color.clear.frame(width: PluginRowView.ledWidth, height: 1)
+            sortHeader(t("col.plugin"), .name).frame(maxWidth: .infinity, alignment: .leading)
+            header(t("col.formats")).frame(width: PluginRowView.formatsWidth, alignment: .trailing)
+            header("FL").frame(width: PluginRowView.starWidth)
+            header(t("col.category")).frame(width: PluginRowView.categoryWidth, alignment: .leading)
+            sortHeader(t("col.size"), .size).frame(width: PluginRowView.sizeWidth, alignment: .trailing)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
+        .padding(.bottom, 6)
+    }
+
+    private func header(_ text: String) -> some View {
+        Text(text.uppercased()).caption()
+    }
+
+    private func sortHeader(_ text: String, _ sort: CatalogSort) -> some View {
+        Button { model.sort = sort } label: {
+            HStack(spacing: 4) {
+                Text(text.uppercased()).caption(model.sort == sort ? .text : .label)
+                if model.sort == sort {
+                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundColor(.text)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
