@@ -44,9 +44,14 @@ enum PluginCatalog {
             }
         }
 
+        // Looked up rather than searched for each row: this runs while the window draws
+        var favoriteIndexes: [String: [Int]] = [:]
+        for (index, favorite) in favorites.enumerated() {
+            if let entry = favorite.entry { favoriteIndexes[entry.id, default: []].append(index) }
+        }
+
         func favoritesOf(_ group: [InstalledEntry]) -> [Favorite] {
-            let ids = Set(group.map(\.id))
-            return favorites.filter { $0.entry.map { ids.contains($0.id) } ?? false }
+            Set(group.map(\.id)).flatMap { favoriteIndexes[$0] ?? [] }.sorted().map { favorites[$0] }
         }
 
         var rows = plugins.map { plugin -> CatalogRow in

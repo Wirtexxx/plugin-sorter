@@ -1,5 +1,11 @@
 import Foundation
 
+/// A bundle's size and how it looked when measured.
+struct MeasuredBundle: Equatable {
+    let modified: Date
+    let size: Int64
+}
+
 /// Disk space used by plugins and by the data their developers keep elsewhere.
 enum DiskUsage {
     /// Where developers keep presets, samples and libraries next to the plugin itself.
@@ -26,6 +32,21 @@ enum DiskUsage {
             total += Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
         }
         return total
+    }
+
+    /// The size of each bundle, walking only those that changed since `known`: every return to the
+    /// window rescans, and walking all of them takes the better part of a second.
+    static func sizes(of bundles: [PluginBundle], known: [String: MeasuredBundle]) -> [String: MeasuredBundle] {
+        var sizes: [String: MeasuredBundle] = [:]
+        for bundle in bundles {
+            let modified = CheckCache.modified(bundle)
+            if let saved = known[bundle.id], saved.modified == modified {
+                sizes[bundle.id] = saved
+            } else {
+                sizes[bundle.id] = MeasuredBundle(modified: modified, size: size(of: bundle.url))
+            }
+        }
+        return sizes
     }
 
     /// Every folder directly inside the data locations. List once, then match many vendors against it.

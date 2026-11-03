@@ -24,6 +24,15 @@ struct CheckCacheTests {
         #expect(CheckCache(url: file).issues(for: ott) == [.quarantined, .loadFailed("x")])
     }
 
+    @Test func savedResultsCoverOnlyUnchangedBundles() throws {
+        let ott = try bundle("OTT.vst3"), other = try bundle("Other.vst3")
+        let cache = CheckCache(url: file)
+        cache.store([.quarantined], for: ott)
+        #expect(cache.saved(for: [ott, other]) == [ott.id: [.quarantined]])
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(3600)], ofItemAtPath: ott.url.path)
+        #expect(cache.saved(for: [ott, other]).isEmpty)
+    }
+
     @Test func changedBundleIsCheckedAgain() throws {
         let ott = try bundle("OTT.vst3")
         let cache = CheckCache(url: file)
@@ -80,9 +89,9 @@ struct CheckQueueTests {
         let two = try #require(bundles.first { $0.url.lastPathComponent == "Two.vst3" })
         let cache = CheckCache(url: dir.path("checks.json"))
 
-        #expect(CheckCache.pending(bundles, cache: cache, forgotten: []).count == 2)
+        #expect(CheckCache.pending(bundles, saved: cache.saved(for: bundles), forgotten: []).count == 2)
         cache.store([], for: one)
-        #expect(CheckCache.pending(bundles, cache: cache, forgotten: [two.id]).isEmpty)
+        #expect(CheckCache.pending(bundles, saved: cache.saved(for: bundles), forgotten: [two.id]).isEmpty)
     }
 }
 

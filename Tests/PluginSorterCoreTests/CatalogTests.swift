@@ -57,6 +57,18 @@ struct CatalogTests {
         try #require(rows().first { $0.name == name })
     }
 
+    @Test func aRowKeepsItsFavouritesInTheOrderGiven() throws {
+        try favorite("Effects/AudioUnit/OTT", as: "Effects/OTT AU")
+        let entries = FLFavorites.installed(root: db)
+        let favorites = FLFavorites.favorites(root: db, installed: entries)
+        let found = { (list: [Favorite]) -> [String] in
+            let rows = PluginCatalog.rows(plugins: PluginInventory.scan(root: plugins), entries: entries, favorites: list, removed: [])
+            return rows.first { $0.name == "OTT" }?.favorites.map(\.id) ?? []
+        }
+        #expect(found(favorites).count == 2)
+        #expect(found(favorites) == found(favorites.reversed()).reversed())
+    }
+
     @Test func vst3EntryJoinsByPath() throws {
         let ott = try row("OTT")
         #expect(ott.plugin != nil)

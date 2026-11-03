@@ -43,6 +43,8 @@ final class AppModel: ObservableObject {
 
     private var bag: Set<AnyCancellable> = []
     private var bannerTimer: Timer?
+    /// `allRows`, kept until a library it's made from changes.
+    private var cachedRows: [CatalogRow]?
 
     init(sorter: Sorter = Sorter(), manager: ManagerLibrary = ManagerLibrary(),
          favorites: FavoritesLibrary = FavoritesLibrary(), pictures: FLLibrary = FLLibrary()) {
@@ -56,6 +58,12 @@ final class AppModel: ObservableObject {
                           favorites.objectWillChange, pictures.objectWillChange] {
             publisher.receive(on: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &bag)
         }
+        // Right away, not on the next run loop pass: a redraw must never see rows older than the data
+        let forget: (Any) -> Void = { [weak self] _ in self?.cachedRows = nil }
+        manager.$plugins.sink(receiveValue: forget).store(in: &bag)
+        favorites.$entries.sink(receiveValue: forget).store(in: &bag)
+        favorites.$favorites.sink(receiveValue: forget).store(in: &bag)
+        favorites.$availability.sink(receiveValue: forget).store(in: &bag)
         observeStatuses()
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in self?.refresh() }
@@ -64,10 +72,14 @@ final class AppModel: ObservableObject {
 
     // MARK: - Rows
 
+    /// Asked for several times per redraw (the list and each filter's count), so built once.
     var allRows: [CatalogRow] {
+        if let rows = cachedRows { return rows }
         let removed = Set(favorites.availability.filter { $0.value == .removed }.map(\.key))
-        return PluginCatalog.rows(plugins: manager.plugins, entries: favorites.entries,
-                                  favorites: favorites.favorites, removed: removed)
+        let rows = PluginCatalog.rows(plugins: manager.plugins, entries: favorites.entries,
+                                      favorites: favorites.favorites, removed: removed)
+        cachedRows = rows
+        return rows
     }
 
     var rows: [CatalogRow] {

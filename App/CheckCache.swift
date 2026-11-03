@@ -32,6 +32,13 @@ final class CheckCache {
         return record.issues
     }
 
+    /// Every saved result among these bundles, by id. Reads each bundle's dates, so not for the main thread.
+    func saved(for bundles: [PluginBundle]) -> [String: [Issue]] {
+        var saved: [String: [Issue]] = [:]
+        for bundle in bundles { saved[bundle.id] = issues(for: bundle) }
+        return saved
+    }
+
     /// Results that depend on the moment rather than the plugin (a timeout, macOS's AU registry) aren't kept.
     func store(_ issues: [Issue], for bundle: PluginBundle) {
         lock.lock()
@@ -53,8 +60,8 @@ final class CheckCache {
     }
 
     /// Bundles the background check still has to look at: never checked, changed since, and not on their way out.
-    static func pending(_ bundles: [PluginBundle], cache: CheckCache, forgotten: Set<String>) -> [PluginBundle] {
-        bundles.filter { !forgotten.contains($0.id) && cache.issues(for: $0) == nil }
+    static func pending(_ bundles: [PluginBundle], saved: [String: [Issue]], forgotten: Set<String>) -> [PluginBundle] {
+        bundles.filter { !forgotten.contains($0.id) && saved[$0.id] == nil }
     }
 
     private func save() {
@@ -63,7 +70,7 @@ final class CheckCache {
 
     /// The newest of the bundle folder, its Info.plist and its binary: an installer that rewrites files
     /// inside an existing bundle leaves the folder's own date alone.
-    private static func modified(_ bundle: PluginBundle) -> Date {
+    static func modified(_ bundle: PluginBundle) -> Date {
         let files = [bundle.url, bundle.url.appendingPathComponent("Contents/Info.plist")] + [bundle.executable].compactMap { $0 }
         return files.map(date).max() ?? .distantPast
     }

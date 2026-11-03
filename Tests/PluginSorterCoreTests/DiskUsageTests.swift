@@ -16,6 +16,34 @@ struct DiskUsageTests {
         #expect(size < 400_000)
     }
 
+    @Test func anUnchangedBundleIsNotMeasuredAgain() throws {
+        let url = try makeBundle(dir.path("VST3/Big.vst3"), id: "com.test.big", binary: Data(count: 200_000))
+        let bundles = PluginInventory.scan(root: dir.url).flatMap(\.bundles)
+        let id = try #require(bundles.first).id
+        let first = DiskUsage.sizes(of: bundles, known: [:])
+        let before = try #require(first[id]?.size)
+
+        // Grows, but nothing that says the plugin changed: the saved size stands
+        try Data(count: 500_000).write(to: url.appendingPathComponent("Contents/Resources.bin"))
+        #expect(DiskUsage.sizes(of: bundles, known: first)[id]?.size == before)
+        // Without a saved size it is measured for real
+        #expect(try #require(DiskUsage.sizes(of: bundles, known: [:])[id]?.size) > before + 400_000)
+
+        // An update touches the binary: measured again
+        let binary = url.appendingPathComponent("Contents/MacOS/Big")
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(3600)], ofItemAtPath: binary.path)
+        #expect(try #require(DiskUsage.sizes(of: bundles, known: first)[id]?.size) > before + 400_000)
+    }
+
+    @Test func aRemovedBundleLeavesNoSize() throws {
+        _ = try makeBundle(dir.path("VST3/Big.vst3"), id: "com.test.big")
+        let bundles = PluginInventory.scan(root: dir.url).flatMap(\.bundles)
+        let id = try #require(bundles.first).id
+        let known = DiskUsage.sizes(of: bundles, known: [:])
+        #expect(known[id] != nil)
+        #expect(DiskUsage.sizes(of: [], known: known)[id] == nil)
+    }
+
     @Test func sizeOfAFileAndOfNothing() throws {
         let file = dir.path("file.bin")
         try Data(count: 50_000).write(to: file)

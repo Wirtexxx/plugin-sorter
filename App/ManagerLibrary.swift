@@ -31,6 +31,7 @@ final class ManagerLibrary: ObservableObject {
     /// hundreds of gigabytes of samples.
     @Published private(set) var folderSizes: [URL: Int64] = [:]
     private var measuring: Set<URL> = []
+    private var measuredBundles: [String: MeasuredBundle] = [:]
     /// Bumped by every scan so a slower, older measurement can't overwrite a newer one.
     private var sizeGeneration = 0
 
@@ -61,9 +62,10 @@ final class ManagerLibrary: ObservableObject {
     private func computeSizes(for plugins: [ManagedPlugin]) {
         sizeGeneration += 1
         let generation = sizeGeneration
+        let known = measuredBundles
         DispatchQueue.global(qos: .utility).async {
-            var sizes: [String: Int64] = [:]
-            for bundle in plugins.flatMap(\.bundles) { sizes[bundle.id] = DiskUsage.size(of: bundle.url) }
+            let measured = DiskUsage.sizes(of: plugins.flatMap(\.bundles), known: known)
+            let sizes = measured.mapValues(\.size)
             let folders = DiskUsage.dataFolders()
             var vendorData: [String: [URL]] = [:]
             for vendor in Set(plugins.map(\.vendor)) where !vendor.isEmpty {
@@ -72,8 +74,10 @@ final class ManagerLibrary: ObservableObject {
             }
             DispatchQueue.main.async {
                 guard generation == self.sizeGeneration else { return }
-                self.sizes = sizes
-                self.vendorData = vendorData
+                self.measuredBundles = measured
+                // Nothing changed is the usual case: no reason to redraw the window
+                if sizes != self.sizes { self.sizes = sizes }
+                if vendorData != self.vendorData { self.vendorData = vendorData }
             }
         }
     }
@@ -155,6 +159,7 @@ final class ManagerLibrary: ObservableObject {
         guard !demo else { return }
         queue.async {
             let plugins = PluginInventory.scan()
+            let saved = self.cache.saved(for: plugins.flatMap(\.bundles))
             DispatchQueue.main.async {
                 self.plugins = plugins
                 // Saved results first, so the list shows each plugin's state straight away
@@ -162,7 +167,7 @@ final class ManagerLibrary: ObservableObject {
                 for bundle in plugins.flatMap(\.bundles) {
                     if self.results[bundle.id] == .running {
                         results[bundle.id] = .running
-                    } else if let issues = self.cache.issues(for: bundle) ?? PluginChecker.knownIssues(bundle) {
+                    } else if let issues = saved[bundle.id] ?? PluginChecker.knownIssues(bundle) {
                         results[bundle.id] = .done(issues)
                     }
                 }
@@ -170,7 +175,7 @@ final class ManagerLibrary: ObservableObject {
                 // Bundles still here (a cancelled Trash, a reinstall) may be checked again
                 self.forgotten.subtract(plugins.flatMap { $0.bundles.map(\.id) })
                 self.computeSizes(for: plugins)
-                self.checkInBackground()
+                self.checkInBackground(saved: saved)
                 completion?()
             }
         }
@@ -179,11 +184,11 @@ final class ManagerLibrary: ObservableObject {
     // MARK: - Background checks
 
     /// Queues every bundle that was never checked or changed since.
-    func checkInBackground() {
+    func checkInBackground(saved: [String: [Issue]]) {
         guard !demo else { return }
         let waiting = Set(queued.map(\.id))
         // Problems already certain from the files (an AU in a subfolder) need no check
-        enqueue(CheckCache.pending(plugins.flatMap(\.bundles), cache: cache, forgotten: forgotten)
+        enqueue(CheckCache.pending(plugins.flatMap(\.bundles), saved: saved, forgotten: forgotten)
             .filter { !waiting.contains($0.id) && results[$0.id] != .running && PluginChecker.knownIssues($0) == nil })
     }
 
@@ -198,7 +203,7 @@ final class ManagerLibrary: ObservableObject {
         cache.clear()
         queued.removeAll()
         results = results.filter { $0.value == .running }
-        checkInBackground()
+        checkInBackground(saved: [:])
     }
 
     /// Takes bundles out of the queue, e.g. before they are moved to the Trash.
