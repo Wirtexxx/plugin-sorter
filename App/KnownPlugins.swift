@@ -2,11 +2,13 @@ import Foundation
 
 /// Which plugins the app has already seen, to point out the ones installed since. A plugin counts by its
 /// key, so a moved bundle or a new format of a known plugin is not new. The first scan takes everything
-/// for known; the "new" mark stays until `markAllSeen`.
+/// for known; a plugin is forgotten only after two scans without it; the "new" mark stays until `markAllSeen`.
 final class KnownPlugins {
     private struct Saved: Codable {
         var known: [String]
         var new: [String]
+        /// Missed by the last scan: gone for good only if the next one misses them too.
+        var missing: [String]?
     }
 
     static let defaultURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -16,6 +18,7 @@ final class KnownPlugins {
     /// Nil until a scan with plugins in it: that scan is the first run.
     private var known: Set<String>?
     private var new: Set<String> = []
+    private var missing: Set<String> = []
 
     init(url: URL = KnownPlugins.defaultURL) {
         self.url = url
@@ -23,6 +26,7 @@ final class KnownPlugins {
         if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode(Saved.self, from: data) {
             known = Set(saved.known)
             new = Set(saved.new)
+            missing = Set(saved.missing ?? [])
         }
     }
 
@@ -31,14 +35,20 @@ final class KnownPlugins {
     func update(with plugins: [ManagedPlugin]) -> Set<String> {
         let keys = Set(plugins.map(\.key))
         guard !keys.isEmpty else { return new }
-        let before = (known, new)
+        let before = (known, new, missing)
         if let known = known {
-            new = new.union(keys.subtracting(known)).intersection(keys)
+            // One scan can miss a plugin (files mid-move, a bundle being rewritten): it is forgotten, and
+            // so shows as new on its return, only after two scans in a row without it
+            let absent = known.subtracting(keys)
+            let forgotten = absent.intersection(missing)
+            missing = absent.subtracting(forgotten)
+            new = new.union(keys.subtracting(known)).subtracting(forgotten)
+            self.known = known.subtracting(forgotten).union(keys)
         } else {
             new = []
+            known = keys
         }
-        known = keys
-        if before.0 != known || before.1 != new { save() }
+        if before.0 != known || before.1 != new || before.2 != missing { save() }
         return new
     }
 
@@ -49,7 +59,7 @@ final class KnownPlugins {
     }
 
     private func save() {
-        let saved = Saved(known: (known ?? []).sorted(), new: new.sorted())
+        let saved = Saved(known: (known ?? []).sorted(), new: new.sorted(), missing: missing.sorted())
         try? JSONEncoder().encode(saved).write(to: url, options: .atomic)
     }
 }

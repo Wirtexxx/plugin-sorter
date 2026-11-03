@@ -184,6 +184,17 @@ enum FLFavorites {
 
     static func auKey(vendor: String, name: String) -> String { normalize(vendor) + "|" + normalize(name) }
 
+    /// The turned-off Audio Units as `auKey`s. macOS no longer lists them, but they are not gone.
+    static func disabledAudioUnitKeys(_ plugins: [ManagedPlugin]) -> Set<String> {
+        var keys: Set<String> = []
+        for bundle in plugins.flatMap(\.bundles) where bundle.format == .au && bundle.isDisabled {
+            let file = bundle.url.deletingPathExtension().lastPathComponent
+            keys.insert(auKey(vendor: bundle.vendor, name: file))
+            if !bundle.auName.isEmpty { keys.insert(auKey(vendor: bundle.vendor, name: bundle.auName)) }
+        }
+        return keys
+    }
+
     // MARK: - Changing
 
     /// Puts a scanned plugin into FL's browser. A second format of the same plugin gets its format in the name.

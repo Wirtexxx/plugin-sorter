@@ -6,6 +6,12 @@
 # Audio Units are never sorted: macOS only registers components that sit directly
 # in Components, so an AU inside a subfolder disappears from every host.
 
+# Root trusts nothing from its environment: these would move the allow-lists and the Trash. The
+# overrides are for the tests, which run as a normal user.
+if [ "$EUID" -eq 0 ]; then
+  unset PLUGIN_SORT_ROOT PLUGIN_SORT_DATA_ROOTS PLUGIN_SORT_TRASH PLUGIN_SORT_FORMATS
+fi
+
 # PLUGIN_SORT_ROOT points the script at another tree (used by the tests); no root needed there
 ROOT="${PLUGIN_SORT_ROOT:-/Library/Audio/Plug-Ins}"
 needs_root() { [ -z "$PLUGIN_SORT_ROOT" ] && [ "$EUID" -ne 0 ]; }
@@ -50,13 +56,30 @@ is_kept() {
   [ -n "$PLUGIN_SORT_KEEP_FILE" ] && [ -f "$PLUGIN_SORT_KEEP_FILE" ] && grep -Fxq -- "$1" "$PLUGIN_SORT_KEEP_FILE"
 }
 
-# True for a plugin bundle path inside $ROOT, the only places the privileged commands may touch
+# True when no part of a path below $ROOT is a symlink: a link planted in one of the (world-writable)
+# format folders must not lead a privileged move out of the tree. $ROOT itself may be spelled any way.
+no_symlinks_below_root() {
+  local p="$1"
+  while [ "$p" != "$ROOT" ] && [ -n "$p" ] && [ "$p" != "/" ]; do
+    [ -L "$p" ] && return 1
+    p="${p%/*}"
+  done
+  return 0
+}
+
+# True for a plugin bundle path inside $ROOT, the only places the privileged commands may touch.
+# The extension is matched in any case, as the app's inventory does.
 is_plugin_path() {
   case "$1" in
     *"/../"*|*"/./"*) return 1 ;;
-    "$ROOT"/*.vst3|"$ROOT"/*.vst|"$ROOT"/*.component|"$ROOT"/*.clap) return 0 ;;
+    "$ROOT"/?*) ;;
     *) return 1 ;;
   esac
+  case "$(lower "${1##*.}")" in
+    vst3|vst|component|clap) ;;
+    *) return 1 ;;
+  esac
+  no_symlinks_below_root "$1"
 }
 
 # Display names for vendor ids (bash 3.2 on macOS has no associative arrays)
@@ -167,21 +190,39 @@ EOF_NESTED
   echo "Restored AU: $restored"
 }
 
+# A user name that is safe to look up and to put in a path
+valid_user() {
+  case "$1" in ""|*[!A-Za-z0-9._-]*) return 1 ;; esac
+}
+
+# A user's home folder, from the directory service. Nothing is evaluated.
+home_of() {
+  local home
+  valid_user "$1" || return 1
+  home=$(dscl . -read "/Users/$1" NFSHomeDirectory 2>/dev/null | sed -n 's/^NFSHomeDirectory: //p' | head -n 1)
+  echo "${home:-/Users/$1}"
+}
+
 # Where the owner's Trash is
-trash_dir() { echo "${PLUGIN_SORT_TRASH:-$(eval echo ~"${OWNER:-$USER}")/.Trash}"; }
+trash_dir() {
+  local home
+  if [ -n "$PLUGIN_SORT_TRASH" ]; then echo "$PLUGIN_SORT_TRASH"; return; fi
+  home=$(home_of "${OWNER:-$USER}") || return 1
+  echo "$home/.Trash"
+}
 
 # Moves $1 into the Trash under its own name, or "name 2" while that is taken. Bundles keep their
 # extension ("OTT 2.vst3"). Prints the final path.
 move_to_trash() {
   local src="$1" trash name dest n
-  trash=$(trash_dir)
+  trash=$(trash_dir) && [ -n "$trash" ] || return 1
   name="${src##*/}"
   dest="$trash/$name"
   n=2
   while [ -e "$dest" ]; do
-    case "$name" in
-      *.vst3|*.vst|*.component|*.clap) dest="$trash/${name%.*} $n.${name##*.}" ;;
-      *)                               dest="$trash/$name $n" ;;
+    case "$(lower "${name##*.}")" in
+      vst3|vst|component|clap) dest="$trash/${name%.*} $n.${name##*.}" ;;
+      *)                       dest="$trash/$name $n" ;;
     esac
     n=$((n + 1))
   done
@@ -191,15 +232,17 @@ move_to_trash() {
 }
 
 # Moves plugin bundles to the owner's Trash. Only bundles inside $ROOT are accepted.
+# Fails unless every one of them moved.
 trash_plugins() {
-  local p
+  local p all=0
   for p in "$@"; do
-    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
-    move_to_trash "$p" >/dev/null || continue
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; all=1; continue; }
+    move_to_trash "$p" >/dev/null || { echo "failed: $p"; all=1; continue; }
     echo "trashed: ${p#$ROOT/}"
   done
   drop_empty_vendor_dirs
   reset_au_cache
+  return $all
 }
 
 # Folders under which --trash-data may work: colon-separated, the developers' presets and libraries
@@ -208,19 +251,18 @@ DATA_ROOTS="${PLUGIN_SORT_DATA_ROOTS:-/Library/Application Support:/Library/Audi
 # True for a path strictly inside one of the data roots: not the root, no "." or ".." parts, not a symlink,
 # and none of its folders a symlink either (so it can't lead out of the root).
 is_data_path() {
-  local p="$1" r rest parent real_root real_parent IFS=:
+  local p="$1" r parent real_root real_parent IFS=:
   case "$p" in
     *"/../"*|*"/./"*|*/..|*/.|*/) return 1 ;;
   esac
   [ -L "$p" ] && return 1
   for r in $DATA_ROOTS; do
     case "$p" in "$r"/?*) ;; *) continue ;; esac
-    rest="${p#$r/}"
     parent="${p%/*}"
     real_root=$(cd "$r" 2>/dev/null && pwd -P) || continue
     real_parent=$(cd "$parent" 2>/dev/null && pwd -P) || continue
     # The folder holding it must really be where its spelling says, below the real root
-    [ "$real_parent" = "$real_root${parent#$r}" ] && return 0
+    [ "$real_parent" = "$real_root${parent#"$r"}" ] && return 0
   done
   return 1
 }
@@ -240,7 +282,7 @@ forget_receipts() {
   local id
   for id in "$@"; do
     case "$id" in
-      ""|*[!A-Za-z0-9._-]*|com.apple.*) echo "skip: $id"; continue ;;
+      ""|*[!A-Za-z0-9._-]*|-*|.|..|.*|[Cc][Oo][Mm].[Aa][Pp][Pp][Ll][Ee].*) echo "skip: $id"; continue ;;
     esac
     if [ -n "$PLUGIN_SORT_ROOT" ] || pkgutil --forget "$id" >/dev/null 2>&1; then
       echo "forgot: $id"
@@ -264,7 +306,12 @@ remove_plugins() {
          esac ;;
     esac
   done
-  [ "${#plugins[@]}" -gt 0 ] && trash_plugins "${plugins[@]}"
+  # Preferences, presets and receipts go only with plugin files that really moved: otherwise the
+  # plugin would still be installed, without its settings and without the record of its installer
+  if [ "${#plugins[@]}" -gt 0 ] && ! trash_plugins "${plugins[@]}"; then
+    echo "failed: the plugin files were not all moved; nothing else was removed"
+    return 1
+  fi
   [ "${#data[@]}" -gt 0 ] && trash_data "${data[@]}"
   [ "${#receipts[@]}" -gt 0 ] && forget_receipts "${receipts[@]}"
   return 0
@@ -278,35 +325,37 @@ in_format_folder() {
 # Hosts scan the format folders recursively, so a plugin is switched off by moving it out of them,
 # to $ROOT/Disabled/<same path>. Never overwrites anything.
 disable_plugins() {
-  local p rel dest
+  local p rel dest all=0
   for p in "$@"; do
-    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; all=1; continue; }
     rel="${p#$ROOT/}"
-    in_format_folder "$rel" || { echo "skip: $p"; continue; }
+    in_format_folder "$rel" || { echo "skip: $p"; all=1; continue; }
     dest="$ROOT/Disabled/$rel"
-    [ -e "$dest" ] && { echo "skip: $p"; continue; }
-    mkdir -p "$(dirname "$dest")" && mv "$p" "$dest" || { echo "failed: $rel"; continue; }
+    { [ -e "$dest" ] || [ -L "$dest" ] || ! no_symlinks_below_root "$dest"; } && { echo "skip: $p"; all=1; continue; }
+    mkdir -p "$(dirname "$dest")" && mv "$p" "$dest" || { echo "failed: $rel"; all=1; continue; }
     echo "disabled: $rel"
   done
   drop_empty_vendor_dirs
   reset_au_cache
+  return $all
 }
 
 # Moves bundles from $ROOT/Disabled back to their place; a reinstalled plugin there is never overwritten.
 enable_plugins() {
-  local p rel dest
+  local p rel dest all=0
   for p in "$@"; do
-    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
-    case "$p" in "$ROOT/Disabled/"*) ;; *) echo "skip: $p"; continue ;; esac
+    { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; all=1; continue; }
+    case "$p" in "$ROOT/Disabled/"*) ;; *) echo "skip: $p"; all=1; continue ;; esac
     rel="${p#$ROOT/Disabled/}"
-    in_format_folder "$rel" || { echo "skip: $p"; continue; }
+    in_format_folder "$rel" || { echo "skip: $p"; all=1; continue; }
     dest="$ROOT/$rel"
-    [ -e "$dest" ] && { echo "skip: $p"; continue; }
-    mkdir -p "$(dirname "$dest")" && mv "$p" "$dest" || { echo "failed: $rel"; continue; }
+    { [ -e "$dest" ] || [ -L "$dest" ] || ! no_symlinks_below_root "$dest"; } && { echo "skip: $p"; all=1; continue; }
+    mkdir -p "$(dirname "$dest")" && mv "$p" "$dest" || { echo "failed: $rel"; all=1; continue; }
     echo "enabled: $rel"
   done
   drop_empty_vendor_dirs
   reset_au_cache
+  return $all
 }
 
 unquarantine_plugins() {
@@ -350,8 +399,13 @@ nested_au() {
 
 # The app passes log dir and owner explicitly: osascript runs without SUDO_USER
 OWNER="${PLUGIN_SORT_OWNER:-$SUDO_USER}"
+if [ -n "$OWNER" ] && ! valid_user "$OWNER"; then
+  echo "Invalid owner name"; exit 1
+fi
 LOG_DIR="${PLUGIN_SORT_LOG_DIR:-$HOME}"
-[ -z "$PLUGIN_SORT_LOG_DIR" ] && [ -n "$SUDO_USER" ] && LOG_DIR=$(eval echo ~"$SUDO_USER")
+if [ -z "$PLUGIN_SORT_LOG_DIR" ] && valid_user "$SUDO_USER"; then
+  LOG_DIR=$(home_of "$SUDO_USER")
+fi
 
 MODE="dry"
 case "$1" in

@@ -56,6 +56,14 @@ enum Uninstall {
         return receipts.filter { bundleNames(of: $0).isDisjoint(with: kept) }
     }
 
+    /// Letters, digits, dots, hyphens and underscores, starting with a letter or digit, no "..": a name that
+    /// can't lead out of the folder it is put in.
+    static func isPlainBundleID(_ id: String) -> Bool {
+        guard !id.contains(".."), let first = id.unicodeScalars.first,
+              CharacterSet.alphanumerics.contains(first), first.isASCII else { return false }
+        return id.unicodeScalars.allSatisfy { $0.isASCII && (CharacterSet.alphanumerics.contains($0) || "._-".unicodeScalars.contains($0)) }
+    }
+
     /// Preferences, caches, presets and the developer's folder that belong to the plugin.
     /// - Parameters:
     ///   - others: every other installed plugin; the developer's folder is only offered when none is from them.
@@ -64,8 +72,13 @@ enum Uninstall {
                           fileExists: (URL) -> Bool) -> [Leftover] {
         var found: [Leftover] = []
         let library = home.appendingPathComponent("Library", isDirectory: true)
+        // An id comes from the plugin's own Info.plist and goes into a path: only a plain one is used, and
+        // never one that another installed plugin has too (its settings would go with this one)
+        let sharedIDs = Set(others.flatMap { $0.bundles.map(\.bundleID) })
         var ids: [String] = []
-        for id in plugin.bundles.map(\.bundleID) where !id.isEmpty && !ids.contains(id) { ids.append(id) }
+        for id in plugin.bundles.map(\.bundleID) where isPlainBundleID(id) && !sharedIDs.contains(id) && !ids.contains(id) {
+            ids.append(id)
+        }
         for id in ids {
             let preferences = library.appendingPathComponent("Preferences/\(id).plist")
             if fileExists(preferences) { found.append(Leftover(url: preferences, kind: .preferences, preselected: true)) }

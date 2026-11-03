@@ -267,8 +267,11 @@ final class ManagerLibrary: ObservableObject {
             let done = result.output.split(separator: "\n").filter { $0.hasPrefix(disabled ? "disabled: " : "enabled: ") }.count
             DispatchQueue.main.async {
                 self.busy = false
-                if result.succeeded {
+                if result.succeeded && done > 0 {
                     self.status = .toggled(disabled: disabled, count: done)
+                } else if result.succeeded {
+                    // Every path was refused: say so instead of reporting 0 changes as done
+                    self.status = .failed(result.output.trimmingCharacters(in: .whitespacesAndNewlines))
                 } else {
                     self.status = result.cancelled ? .cancelled : .failed(result.error)
                 }

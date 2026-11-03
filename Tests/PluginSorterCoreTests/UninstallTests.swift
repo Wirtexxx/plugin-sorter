@@ -79,6 +79,24 @@ struct UninstallTests {
         #expect(leftovers(for: plugin("OTT"), existing: existing).isEmpty)       // no bundle id, nothing to look for
     }
 
+    @Test func aBundleIdThatIsNotAPlainNameIsNeverUsedInAPath() {
+        let everything: Set<String> = ["/Users/test/Library/Caches/../../Documents", "/Users/test/Library/Caches/.",
+                                       "/Users/test/Library/Caches/../Preferences", "/Users/test/Library/Preferences/..plist"]
+        for id in ["../../Documents", ".", "..", "../Preferences", "a/b", "com.x/../y", "-rf", ".hidden", "ü.x", ""] {
+            #expect(leftovers(for: plugin("OTT", id: id), existing: everything).isEmpty, "id: \(id)")
+        }
+        #expect(Uninstall.isPlainBundleID("com.xfer.OTT-2_b"))
+    }
+
+    @Test func settingsOfAnIdAnotherPluginHasAreLeftAlone() {
+        let existing: Set<String> = ["/Users/test/Library/Preferences/com.yourcompany.plugin.plist",
+                                     "/Users/test/Library/Caches/com.yourcompany.plugin"]
+        let target = plugin("A", id: "com.yourcompany.plugin")
+        #expect(leftovers(for: target, others: [plugin("B", id: "com.yourcompany.plugin")], existing: existing).isEmpty)
+        // With no other plugin using it, they are offered as before
+        #expect(leftovers(for: target, others: [plugin("B", id: "com.other.B")], existing: existing).count == 2)
+    }
+
     @Test func presetsMatchedByPluginFolder() {
         let vendorFolder = "/Library/Audio/Presets/Xfer Records"
         let others = [plugin("Serum", id: "com.xfer.Serum")]        // the vendor still has a plugin, so only OTT's own folder

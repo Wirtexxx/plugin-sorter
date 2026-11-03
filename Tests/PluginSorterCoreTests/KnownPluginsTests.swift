@@ -70,7 +70,22 @@ struct KnownPluginsTests {
         let (known, _, _dir) = try make()
         _ = known.update(with: [plugin("a"), plugin("b")])
         #expect(known.update(with: [plugin("b")]).isEmpty)
+        #expect(known.update(with: [plugin("b")]).isEmpty)           // missed twice in a row: forgotten
         #expect(known.update(with: [plugin("a"), plugin("b")]) == ["a"])
+    }
+
+    @Test func oneTransientMissDoesNotMakeAPluginNew() throws {
+        let (known, url, _dir) = try make()
+        _ = known.update(with: [plugin("a"), plugin("b")])
+        #expect(known.update(with: [plugin("b")]).isEmpty)           // "a" is mid-move, say
+        #expect(known.update(with: [plugin("a"), plugin("b")]).isEmpty)
+        // The miss counter is cleared by the return: a later single miss is a first miss again
+        #expect(known.update(with: [plugin("b")]).isEmpty)
+        #expect(known.update(with: [plugin("a"), plugin("b")]).isEmpty)
+        // And it counts across a relaunch
+        _ = known.update(with: [plugin("b")])
+        let again = KnownPlugins(url: url)
+        #expect(again.update(with: [plugin("a"), plugin("b")]).isEmpty)
     }
 
     @Test func emptyScanChangesNothing() throws {

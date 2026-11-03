@@ -151,7 +151,7 @@ struct ScriptTests {
                                         root.appendingPathComponent("VST3/OTT.vst3").path,
                                         root.appendingPathComponent("VST3/../VST3/Mystery.vst3").path,
                                         outside.path])
-        #expect(status == 0)
+        #expect(status != 0)                               // two of the three were refused
         #expect(output.contains("trashed: VST3/OTT.vst3"))
         #expect(!exists("VST3/OTT.vst3"))
         #expect(FileManager.default.fileExists(atPath: dir.path("Trash/OTT.vst3").path))
@@ -409,5 +409,126 @@ struct ScriptTests {
         #expect(output.contains("Restored AU: 1"))
         #expect(exists("Components/OTT.component"))
         #expect(!exists("Components/Xfer Records"))
+    }
+
+    // MARK: - Failure stops the rest of an uninstall
+
+    @Test func failedTrashKeepsLeftoversAndReceipts() throws {
+        let (env, vendor) = try dataTree()
+        let outside = dir.path("outside.vst3")
+        try makeBundle(outside, id: "com.outside")
+        let (status, output) = try run(["--trash", root.appendingPathComponent("VST3/OTT.vst3").path, outside.path,
+                                        "--trash-data", vendor.path, "--forget-receipt", "com.x.y"], extra: env)
+        #expect(status != 0)
+        #expect(output.contains("failed:"))
+        #expect(!output.contains("trashed-data:"))
+        #expect(!output.contains("forgot:"))
+        #expect(FileManager.default.fileExists(atPath: vendor.path))
+    }
+
+    @Test func lockedBundleIsReportedAsFailed() throws {
+        let (env, vendor) = try dataTree()
+        let locked = root.appendingPathComponent("VST3/OTT.vst3")
+        try Process.run(URL(fileURLWithPath: "/usr/bin/chflags"), arguments: ["-R", "uchg", locked.path]).waitUntilExit()
+        defer { _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/chflags"), arguments: ["-R", "nouchg", locked.path]).waitUntilExit() }
+        let (status, output) = try run(["--trash", locked.path, "--trash-data", vendor.path, "--forget-receipt", "com.x.y"], extra: env)
+        #expect(status != 0)
+        #expect(output.contains("failed: "))
+        #expect(!output.contains("forgot:"))
+        #expect(exists("VST3/OTT.vst3"))
+        #expect(FileManager.default.fileExists(atPath: vendor.path))
+    }
+
+    @Test func extensionCaseIsMatchedLikeTheInventory() throws {
+        try makeBundle(root.appendingPathComponent("VST3/Loud.VST3"), id: "com.loud")
+        let (status, output) = try run(["--trash", root.appendingPathComponent("VST3/Loud.VST3").path])
+        #expect(status == 0)
+        #expect(output.contains("trashed: VST3/Loud.VST3"))
+        #expect(!exists("VST3/Loud.VST3"))
+    }
+
+    @Test func disableReportsFailureWhenNothingMoved() throws {
+        let (status, output) = try run(["--disable", root.appendingPathComponent("VST3/Nope.vst3").path])
+        #expect(status != 0)
+        #expect(!output.contains("disabled:"))
+    }
+
+    // MARK: - Symlinks in the plugin tree
+
+    private func plant(_ link: String, to target: URL) throws {
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(link).deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent(link), withDestinationURL: target)
+    }
+
+    @Test func commandsRefuseAPathThroughASymlinkedFolder() throws {
+        let outside = dir.path("outside")
+        try makeBundle(outside.appendingPathComponent("keep.vst3"), id: "com.keep")
+        try plant("VST3/link", to: outside)
+        let through = root.appendingPathComponent("VST3/link/keep.vst3").path
+        for command in ["--disable", "--trash", "--unquarantine"] {
+            let (_, output) = try run([command, through])
+            #expect(output.contains("skip:"))
+            #expect(!output.contains("disabled:") && !output.contains("trashed:"))
+        }
+        #expect(FileManager.default.fileExists(atPath: outside.appendingPathComponent("keep.vst3").path))
+        #expect(!exists("Disabled"))
+    }
+
+    @Test func enableRefusesALinkedSourceAndALinkedDestination() throws {
+        let outside = dir.path("outside")
+        try makeBundle(outside.appendingPathComponent("keep.vst3"), id: "com.keep")
+        try plant("Disabled/VST3/link", to: outside)
+        let (_, source) = try run(["--enable", root.appendingPathComponent("Disabled/VST3/link/keep.vst3").path])
+        #expect(source.contains("skip:") && !source.contains("enabled:"))
+        // A disabled plugin whose way back leads through a link at VST3/Vendor
+        try makeBundle(root.appendingPathComponent("Disabled/VST3/Vendor/Real.vst3"), id: "com.real")
+        try plant("VST3/Vendor", to: outside)
+        let (_, destination) = try run(["--enable", root.appendingPathComponent("Disabled/VST3/Vendor/Real.vst3").path])
+        #expect(destination.contains("skip:") && !destination.contains("enabled:"))
+        #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("Real.vst3").path))
+        #expect(exists("Disabled/VST3/Vendor/Real.vst3"))
+    }
+
+    @Test func disableRefusesALinkedDisabledFolder() throws {
+        let outside = dir.path("outside")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try plant("Disabled", to: outside)
+        let (_, output) = try run(["--disable", root.appendingPathComponent("VST3/OTT.vst3").path])
+        #expect(output.contains("skip:"))
+        #expect(exists("VST3/OTT.vst3"))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: outside.path).isEmpty)
+    }
+
+    // MARK: - The script under root
+
+    @Test func anInvalidOwnerStopsTheScript() throws {
+        let sentinel = dir.path("pwned")
+        let (status, output) = try run(["--trash", root.appendingPathComponent("VST3/OTT.vst3").path],
+                                       extra: ["PLUGIN_SORT_OWNER": "a$(touch \(sentinel.path))"])
+        #expect(status != 0)
+        #expect(output.contains("Invalid owner"))
+        #expect(!FileManager.default.fileExists(atPath: sentinel.path))
+        #expect(exists("VST3/OTT.vst3"))
+    }
+
+    @Test func rootIgnoresTheTestOverrides() throws {
+        // The tests can't run as root, so check that the script drops the overrides first thing
+        let text = try String(contentsOf: Self.script, encoding: .utf8)
+        let guardRange = try #require(text.range(of: "if [ \"$EUID\" -eq 0 ]; then"))
+        let rootLine = try #require(text.range(of: "ROOT=\"${PLUGIN_SORT_ROOT"))
+        #expect(guardRange.lowerBound < rootLine.lowerBound)
+        let block = text[guardRange.lowerBound..<rootLine.lowerBound]
+        for name in ["PLUGIN_SORT_ROOT", "PLUGIN_SORT_DATA_ROOTS", "PLUGIN_SORT_TRASH"] {
+            #expect(block.contains(name))
+        }
+        #expect(!text.contains("eval "))
+    }
+
+    @Test func forgetReceiptRefusesOptionsAndAppleIds() throws {
+        let (status, output) = try run(["--forget-receipt", "-rf", "--pkgs", "..", ".hidden", "COM.APPLE.y", "com.apple.z", "com.x.ok"])
+        #expect(status == 0)
+        #expect(output.components(separatedBy: "skip:").count == 7)
+        #expect(output.contains("forgot: com.x.ok"))
     }
 }

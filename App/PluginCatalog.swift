@@ -79,9 +79,16 @@ enum PluginCatalog {
     }
 
     /// The plugin's name, and without its developer in front ("FabFilter Pro-Q 4" is "Pro-Q 4" in FL).
+    /// An Audio Unit's own name counts too: FL lists it by that, and its file may be called anything.
     private static func names(of plugin: ManagedPlugin) -> [String] {
+        var names = [plugin.name]
         let prefix = plugin.vendor + " "
-        guard !plugin.vendor.isEmpty, plugin.name.lowercased().hasPrefix(prefix.lowercased()) else { return [plugin.name] }
-        return [plugin.name, String(plugin.name.dropFirst(prefix.count))]
+        if !plugin.vendor.isEmpty, plugin.name.lowercased().hasPrefix(prefix.lowercased()) {
+            names.append(String(plugin.name.dropFirst(prefix.count)))
+        }
+        for bundle in plugin.bundles where !bundle.auName.isEmpty && !names.contains(bundle.auName) {
+            names.append(bundle.auName)
+        }
+        return names
     }
 }

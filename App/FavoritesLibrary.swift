@@ -92,9 +92,12 @@ final class FavoritesLibrary: ObservableObject {
         queue.async {
             let entries = FLFavorites.installed()
             let favorites = FLFavorites.favorites(installed: entries)
-            let bundleNames = Set(PluginInventory.scan().flatMap(\.bundles).map { $0.url.lastPathComponent })
-            let audioUnits = Set(AVAudioUnitComponentManager.shared().components { _, _ in true }
+            let plugins = PluginInventory.scan()
+            let bundleNames = Set(plugins.flatMap(\.bundles).map { $0.url.lastPathComponent })
+            var audioUnits = Set(AVAudioUnitComponentManager.shared().components { _, _ in true }
                 .map { FLFavorites.auKey(vendor: $0.manufacturerName, name: $0.name) })
+            // A turned-off AU is gone from the registry but still installed; empty stays "unknown"
+            if !audioUnits.isEmpty { audioUnits.formUnion(FLFavorites.disabledAudioUnitKeys(plugins)) }
             var availability: [String: Availability] = [:]
             for entry in entries {
                 availability[entry.id] = FLFavorites.availability(entry, bundleNames: bundleNames, audioUnits: audioUnits)

@@ -53,11 +53,13 @@ enum Cleanup {
             chains[FLFavorites.normalize(plugin.vendor) + "|" + family.base, default: []].append((plugin, family.version))
         }
         for chain in chains.values where chain.count > 1 {
-            guard let newest = chain.max(by: { $0.version < $1.version }) else { continue }
-            for item in chain where item.version < newest.version {
-                result.append(CleanupFinding(kind: .olderVersion(newest: newest.plugin.name), pluginKey: item.plugin.key,
-                                             name: item.plugin.name, bundles: item.plugin.bundles.map(\.url)))
-                covered.insert(item.plugin.key)
+            for run in versionRuns(chain) {
+                guard let newest = run.max(by: { $0.version < $1.version }) else { continue }
+                for item in run where item.version < newest.version {
+                    result.append(CleanupFinding(kind: .olderVersion(newest: newest.plugin.name), pluginKey: item.plugin.key,
+                                                 name: item.plugin.name, bundles: item.plugin.bundles.map(\.url)))
+                    covered.insert(item.plugin.key)
+                }
             }
         }
 
@@ -75,6 +77,23 @@ enum Cleanup {
             return order == .orderedSame ? a.id < b.id : order == .orderedAscending
         }
     }
+
+    /// Splits a chain where the numbers jump: versions of one plugin follow each other (Pro-Q 2, 3, 4; Ozone 9, 11),
+    /// while models of a series don't (Jupiter 4 and 8, DX7 and DX11, Model 72 and 84). Runs of one are dropped.
+    private static func versionRuns(_ chain: [(plugin: ManagedPlugin, version: Int)]) -> [[(plugin: ManagedPlugin, version: Int)]] {
+        let sorted = chain.sorted { $0.version != $1.version ? $0.version < $1.version : $0.plugin.key < $1.plugin.key }
+        var runs: [[(plugin: ManagedPlugin, version: Int)]] = []
+        for item in sorted {
+            if let last = runs.last?.last, item.version - last.version <= maxVersionStep {
+                runs[runs.count - 1].append(item)
+            } else {
+                runs.append([item])
+            }
+        }
+        return runs.filter { $0.count > 1 }
+    }
+
+    private static let maxVersionStep = 2
 
     /// Everything but the newest copy of each format. A turned-off copy is the user's choice, so it is
     /// only compared with other turned-off copies.

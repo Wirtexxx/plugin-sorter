@@ -37,6 +37,18 @@ struct CleanupTests {
         #expect(found.isEmpty)
     }
 
+    @Test func seriesOfModelsAreNotChainedByNumber() {
+        for (a, b) in [("Jupiter 4", "Jupiter 8"), ("DX7", "DX11"), ("Model 72", "Model 84"), ("Stage 73", "Stage 88")] {
+            #expect(Cleanup.findings([simple(a), simple(b)]).isEmpty, "\(a) / \(b)")
+        }
+        // Versions that follow each other still are
+        #expect(Cleanup.findings([simple("Ozone 9"), simple("Ozone 11")]).map(\.name) == ["Ozone 9"])
+        #expect(Cleanup.findings([simple("Pro-Q 3"), simple("Pro-Q 4")]).map(\.name) == ["Pro-Q 3"])
+        // A far-away model doesn't take the real versions with it, nor get offered itself
+        let mixed = Cleanup.findings([simple("Pro-Q 2"), simple("Pro-Q 3"), simple("Pro-Q 9")])
+        #expect(mixed.map(\.name) == ["Pro-Q 2"])
+    }
+
     @Test func olderVersionsPointAtTheNewest() {
         let found = Cleanup.findings([simple("Pro-Q 2"), simple("Pro-Q 3"), simple("Pro-Q 4")])
         #expect(found.map(\.name) == ["Pro-Q 2", "Pro-Q 3"])
