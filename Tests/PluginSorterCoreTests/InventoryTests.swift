@@ -53,6 +53,19 @@ struct InventoryTests {
         #expect(proQ?.version == "4.13" || proQ?.version == "1.0")
     }
 
+    @Test func audioUnitWithAnOddFileNameJoinsByItsOwnName() throws {
+        // iZotope ships the AU as "iZOzone11ClarityAUHook.component", named "iZotope: Ozone 11 Clarity" inside
+        let root = try TempDir()
+        try makeBundle(root.path("VST3/iZotope/Ozone 11 Clarity.vst3"), id: "com.izotope.Ozone11Clarity")
+        try makeBundle(root.path("Components/iZOzone11ClarityAUHook.component"), id: "com.izotope.AU.OZONE11CLTY", extra: [
+            "AudioComponents": [["type": "aufx", "subtype": "OZCL", "manufacturer": "iZtp", "name": "iZotope: Ozone 11 Clarity"]],
+        ])
+        let plugins = PluginInventory.scan(root: root.url)
+        #expect(plugins.count == 1)
+        #expect(plugins.first?.name == "Ozone 11 Clarity")
+        #expect(plugins.first?.bundles.count == 2)
+    }
+
     @Test func groupsVendorAUSuffix() {
         let room = scan().first { $0.key.hasPrefix("valhallaroom|") }
         #expect(room?.bundles.map(\.format) == [.au, .vst3])

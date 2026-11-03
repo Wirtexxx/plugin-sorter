@@ -45,6 +45,8 @@ struct PluginBundle: Identifiable {
     /// Developer part of the bundle identifier ("fabfilter" in com.fabfilter.Pro-Q.4), used to keep
     /// same-named plugins of different developers apart.
     var idVendor = ""
+    /// An Audio Unit's own name, without the developer ("Ozone 11 Clarity" in "iZotope: Ozone 11 Clarity").
+    var auName = ""
 
     /// Path from the format folder on, e.g. "VST3/FabFilter/FabFilter Pro-Q 4.vst3".
     var displayPath: String {
@@ -90,7 +92,14 @@ enum PluginInventory {
 
         // Formats of one plugin share a file name: "FabFilter Pro-Q 4.vst3" and "FabFilter Pro-Q 4.component"
         // …and a developer: two "Compressor"s from different developers must never become one row
-        let grouped = Dictionary(grouping: bundles) { key(for: $0.url) + "|" + $0.idVendor }
+        var keys = bundles.map { key(for: $0.url) + "|" + $0.idVendor }
+        // Some AUs have a file name unlike the plugin's ("iZOzone11ClarityAUHook"): join those by the AU's own name
+        let counts = Dictionary(keys.map { ($0, 1) }, uniquingKeysWith: +)
+        for (n, bundle) in bundles.enumerated() where bundle.format == .au && !bundle.auName.isEmpty && counts[keys[n]] == 1 {
+            let named = key(for: URL(fileURLWithPath: bundle.auName)) + "|" + bundle.idVendor
+            if counts[named] != nil { keys[n] = named }
+        }
+        let grouped = Dictionary(grouping: bundles.indices) { keys[$0] }.mapValues { $0.map { bundles[$0] } }
         return grouped.map { key, items in
             let sorted = items.sorted { $0.format.rawValue < $1.format.rawValue }
             let names: [String] = sorted.map { $0.url.deletingPathExtension().lastPathComponent }
@@ -123,9 +132,12 @@ enum PluginInventory {
 
         var vendor = nested ? parent.lastPathComponent : ""
         var au: AUCode?
+        var auName = ""
         if format == .au, let component = (info["AudioComponents"] as? [[String: Any]])?.first {
-            if vendor.isEmpty, let name = component["name"] as? String, let colon = name.range(of: ": ") {
-                vendor = String(name[..<colon.lowerBound])
+            if let name = component["name"] as? String {
+                let colon = name.range(of: ": ")
+                auName = colon.map { String(name[$0.upperBound...]) } ?? name
+                if vendor.isEmpty, let colon = colon { vendor = String(name[..<colon.lowerBound]) }
             }
             if let type = component["type"] as? String, let subtype = component["subtype"] as? String,
                let manufacturer = component["manufacturer"] as? String {
@@ -147,7 +159,7 @@ enum PluginInventory {
                             executable: exists ? executable : nil,
                             archs: exists ? executable.map(archs) ?? [] : [],
                             quarantined: getxattr(url.path, "com.apple.quarantine", nil, 0, 0, 0) >= 0,
-                            au: au, nested: nested, idVendor: idVendor(identifier))
+                            au: au, nested: nested, idVendor: idVendor(identifier), auName: auName)
     }
 
     /// Domain parts skipped to find the developer in a bundle id; keep in sync with vendor_from_id in the script.
