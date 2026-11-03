@@ -23,9 +23,6 @@ struct ContentView: View {
                 .id(skin)
         }
         .background(WindowStyler())
-        .onAppear {
-            model.refresh()
-            Thumbnails.shared.load()
-        }
+        .onAppear { model.refresh() }
     }
 }

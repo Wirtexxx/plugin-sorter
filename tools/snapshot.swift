@@ -38,8 +38,6 @@ struct Snapshot {
         sorter.status = .willMove(sorter.moves.count)
 
         let mode = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "main"
-        // Real FL pictures only on request: they show other vendors' interfaces, not for the README
-        Thumbnails.shared.isEnabled = ProcessInfo.processInfo.environment["PS_THUMBS"] != nil
 
         let model: AppModel
         // The real plugins and FL database, for local checks only (PS_REAL=1)

@@ -33,9 +33,6 @@ final class FavoritesLibrary: ObservableObject {
     @Published private(set) var entries: [InstalledEntry] = []
     @Published private(set) var favorites: [Favorite] = []
     @Published private(set) var availability: [String: Availability] = [:]
-    @Published var query = ""
-    @Published var onlyFavorites = false
-    @Published var showStock = false
     @Published var busy = false
     @Published var status: FavoritesStatus = .idle
     /// The plugin being read while sorting by category.
@@ -45,8 +42,6 @@ final class FavoritesLibrary: ObservableObject {
     private let journal = CategoryJournal()
     private let tags = TagCache()
     private let queue = DispatchQueue(label: "plugin-sorter.favorites", qos: .userInitiated)
-    /// Formats in the order a star picks them when a plugin isn't a favourite yet.
-    private static let preference = ["VST3", "CLAP", "AudioUnit", "VST"]
 
     private var demo = false
 
@@ -65,29 +60,6 @@ final class FavoritesLibrary: ObservableObject {
 
     /// What one click sorts: third-party favourites still at the top of Effects or Generators.
     var unsorted: [Favorite] { favorites.filter { !$0.isStock && FLCategories.folder(of: $0) == nil } }
-
-    var rows: [FavoriteRow] {
-        let grouped = Dictionary(grouping: entries) {
-            $0.section + "|" + FLFavorites.normalize($0.vendor) + "|" + FLFavorites.normalize($0.name)
-        }
-        return grouped.map { key, items in
-            let sorted = items.sorted { rank($0.format) < rank($1.format) }
-            return FavoriteRow(key: key, name: sorted[0].name, vendor: sorted[0].vendor,
-                               section: sorted[0].section, entries: sorted)
-        }
-        .filter { row in
-            (showStock || !row.isNative)
-                && (!onlyFavorites || row.entries.contains(where: isFavorite))
-                && (query.isEmpty || row.name.localizedCaseInsensitiveContains(query)
-                    || row.vendor.localizedCaseInsensitiveContains(query))
-        }
-        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
-    /// Favourites whose plugin was deleted: they only clutter FL's browser.
-    var stale: [Favorite] {
-        favorites.filter { $0.entry.map { availability[$0.id] == .removed } ?? false }
-    }
 
     func isFavorite(_ entry: InstalledEntry) -> Bool { favorites.contains { $0.entry?.id == entry.id } }
 
@@ -125,15 +97,6 @@ final class FavoritesLibrary: ObservableObject {
         }
     }
 
-    /// A star on the whole plugin: removes all its favourites, or adds the preferred format.
-    func toggle(_ row: FavoriteRow) {
-        if row.entries.contains(where: isFavorite) {
-            remove(favorites(of: row))
-        } else if let entry = row.entries.first(where: { availability[$0.id] != .removed }) ?? row.entries.first {
-            toggle(entry)
-        }
-    }
-
     /// A format chip: adds or removes just that format.
     func toggle(_ entry: InstalledEntry) {
         if isFavorite(entry) {
@@ -145,8 +108,6 @@ final class FavoritesLibrary: ObservableObject {
             }
         }
     }
-
-    func removeStale() { remove(stale) }
 
     func remove(_ targets: [Favorite]) {
         guard !targets.isEmpty else { return }
@@ -243,5 +204,4 @@ final class FavoritesLibrary: ObservableObject {
         }
     }
 
-    private func rank(_ format: String) -> Int { Self.preference.firstIndex(of: format) ?? Self.preference.count }
 }

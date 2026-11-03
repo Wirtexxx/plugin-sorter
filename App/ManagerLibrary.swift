@@ -21,14 +21,8 @@ struct CheckProgress: Equatable {
 final class ManagerLibrary: ObservableObject {
     @Published var plugins: [ManagedPlugin] = []
     @Published var results: [String: CheckState] = [:]
-    @Published var query = ""
-    @Published var onlyProblems = false
-    @Published var expanded: Set<String> = []
     @Published var busy = false
-    @Published var progress = 0.0
-    @Published var current = ""
     @Published var status: ManagerStatus = .idle
-    @Published var sortBySize = false
     /// Bytes on disk per bundle (by path), filled in the background after each scan.
     @Published private(set) var sizes: [String: Int64] = [:]
     /// Developer folders with presets and libraries, per vendor. Shown, never deleted.
@@ -59,22 +53,9 @@ final class ManagerLibrary: ObservableObject {
         self.cache = cache
     }
 
-    var visible: [ManagedPlugin] {
-        let filtered = plugins.filter { plugin in
-            let matches = query.isEmpty
-                || plugin.name.localizedCaseInsensitiveContains(query)
-                || plugin.vendor.localizedCaseInsensitiveContains(query)
-            let problem = (level(of: plugin) ?? .ok) > .ok
-            return matches && (!onlyProblems || problem)
-        }
-        return sortBySize ? filtered.sorted { size(of: $0) > size(of: $1) } : filtered
-    }
-
     func size(of bundle: PluginBundle) -> Int64? { sizes[bundle.id] }
 
     func size(of plugin: ManagedPlugin) -> Int64 { plugin.bundles.reduce(0) { $0 + (sizes[$1.id] ?? 0) } }
-
-    var totalSize: Int64 { sizes.values.reduce(0, +) }
 
     /// Measures every bundle and finds developer data folders; runs off the main thread.
     private func computeSizes(for plugins: [ManagedPlugin]) {

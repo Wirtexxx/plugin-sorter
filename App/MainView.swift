@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The whole window: header with search and filters, every plugin, and the tasks below.
 struct MainView: View {
@@ -107,19 +108,40 @@ struct MainView: View {
         }
     }
 
+
     private func filterPill(_ filter: CatalogFilter, _ key: String) -> some View {
         FilterPill(title: t(key), count: model.count(filter), isOn: model.filter == filter) {
             model.filter = filter
         }
     }
 
-    /// Filled in with the settings menu in a later step.
-    @ViewBuilder private var gearMenu: some View {
-        Image(systemName: "gearshape")
-            .font(.system(size: 14, weight: .medium))
-            .foregroundColor(.label)
-            .frame(width: 32, height: 32)
-            .background(Circle().fill(Color.raised))
+    /// Things needed now and then: a full recheck, the AU cache, removed favourites, settings.
+    private var gearMenu: some View {
+        Menu {
+            Button(t("gear.recheck")) { model.manager.recheckAll() }
+            Button(t("fix.resetAU")) { model.manager.apply(.resetAUCache, for: nil) }
+                .disabled(model.manager.busy)
+            Button(t("gear.restore")) { model.whenFLClosed { model.favorites.restore() } }
+                .disabled(!model.favorites.canRestore)
+            Divider()
+            Button(t("gear.settings")) { openSettings() }
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.label)
+        }
+        .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
+        .frame(width: 32, height: 32)
+        .background(Circle().fill(Color.raised))
+    }
+
+    private func openSettings() {
+        // The Settings scene's window; the selector was renamed in macOS 13
+        if #available(macOS 13, *) {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        } else {
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        }
     }
 
     private func checkingLine(_ checking: CheckProgress) -> some View {

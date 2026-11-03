@@ -12,7 +12,6 @@ enum FLStatus: Equatable {
 /// State of the FL Studio tab: favourites in FL's plugin database and their pictures.
 final class FLLibrary: ObservableObject {
     @Published var plugins: [FLPlugin] = []
-    @Published var showStock = false
     @Published var busy = false
     @Published var progress = 0.0
     @Published var current = ""
@@ -26,11 +25,8 @@ final class FLLibrary: ObservableObject {
         self.demo = demo
     }
 
-    var visible: [FLPlugin] { showStock ? plugins : plugins.filter { !$0.isStock } }
     var missing: [FLPlugin] { plugins.filter { !$0.hasPicture } }
     var mine: [FLPlugin] { plugins.filter { $0.source != nil } }
-    /// Screenshots and cards can be redone; custom images are the user's and stay as they are.
-    var retakable: [FLPlugin] { plugins.filter { $0.source == .screenshot || $0.source == .card } }
 
     /// Reads FL's database off the main thread; hundreds of .fst files would otherwise stall the window.
     func scan() {
@@ -38,11 +34,7 @@ final class FLLibrary: ObservableObject {
         guard FLDatabase.exists else { plugins = []; return }
         queue.async {
             let plugins = FLDatabase.scan(self.manifest)
-            DispatchQueue.main.async {
-                self.plugins = plugins
-                // Reuse what was just read instead of scanning the database a second time
-                Thumbnails.shared.update(from: plugins)
-            }
+            DispatchQueue.main.async { self.plugins = plugins }
         }
     }
 

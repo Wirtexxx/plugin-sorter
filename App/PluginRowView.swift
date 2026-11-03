@@ -11,7 +11,7 @@ struct PluginRowView: View {
 
     static let spacing: CGFloat = 14
     static let ledWidth: CGFloat = 10
-    static let formatsWidth: CGFloat = 170
+    static let formatsWidth: CGFloat = 220
     static let starWidth: CGFloat = 28
     static let categoryWidth: CGFloat = 120
     static let sizeWidth: CGFloat = 70

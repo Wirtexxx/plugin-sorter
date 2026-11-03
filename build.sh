@@ -64,9 +64,8 @@ if [ "${1:-}" = "--screenshot" ]; then
   swiftc -parse-as-library -target "$(uname -m)-apple-macos$TARGET_MACOS" \
     $(ls App/*.swift | grep -v PluginSorterApp.swift) tools/snapshot.swift -o build/snapshot
   mkdir -p docs
-  build/snapshot docs/screenshot.png en
-  build/snapshot docs/screenshot-fl.png en fl
-  build/snapshot docs/screenshot-manager.png en manager
+  build/snapshot docs/screenshot.png en main
+  build/snapshot docs/screenshot-expanded.png en main-expanded
   cp build/icon.png docs/icon.png
 fi
 
