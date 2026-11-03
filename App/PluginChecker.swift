@@ -1,6 +1,6 @@
 import Foundation
 
-enum Issue: Equatable {
+enum Issue: Equatable, Codable {
     case noBinary
     case wrongArch([String])
     case rosetta

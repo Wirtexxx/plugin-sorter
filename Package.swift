@@ -20,6 +20,7 @@ let package = Package(
                 "FLFavorites.swift",
                 "DiskUsage.swift",
                 "FLCategories.swift",
+                "CheckCache.swift",
             ]
         ),
         .testTarget(
