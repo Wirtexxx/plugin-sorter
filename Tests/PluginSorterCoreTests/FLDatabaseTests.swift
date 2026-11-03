@@ -100,6 +100,31 @@ struct FLPictureTests {
         #expect(try Data(contentsOf: proQ.nfo) == before)
     }
 
+    @Test func nonUTF8BytesSurviveInstallAndRestore() throws {
+        let ott = try plugin("OTT")
+        // "tip=Röhre" in Windows-1252: 0xF6 is not valid UTF-8
+        let before = Data("color=1\r\ntip=R".utf8) + Data([0xF6]) + Data("hre\r\nBitmap=old.png".utf8)
+        try before.write(to: ott.nfo)
+
+        try FLDatabase.install(png, for: ott, source: .screenshot, manifest: manifest)
+        let written = try Data(contentsOf: ott.nfo)
+        #expect(written == Data("color=1\r\ntip=R".utf8) + Data([0xF6]) + Data("hre\r\nBitmap=OTT.png".utf8))
+
+        FLDatabase.remove(ott, manifest: PictureManifest(url: dir.path("manifest.json")))
+        #expect(try Data(contentsOf: ott.nfo) == before)
+    }
+
+    @Test func pictureFromAnOlderManifestCanStillBeRemoved() throws {
+        let ott = try plugin("OTT")
+        try png.write(to: ott.picture)
+        try Data("Bitmap=OTT.png".utf8).write(to: ott.nfo)
+        // An older manifest kept the original .nfo as text
+        manifest[ott.picture] = PictureManifest.Record(source: .card, originalNfoData: nil, originalNfo: "fileversion=2")
+        FLDatabase.remove(ott, manifest: manifest)
+        #expect(try String(contentsOf: ott.nfo, encoding: .utf8) == "fileversion=2")
+        #expect(!FileManager.default.fileExists(atPath: ott.picture.path))
+    }
+
     @Test func bomInFrontOfTheBitmapLineIsKept() throws {
         let ott = try plugin("OTT")
         try (Data([0xEF, 0xBB, 0xBF]) + Data("Bitmap=old.png".utf8)).write(to: ott.nfo)

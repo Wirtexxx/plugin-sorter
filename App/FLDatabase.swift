@@ -113,7 +113,9 @@ struct FLPlugin: Identifiable {
 final class PictureManifest {
     struct Record: Codable {
         var source: FLPlugin.Source
-        /// Contents of the .nfo before we touched it; nil when it didn't exist.
+        /// The .nfo's exact bytes before we touched it; nil when it didn't exist.
+        var originalNfoData: Data?
+        /// Older manifests kept the .nfo as text; still read so their pictures can be removed.
         var originalNfo: String?
     }
 
@@ -179,33 +181,70 @@ enum FLDatabase {
 
     /// Writes Name.png and points Name.nfo at it, the same way FL's stock entries do.
     static func install(_ png: Data, for plugin: FLPlugin, source: FLPlugin.Source, manifest: PictureManifest) throws {
-        // Byte-level I/O: newer Foundation drops a UTF-8 BOM when reading into a String,
-        // which would change FL's files and break the byte-for-byte restore
-        let original = (try? Data(contentsOf: plugin.nfo)).map { String(decoding: $0, as: UTF8.self) }
-        let isFirstWrite = manifest[plugin.picture] == nil
+        // Work on bytes: FL's files aren't always UTF-8, and String I/O can also drop a BOM.
+        // Only the Bitmap= line changes; every other byte stays as it was.
+        let original = try? Data(contentsOf: plugin.nfo)
+        let previous = manifest[plugin.picture]
         try png.write(to: plugin.picture, options: .atomic)
+        try nfoPointing(at: plugin.picture.lastPathComponent, from: original).write(to: plugin.nfo, options: .atomic)
 
-        var body = original ?? ""
-        let hadBOM = body.unicodeScalars.first == "\u{FEFF}"
-        if hadBOM { body = String(body.unicodeScalars.dropFirst()) }
-        let newline = body.contains("\r\n") ? "\r\n" : "\n"
-        var lines = body
-            .components(separatedBy: CharacterSet.newlines)
-            .filter { !$0.isEmpty && !$0.lowercased().hasPrefix("bitmap=") }
-        lines.append("Bitmap=\(plugin.picture.lastPathComponent)")
-        let text = (hadBOM ? "\u{FEFF}" : "") + lines.joined(separator: newline)
-        try Data(text.utf8).write(to: plugin.nfo, options: .atomic)
+        var record = PictureManifest.Record(source: source, originalNfoData: original, originalNfo: nil)
+        if let previous = previous {
+            // A second write keeps what was there before the first one
+            record.originalNfoData = previous.originalNfoData
+            record.originalNfo = previous.originalNfo
+        }
+        manifest[plugin.picture] = record
+    }
 
-        let previous = manifest[plugin.picture]?.originalNfo
-        manifest[plugin.picture] = PictureManifest.Record(source: source, originalNfo: isFirstWrite ? original : previous)
+    /// "Bitmap=…" in any letter case, compared as ASCII bytes.
+    private static func isBitmapLine(_ line: [UInt8]) -> Bool {
+        let prefix: [UInt8] = Array("bitmap=".utf8)
+        guard line.count >= prefix.count else { return false }
+        for i in 0..<prefix.count {
+            let byte: UInt8 = line[i] >= 0x41 && line[i] <= 0x5A ? line[i] + 0x20 : line[i]
+            if byte != prefix[i] { return false }
+        }
+        return true
+    }
+
+    /// The .nfo with its Bitmap= line replaced, keeping the BOM, line endings and all other bytes.
+    static func nfoPointing(at picture: String, from original: Data?) -> Data {
+        let bom: [UInt8] = [0xEF, 0xBB, 0xBF]
+        var bytes = [UInt8](original ?? Data())
+        let hadBOM = bytes.starts(with: bom)
+        if hadBOM { bytes.removeFirst(bom.count) }
+        var crlf = false
+        for i in bytes.indices.dropLast() where bytes[i] == 0x0D && bytes[i + 1] == 0x0A {
+            crlf = true
+            break
+        }
+
+        var lines: [[UInt8]] = []
+        for slice in bytes.split(separator: 0x0A, omittingEmptySubsequences: true) {
+            var line = Array(slice)
+            if line.last == 0x0D { line.removeLast() }
+            if !line.isEmpty && !isBitmapLine(line) { lines.append(line) }
+        }
+        lines.append(Array("Bitmap=\(picture)".utf8))
+
+        let newline: [UInt8] = crlf ? [0x0D, 0x0A] : [0x0A]
+        var out = hadBOM ? bom : []
+        for (n, line) in lines.enumerated() {
+            if n > 0 { out += newline }
+            out += line
+        }
+        return Data(out)
     }
 
     /// Deletes a picture added by Plugin Sorter and restores the original .nfo.
     static func remove(_ plugin: FLPlugin, manifest: PictureManifest) {
         guard let record = manifest[plugin.picture] else { return }
         try? FileManager.default.removeItem(at: plugin.picture)
-        if let original = record.originalNfo {
-            try? Data(original.utf8).write(to: plugin.nfo, options: .atomic)
+        if let original = record.originalNfoData {
+            try? original.write(to: plugin.nfo, options: .atomic)
+        } else if let legacy = record.originalNfo {
+            try? Data(legacy.utf8).write(to: plugin.nfo, options: .atomic)
         } else {
             try? FileManager.default.removeItem(at: plugin.nfo)
         }
