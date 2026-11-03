@@ -73,20 +73,26 @@ final class Thumbnails: ObservableObject {
     /// Off for README screenshots, which must not show other vendors' interfaces.
     var isEnabled = true
 
+    /// Reads FL's database in the background; used at launch, before the FL tab has been opened.
     func load() {
         guard isEnabled else { return }
         DispatchQueue.global(qos: .utility).async {
-            var index: [String: URL] = [:]
-            for plugin in FLDatabase.scan(PictureManifest()) where plugin.hasPicture {
-                for name in [plugin.title, plugin.info.name] where !name.isEmpty {
-                    index[Self.normalize(name)] = plugin.picture
-                }
-            }
-            DispatchQueue.main.async {
-                self.images = [:]
-                self.index = index
+            let plugins = FLDatabase.scan(PictureManifest())
+            DispatchQueue.main.async { self.update(from: plugins) }
+        }
+    }
+
+    /// Rebuilds the index from favourites that were already read.
+    func update(from plugins: [FLPlugin]) {
+        guard isEnabled else { return }
+        var index: [String: URL] = [:]
+        for plugin in plugins where plugin.hasPicture {
+            for name in [plugin.title, plugin.info.name] where !name.isEmpty {
+                index[Self.normalize(name)] = plugin.picture
             }
         }
+        images = [:]
+        self.index = index
     }
 
     /// Finds the picture for a plugin named like its file ("FabFilter Pro-Q 4") or like FL names it ("Pro-Q 4").

@@ -32,11 +32,18 @@ final class FLLibrary: ObservableObject {
     /// Screenshots and cards can be redone; custom images are the user's and stay as they are.
     var retakable: [FLPlugin] { plugins.filter { $0.source == .screenshot || $0.source == .card } }
 
+    /// Reads FL's database off the main thread; hundreds of .fst files would otherwise stall the window.
     func scan() {
         guard !demo else { return }
         guard FLDatabase.exists else { plugins = []; return }
-        plugins = FLDatabase.scan(manifest)
-        Thumbnails.shared.load()
+        queue.async {
+            let plugins = FLDatabase.scan(self.manifest)
+            DispatchQueue.main.async {
+                self.plugins = plugins
+                // Reuse what was just read instead of scanning the database a second time
+                Thumbnails.shared.update(from: plugins)
+            }
+        }
     }
 
     /// Screenshot for every plugin without a picture, card when that fails.
