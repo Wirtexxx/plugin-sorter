@@ -54,6 +54,8 @@ VST3/                                VST3/
 - 🌊 **Leaves Waves alone.** WaveShells are managed by Waves Central and are skipped.
 - 🖼️ **Plugin pictures in FL Studio.** Screenshots of every plugin's interface for FL's
   browser and plugin picker, the way FL's own plugins look there.
+- 🗂️ **FL Studio categories in one click.** Favourites go under the picker's tabs (Dynamics,
+  Filter, Delay reverb…) by the category each plugin reports about itself.
 - 🩺 **Plugin manager.** Checks that every plugin actually loads (Apple's `auval` for AU,
   a test load for VST, VST3 and CLAP) and moves the ones you don't need to the Trash.
 - 🧩 **Keeps Audio Units working.** AU stay in `Components`, and AU moved by 1.0 can be
@@ -124,6 +126,12 @@ The **FL Studio** tab's **Favourites** section lists every plugin FL has scanned
 want in FL's browser and plugin picker, or click a format chip to pick VST3, AU or CLAP. Favourites
 of plugins you deleted are listed on top and go away with one click; moved plugins are told apart and
 left alone. Removed favourites are kept and **Put back removed** restores them.
+
+**Sort by category** files every third-party favourite into FL's category folders, so the tabs at the
+bottom of the plugin picker work for them too. The category comes from the plugin itself (VST3
+sub-categories, CLAP features, read in a helper process), then from its name, and falls back to
+*Effect*. Favourites you already put in a folder are left alone; right-click a plugin to choose its
+category yourself. Pictures move along, and **Undo categories** puts everything back where it was.
 
 ### Manager: check and remove plugins
 
