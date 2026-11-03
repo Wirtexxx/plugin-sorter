@@ -203,6 +203,35 @@ struct ScriptTests {
         #expect(!exists("VST3/Xfer Records"))
     }
 
+    @Test func trashNeverNestsSameNamedBundles() throws {
+        try makeBundle(dir.path("Trash/OTT.vst3"), id: "com.earlier.delete")
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("VST3/Xfer"), withIntermediateDirectories: true)
+        let second = root.appendingPathComponent("VST3/Xfer/OTT.vst3")
+        try makeBundle(second, id: "com.xfer.OTT2")
+        let (status, _) = try run(["--trash", root.appendingPathComponent("VST3/OTT.vst3").path, second.path])
+        #expect(status == 0)
+        let trash = try FileManager.default.contentsOfDirectory(atPath: dir.path("Trash").path).sorted()
+        #expect(trash == ["OTT 2.vst3", "OTT 3.vst3", "OTT.vst3"])
+        #expect(!FileManager.default.fileExists(atPath: dir.path("Trash/OTT.vst3/OTT.vst3").path))
+    }
+
+    @Test func repairsReportWhenTheyDidNothing() throws {
+        let missing = root.appendingPathComponent("VST3/Missing.vst3").path
+        #expect(try run(["--relocate", missing, root.appendingPathComponent("VST3/Elsewhere.vst3").path]).status != 0)
+        #expect(try run(["--unquarantine", missing]).status != 0)
+    }
+
+    @Test func restoreAUAlsoMovesUnloggedNestedComponents() throws {
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("Components/Vendor"), withIntermediateDirectories: true)
+        try FileManager.default.moveItem(at: root.appendingPathComponent("Components/OTT.component"),
+                                         to: root.appendingPathComponent("Components/Vendor/OTT.component"))
+        let (status, output) = try run(["--restore-au"])
+        #expect(status == 0)
+        #expect(output.contains("Restored AU: 1"))
+        #expect(exists("Components/OTT.component"))
+        #expect(!exists("Components/Vendor"))
+    }
+
     @Test func resetAUNeedsNoRootAndSucceeds() throws {
         let (status, output) = try run(["--reset-au"])
         #expect(status == 0)

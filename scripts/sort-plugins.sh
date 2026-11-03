@@ -135,6 +135,20 @@ restore_au() {
       fi
     done < "$log"
   done
+  # Components that got into subfolders some other way (logs deleted, an installer, by hand)
+  local nested name
+  while IFS= read -r nested; do
+    [ -n "$nested" ] || continue
+    name="${nested##*/}"
+    if [ -e "$COMPONENTS/$name" ]; then
+      echo "skip: ${nested#$ROOT/}"
+    else
+      mv "$nested" "$COMPONENTS/$name" && echo "restored: ${nested#$ROOT/} -> ${COMPONENTS#$ROOT/}/$name" \
+        && restored=$((restored + 1))
+    fi
+  done <<EOF_NESTED
+$(find "$COMPONENTS" -mindepth 2 -maxdepth 2 -name '*.component' 2>/dev/null)
+EOF_NESTED
   drop_empty_vendor_dirs
   reset_au_cache
   echo "Restored AU: $restored"
@@ -142,13 +156,17 @@ restore_au() {
 
 # Moves plugin bundles to the owner's Trash. Only bundles inside $ROOT are accepted.
 trash_plugins() {
-  local trash p name dest
+  local trash p name dest n
   trash="${PLUGIN_SORT_TRASH:-$(eval echo ~"${OWNER:-$USER}")/.Trash}"
   for p in "$@"; do
     { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
     name="${p##*/}"
     dest="$trash/$name"
-    [ -e "$dest" ] && dest="$trash/${name%.*} $(date +%H.%M.%S).${name##*.}"
+    n=2
+    while [ -e "$dest" ]; do
+      dest="$trash/${name%.*} $n.${name##*.}"
+      n=$((n + 1))
+    done
     mv "$p" "$dest" || continue
     [ -n "$OWNER" ] && chown -R "$OWNER" "$dest"
     echo "trashed: ${p#$ROOT/}"
@@ -158,12 +176,18 @@ trash_plugins() {
 }
 
 unquarantine_plugins() {
-  local p
+  local p done=0
   for p in "$@"; do
     { is_plugin_path "$p" && [ -e "$p" ]; } || { echo "skip: $p"; continue; }
     xattr -dr com.apple.quarantine "$p" 2>/dev/null
-    echo "unquarantined: ${p#$ROOT/}"
+    if xattr "$p" 2>/dev/null | grep -q com.apple.quarantine; then
+      echo "failed: ${p#$ROOT/}"
+    else
+      echo "unquarantined: ${p#$ROOT/}"
+      done=$((done + 1))
+    fi
   done
+  [ "$done" -gt 0 ]
 }
 
 # Moves one bundle within the plugin tree, e.g. a VST3 another plugin expects at a fixed path
@@ -172,9 +196,10 @@ relocate_plugin() {
   if ! is_plugin_path "$src" || ! is_plugin_path "$dst" || [ ! -e "$src" ] || [ -e "$dst" ] \
      || [ ! -d "$(dirname "$dst")" ] || [ "${src##*.}" != "${dst##*.}" ]; then
     echo "skip: $src"
-    return 0
+    return 1
   fi
-  mv "$src" "$dst" && echo "relocated: ${src#$ROOT/} -> ${dst#$ROOT/}"
+  mv "$src" "$dst" || { echo "failed: ${src#$ROOT/}"; return 1; }
+  echo "relocated: ${src#$ROOT/} -> ${dst#$ROOT/}"
   drop_empty_vendor_dirs
   reset_au_cache
 }
@@ -203,9 +228,9 @@ case "$1" in
   --trash)      needs_root && { echo "Root required: sudo $0 --trash PATH…"; exit 1; }
                 shift; trash_plugins "$@"; exit ;;
   --unquarantine) needs_root && { echo "Root required: sudo $0 --unquarantine PATH…"; exit 1; }
-                shift; unquarantine_plugins "$@"; exit 0 ;;
+                shift; unquarantine_plugins "$@"; exit ;;
   --relocate)   needs_root && { echo "Root required: sudo $0 --relocate SRC DST"; exit 1; }
-                relocate_plugin "$2" "$3"; exit 0 ;;
+                relocate_plugin "$2" "$3"; exit ;;
   --reset-au)   reset_au_cache; echo "AU cache reset"; exit 0 ;;
   "")           ;;
   *)            usage; exit 1 ;;
