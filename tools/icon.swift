@@ -57,18 +57,19 @@ drop.set()
 NSGradient(colors: [hex(0x404048), hex(0x25252A)])!.draw(in: cap, angle: -90)
 NSGraphicsContext.current!.restoreGraphicsState()
 
-// Folder glyph in the accent gradient
-if let symbol = NSImage(systemSymbolName: "folder.fill", accessibilityDescription: nil)?
-    .withSymbolConfiguration(.init(pointSize: 190, weight: .regular)) {
-    let tinted = NSImage(size: symbol.size, flipped: false) { rect in
-        symbol.draw(in: rect)
-        NSGraphicsContext.current!.compositingOperation = .sourceAtop
-        NSGradient(colors: [hex(0xE073FF), hex(0x3D6BFF)])!.draw(in: rect, angle: -60)
-        return true
-    }
-    let s = tinted.size
-    tinted.draw(in: NSRect(x: 512 - s.width / 2, y: 512 - s.height / 2, width: s.width, height: s.height))
+// "VST" in the accent gradient: says plugins, not files
+let label = NSAttributedString(string: "VST", attributes: [
+    .font: NSFont.systemFont(ofSize: 150, weight: .heavy), .foregroundColor: NSColor.white, .kern: 2,
+])
+let labelSize = label.size()
+let tinted = NSImage(size: labelSize, flipped: false) { rect in
+    label.draw(at: .zero)
+    NSGraphicsContext.current!.compositingOperation = .sourceAtop
+    NSGradient(colors: [hex(0xE073FF), hex(0x3D6BFF)])!.draw(in: rect, angle: -30)
+    return true
 }
+tinted.draw(in: NSRect(x: 512 - labelSize.width / 2, y: 512 - labelSize.height / 2,
+                       width: labelSize.width, height: labelSize.height))
 
 // Status LED
 NSGraphicsContext.current!.saveGraphicsState()

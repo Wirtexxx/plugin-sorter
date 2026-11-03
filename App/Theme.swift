@@ -276,18 +276,26 @@ struct LED: View {
     }
 }
 
-/// The app's mark and name, top left in the header. The mark takes its colours from the skin.
+/// The app's mark and name, top left in the header: the icon's knob without its tile. The mark
+/// takes its colours from the skin.
 struct AppLogo: View {
-    /// Three bars in rising order: mixer levels, sorted.
-    private let bars: [CGFloat] = [13, 20, 28]
+    /// The scale is 270° with the gap at the bottom, and the value covers most of it, as on the icon.
+    private func scale(to end: CGFloat) -> some Shape {
+        Circle().trim(from: 0, to: end).rotation(.degrees(135))
+    }
+
+    private var mark: some View {
+        ZStack {
+            scale(to: 0.75).stroke(Color.edge, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            scale(to: 0.625).stroke(accentGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            accentGradient.mask(Text("VST").font(.system(size: 10, weight: .heavy)).fixedSize())
+        }
+        .frame(width: 34, height: 34)
+    }
 
     var body: some View {
         HStack(spacing: 9) {
-            accentGradient
-                .mask(HStack(alignment: .bottom, spacing: 4) {
-                    ForEach(bars, id: \.self) { Capsule().frame(width: 7, height: $0) }
-                })
-                .frame(width: 29, height: 28)
+            mark
                 .shadow(color: Color.accent.opacity(0.35), radius: 5)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
