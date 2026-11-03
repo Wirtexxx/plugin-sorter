@@ -89,58 +89,19 @@ cd plugin-sorter
 
 ## Usage
 
-### App
-
-1. Open **Plugin Sorter**. It scans your plugin folders right away.
-2. Toggle **VST3 / VST** to pick which folders to process.
-3. Review the list and press **Sort**. macOS asks for an administrator password
-   because `/Library/Audio/Plug-Ins` belongs to the system.
-4. Changed your mind? Press **Undo**.
-
-### Pictures in FL Studio
-
-FL Studio shows a picture next to its own plugins in the browser, but third-party ones get
-only a name. The **FL Studio** tab fixes that:
+### One window
 
 <p align="center">
-  <img src="docs/screenshot-fl.png" width="760" alt="FL Studio tab">
+  <img src="docs/screenshot-expanded.png" width="760" alt="A plugin opened in the list">
 </p>
 
-1. Open the **FL Studio** tab. It lists the favourites from FL's plugin database
-   (`~/Documents/Image-Line/FL Studio/Presets/Plugin database`).
-2. Press **Add pictures**. For every plugin without a picture the app opens its Audio Unit
-   editor for a moment, takes a screenshot and saves it next to the plugin's `.fst` preset,
-   exactly where FL keeps its own pictures. Plugins that can't be opened get a card instead.
-3. Restart FL Studio.
+Open **Plugin Sorter** and every plugin in `/Library/Audio/Plug-Ins` is right there, one row per
+plugin with all its formats. Each row shows whether it works, whether it's in FL Studio's favourites
+(the star), its FL category and its size.
 
-Drop any image on a tile to use your own, or right-click it to retake the screenshot, switch to
-a card or remove the picture. **Remove mine** deletes everything Plugin Sorter added and
-restores FL's `.nfo` files byte for byte.
-
-> Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
-> Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
-
-### Favourites in FL Studio
-
-The **FL Studio** tab's **Favourites** section lists every plugin FL has scanned. Star the ones you
-want in FL's browser and plugin picker, or click a format chip to pick VST3, AU or CLAP. Favourites
-of plugins you deleted are listed on top and go away with one click; moved plugins are told apart and
-left alone. Removed favourites are kept and **Put back removed** restores them.
-
-**Sort by category** files every third-party favourite into FL's category folders, so the tabs at the
-bottom of the plugin picker work for them too. The category comes from the plugin itself (VST3
-sub-categories, CLAP features, read in a helper process), then from its name, and falls back to
-*Effect*. Favourites you already put in a folder are left alone; right-click a plugin to choose its
-category yourself. Pictures move along, and **Undo categories** puts everything back where it was.
-
-### Manager: check and remove plugins
-
-<p align="center">
-  <img src="docs/screenshot-manager.png" width="760" alt="Manager tab">
-</p>
-
-The **Manager** tab lists every plugin in `/Library/Audio/Plug-Ins` with all its formats.
-**Check all** verifies that each one can really be loaded:
+- **Search and filters** at the top: **All**, **Problems**, **Not in FL**.
+- **Checks run by themselves** in the background and are remembered, so the lights are on as soon as
+  the window opens; only new and updated plugins are checked again.
 
 | Format | How it's checked |
 | ------ | ---------------- |
@@ -149,18 +110,32 @@ The **Manager** tab lists every plugin in `/Library/Audio/Plug-Ins` with all its
 | VST | loaded in a helper process, `VSTPluginMain` must exist |
 | CLAP | loaded in a helper process, `clap_entry` must exist |
 
-It also flags binaries built for another CPU, Intel-only plugins on Apple Silicon, quarantined
-downloads and Audio Units that macOS can't see. Click a plugin to see the exact reason, and
-use the trash button to move all its formats to the Trash after confirming the file list.
+- **Click a plugin** to open it in place: what's wrong in plain words with a one-click **Fix**
+  (remove quarantine, move an AU back to Components, reset the AU cache, put a moved bundle back
+  where another plugin loads it), **Show in Finder**, **Move to Trash**, its formats, its picture in FL
+  and its developer's data folders (shown, never deleted).
+- **The star** adds the plugin to FL's browser and plugin picker or removes it; inside the row, each
+  format can be picked on its own. **The category** next to it is a menu of FL's category folders.
+- **Click a column title** to sort by name or by size.
 
-Many problems come with a one-click fix right under them: **Remove quarantine**, **Move back to
-Components** for an Audio Unit in a subfolder, **Reset AU cache**, and **Put … back** when a plugin
-loads another bundle from a fixed path that was moved (Serum 2's AU loads `VST3/Serum2.vst3`).
-Bundles put back this way are remembered, so sorting never moves them again.
+Three jobs sit at the bottom, each showing what's left:
 
-**By size** sorts plugins by the space they take, and a plugin's details list its developer's data
-folders (presets, libraries in Application Support and Audio/Presets) with their size. Those are only
-shown, never deleted.
+- **Plugin folders** — shows what moves into which developer folder, then sorts it. macOS asks for an
+  administrator password because `/Library/Audio/Plug-Ins` belongs to the system.
+- **Categories in FL** — files every third-party favourite into FL's category folders, so the tabs at
+  the bottom of FL's plugin picker work for them too. The category comes from the plugin itself (VST3
+  sub-categories, CLAP features), then from its name, and falls back to *Effect*.
+- **Pictures in FL** — FL shows a picture next to its own plugins but not next to third-party ones.
+  This opens each plugin's Audio Unit editor for a moment, takes a screenshot and saves it where FL
+  keeps its own pictures; plugins that can't be opened get a card. Drop any image on a plugin's
+  picture to use your own.
+
+Every job can be undone. If FL Studio is open while the app changes its plugin database, it asks first:
+FL shows the changes after a restart. The gear menu has a full recheck, **Reset AU cache**, putting back
+favourites removed from FL, and the settings (language, colour skin).
+
+> Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
+> Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
 
 ### Command line
 
