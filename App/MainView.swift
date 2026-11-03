@@ -71,7 +71,7 @@ struct MainView: View {
     private var header: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                GradientTitle(text: "PLUGIN SORTER")
+                AppLogo()
                     .padding(.trailing, 4)
                     .help(t("subtitle"))
                 HStack(spacing: 8) {

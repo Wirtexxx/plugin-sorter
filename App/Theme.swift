@@ -276,16 +276,25 @@ struct LED: View {
     }
 }
 
-/// The app's name in the accent gradient with a soft glow, like the title of a plugin.
-struct GradientTitle: View {
-    let text: String
+/// The app's mark and name, top left in the header. The mark takes its colours from the skin.
+struct AppLogo: View {
+    /// Three bars in rising order: mixer levels, sorted.
+    private let bars: [CGFloat] = [13, 20, 28]
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 20, weight: .bold, design: .rounded))
-            .kerning(2)
-            .foregroundColor(.clear)
-            .overlay(accentGradient.mask(Text(text).font(.system(size: 20, weight: .bold, design: .rounded)).kerning(2)))
-            .shadow(color: Color.accent.opacity(0.4), radius: 8)
+        HStack(spacing: 9) {
+            accentGradient
+                .mask(HStack(alignment: .bottom, spacing: 4) {
+                    ForEach(bars, id: \.self) { Capsule().frame(width: 7, height: $0) }
+                })
+                .frame(width: 29, height: 28)
+                .shadow(color: Color.accent.opacity(0.35), radius: 5)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("PLUGIN").font(.system(size: 12, weight: .heavy)).kerning(1.6).foregroundColor(.text)
+                Text("SORTER").font(.system(size: 12, weight: .regular)).kerning(1.6).foregroundColor(.label)
+            }
+            .fixedSize()
+        }
     }
 }
