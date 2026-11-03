@@ -179,6 +179,11 @@ struct MainView: View {
                 .disabled(model.manager.busy)
             Button(t("gear.restore")) { model.whenFLClosed { model.favorites.restore() } }
                 .disabled(!model.favorites.canRestore)
+            Menu(t("gear.export")) {
+                ForEach(ExportFormat.allCases, id: \.self) { format in
+                    Button(t("export." + format.rawValue)) { model.export(as: format) }
+                }
+            }
             Divider()
             Button(t("gear.settings")) { openSettings() }
         } label: {

@@ -27,6 +27,7 @@ let package = Package(
                 "CardPictures.swift",
                 "Cleanup.swift",
                 "Uninstall.swift",
+                "CatalogExport.swift",
             ]
         ),
         .testTarget(

@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import UniformTypeIdentifiers
 
 enum CatalogFilter: Hashable {
     case all, problems, notInFL, new, duplicates, disabled
@@ -110,6 +111,26 @@ final class AppModel: ObservableObject {
         }
         guard sort == .size else { return matching }
         return matching.sorted { size(of: $0) > size(of: $1) }
+    }
+
+    /// The list as it is on screen now, with the search and the filter applied.
+    func exportRows() -> [ExportRow] {
+        rows.map { ExportRow(row: $0, level: level(of: $0), sizeBytes: size(of: $0)) }
+    }
+
+    /// Asks where to save the visible list and writes it there.
+    func export(as format: ExportFormat) {
+        let rows = exportRows()
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "Plugins." + format.rawValue
+        if let type = UTType(filenameExtension: format.rawValue) { panel.allowedContentTypes = [type] }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try CatalogExport.render(rows, as: format).write(to: url, atomically: true, encoding: .utf8)
+            show(Banner(source: .manager(.exported(rows.count)), isError: false, undo: nil))
+        } catch {
+            show(Banner(source: .manager(.failed(error.localizedDescription)), isError: true, undo: nil))
+        }
     }
 
     func count(_ filter: CatalogFilter) -> Int { allRows.filter { passes($0, filter) }.count }

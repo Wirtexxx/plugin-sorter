@@ -4,6 +4,8 @@ enum ManagerStatus: Equatable {
     case idle
     case checked(ok: Int, warnings: Int, failed: Int)
     case trashed(Int)
+    /// The list was saved to a file: how many plugins it has.
+    case exported(Int)
     /// Plugins turned off (`disabled`) or on again.
     case toggled(disabled: Bool, count: Int)
     case fixed

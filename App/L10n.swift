@@ -59,6 +59,7 @@ struct L10n {
         case .idle:                          return ""
         case .checked(let ok, let w, let f): return self("mgr.checked", ok, w, f)
         case .trashed(let n):                return self("mgr.trashed", n)
+        case .exported(let n):               return self("mgr.exported", n)
         case .toggled(let disabled, let n):  return self(disabled ? "mgr.turnedOff" : "mgr.turnedOn", n)
         case .fixed:                         return self("mgr.fixed")
         case .cancelled:                     return self("status.cancelled")
@@ -227,6 +228,11 @@ struct L10n {
         ]
         t["gear.recheck"] = [.en: "Check all plugins again", .ru: "Проверить все плагины заново", .uk: "Перевірити всі плагіни заново", .de: "Alle Plugins neu prüfen"]
         t["gear.restore"] = [.en: "Put back favourites removed from FL", .ru: "Вернуть убранное из избранного FL", .uk: "Повернути прибране з обраного FL", .de: "Aus FL entfernte Favoriten zurückholen"]
+        t["gear.export"] = [.en: "Export the list", .ru: "Экспорт списка", .uk: "Експорт списку", .de: "Liste exportieren"]
+        t["export.md"] = [.en: "Markdown (.md)", .ru: "Markdown (.md)", .uk: "Markdown (.md)", .de: "Markdown (.md)"]
+        t["export.csv"] = [.en: "CSV (.csv)", .ru: "CSV (.csv)", .uk: "CSV (.csv)", .de: "CSV (.csv)"]
+        t["export.json"] = [.en: "JSON (.json)", .ru: "JSON (.json)", .uk: "JSON (.json)", .de: "JSON (.json)"]
+        t["mgr.exported"] = [.en: "List saved: %d plugins", .ru: "Список сохранён: плагинов %d", .uk: "Список збережено: плагінів %d", .de: "Liste gespeichert: %d Plugins"]
         t["gear.settings"] = [.en: "Settings…", .ru: "Настройки…", .uk: "Налаштування…", .de: "Einstellungen…"]
         t["settings.language"] = [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"]
         t["settings.skin"] = [.en: "Skin", .ru: "Скин", .uk: "Скін", .de: "Skin"]
