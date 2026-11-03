@@ -118,6 +118,13 @@ restores FL's `.nfo` files byte for byte.
 > Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
 > Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
 
+### Favourites in FL Studio
+
+The **FL Studio** tab's **Favourites** section lists every plugin FL has scanned. Star the ones you
+want in FL's browser and plugin picker, or click a format chip to pick VST3, AU or CLAP. Favourites
+of plugins you deleted are listed on top and go away with one click; moved plugins are told apart and
+left alone. Removed favourites are kept and **Put back removed** restores them.
+
 ### Manager: check and remove plugins
 
 <p align="center">
@@ -142,6 +149,10 @@ Many problems come with a one-click fix right under them: **Remove quarantine**,
 Components** for an Audio Unit in a subfolder, **Reset AU cache**, and **Put … back** when a plugin
 loads another bundle from a fixed path that was moved (Serum 2's AU loads `VST3/Serum2.vst3`).
 Bundles put back this way are remembered, so sorting never moves them again.
+
+**By size** sorts plugins by the space they take, and a plugin's details list its developer's data
+folders (presets, libraries in Application Support and Audio/Presets) with their size. Those are only
+shown, never deleted.
 
 ### Command line
 
