@@ -52,7 +52,15 @@ struct Snapshot {
             RunLoop.main.run(until: Date().addingTimeInterval(2))
         }
         let library = demoLibrary()
-        let manager = demoManager()
+        var manager = demoManager()
+        // The real manager, sorted by size, for local checks only (PS_REAL_MANAGER=1)
+        if ProcessInfo.processInfo.environment["PS_REAL_MANAGER"] != nil {
+            manager = ManagerLibrary()
+            manager.scan()
+            RunLoop.main.run(until: Date().addingTimeInterval(6))
+            manager.sortBySize = true
+            if let first = manager.visible.first { manager.expanded = [first.id] }
+        }
 
         let view: NSView
         if mode == "settings" {

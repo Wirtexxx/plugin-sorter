@@ -20,6 +20,11 @@ final class ManagerLibrary: ObservableObject {
     @Published var progress = 0.0
     @Published var current = ""
     @Published var status: ManagerStatus = .idle
+    @Published var sortBySize = false
+    /// Bytes on disk per bundle (by path), filled in the background after each scan.
+    @Published private(set) var sizes: [String: Int64] = [:]
+    /// Developer folders with presets and libraries, per vendor. Shown, never deleted.
+    @Published private(set) var vendorData: [String: [(url: URL, size: Int64)]] = [:]
 
     private let queue = DispatchQueue(label: "plugin-sorter.manager", qos: .userInitiated)
     private let demo: Bool
@@ -29,12 +34,36 @@ final class ManagerLibrary: ObservableObject {
     }
 
     var visible: [ManagedPlugin] {
-        plugins.filter { plugin in
+        let filtered = plugins.filter { plugin in
             let matches = query.isEmpty
                 || plugin.name.localizedCaseInsensitiveContains(query)
                 || plugin.vendor.localizedCaseInsensitiveContains(query)
             let problem = (level(of: plugin) ?? .ok) > .ok
             return matches && (!onlyProblems || problem)
+        }
+        return sortBySize ? filtered.sorted { size(of: $0) > size(of: $1) } : filtered
+    }
+
+    func size(of bundle: PluginBundle) -> Int64? { sizes[bundle.id] }
+
+    func size(of plugin: ManagedPlugin) -> Int64 { plugin.bundles.reduce(0) { $0 + (sizes[$1.id] ?? 0) } }
+
+    var totalSize: Int64 { sizes.values.reduce(0, +) }
+
+    /// Measures every bundle and finds developer data folders; runs off the main thread.
+    private func computeSizes(for plugins: [ManagedPlugin]) {
+        DispatchQueue.global(qos: .utility).async {
+            var sizes: [String: Int64] = [:]
+            for bundle in plugins.flatMap(\.bundles) { sizes[bundle.id] = DiskUsage.size(of: bundle.url) }
+            var vendorData: [String: [(url: URL, size: Int64)]] = [:]
+            for vendor in Set(plugins.map(\.vendor)) where !vendor.isEmpty {
+                let folders = DiskUsage.vendorFolders(for: vendor).map { (url: $0, size: DiskUsage.size(of: $0)) }
+                if !folders.isEmpty { vendorData[vendor] = folders }
+            }
+            DispatchQueue.main.async {
+                self.sizes = sizes
+                self.vendorData = vendorData
+            }
         }
     }
 
@@ -99,6 +128,7 @@ final class ManagerLibrary: ObservableObject {
                 // Forget results of bundles that are gone
                 let ids = Set(plugins.flatMap { $0.bundles.map(\.id) })
                 self.results = self.results.filter { ids.contains($0.key) }
+                self.computeSizes(for: plugins)
                 completion?()
             }
         }

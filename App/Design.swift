@@ -1,6 +1,11 @@
 import SwiftUI
 import AppKit
 
+/// "48,2 MB": file sizes the way Finder shows them.
+func formatBytes(_ bytes: Int64) -> String {
+    ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+}
+
 /// Honour System Settings → Accessibility → Display → Reduce motion.
 enum Motion {
     static var reduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }

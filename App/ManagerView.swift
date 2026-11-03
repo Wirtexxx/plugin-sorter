@@ -32,7 +32,13 @@ struct ManagerView: View {
             .panel()
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(t("mgr.title").uppercased()).caption()
+                HStack {
+                    Text(t("mgr.title").uppercased()).caption()
+                    Spacer()
+                    if library.totalSize > 0 {
+                        Text(t("mgr.onDisk", formatBytes(library.totalSize)).uppercased()).caption(.text)
+                    }
+                }
                 if library.busy && !library.current.isEmpty {
                     HStack {
                         Text("\(t("mgr.checking").uppercased()) · \(library.current)").caption(.text).lineLimit(1)
@@ -72,6 +78,9 @@ struct ManagerView: View {
                 .panel(.inset, radius: 4)
                 PowerToggle(title: t("mgr.onlyProblems").uppercased(), isOn: library.onlyProblems) {
                     library.onlyProblems.toggle()
+                }
+                PowerToggle(title: t("mgr.bySize").uppercased(), isOn: library.sortBySize) {
+                    library.sortBySize.toggle()
                 }
             }
             ScrollView {
@@ -140,6 +149,8 @@ struct ManagerRow: View {
                         FormatChip(format: bundle.format, level: library.state(of: bundle).level)
                     }
                 }
+                let size = library.size(of: plugin)
+                Text(size > 0 ? formatBytes(size) : "").caption(.text).frame(width: 72, alignment: .trailing).lineLimit(1)
                 Text(plugin.version).caption().frame(width: 64, alignment: .trailing).lineLimit(1)
                 if !isExpanded && plugin.bundles.contains(where: { !library.fixes(for: $0).isEmpty }) {
                     // A repair is available: open the details where its button lives
@@ -189,8 +200,32 @@ struct ManagerRow: View {
                                 }
                             }
                             Spacer()
-                            Text(bundle.archs.joined(separator: " · ")).caption()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(bundle.archs.joined(separator: " · ")).caption()
+                                if let size = library.size(of: bundle) { Text(formatBytes(size)).caption() }
+                            }
                         }
+                    }
+                    if let folders = library.vendorData[plugin.vendor], !folders.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(t("mgr.vendorData").uppercased()).caption()
+                            ForEach(folders, id: \.url) { folder in
+                                HStack(spacing: 8) {
+                                    Text(folder.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundColor(.text)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text(formatBytes(folder.size)).caption()
+                                    Button { NSWorkspace.shared.activateFileViewerSelecting([folder.url]) } label: {
+                                        Image(systemName: "folder").font(.system(size: 10, weight: .semibold))
+                                    }
+                                    .buttonStyle(IconButtonStyle())
+                                    .help(t("mgr.reveal"))
+                                }
+                            }
+                        }
+                        .padding(.top, 6)
                     }
                 }
                 .padding(.leading, 16)
