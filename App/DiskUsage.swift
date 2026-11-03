@@ -28,23 +28,29 @@ enum DiskUsage {
         return total
     }
 
+    /// Every folder directly inside the data locations. List once, then match many vendors against it.
+    static func dataFolders(in roots: [URL] = dataRoots) -> [URL] {
+        roots.flatMap { root in
+            ((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey],
+                                                           options: [.skipsHiddenFiles])) ?? [])
+                .filter(\.hasDirectoryPath)
+        }
+    }
+
     /// Folders named after a developer in the data locations: "FabFilter", "Valhalla DSP" for "Valhalla DSP, LLC",
     /// "Xfer" for "Xfer Records". Short or generic names only match exactly.
     static func vendorFolders(for vendor: String, in roots: [URL] = dataRoots) -> [URL] {
+        vendorFolders(for: vendor, among: dataFolders(in: roots))
+    }
+
+    static func vendorFolders(for vendor: String, among folders: [URL]) -> [URL] {
         let key = normalize(vendor)
         guard key.count >= 3 else { return [] }
-        var found: [URL] = []
-        for root in roots {
-            let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey],
-                                                                         options: [.skipsHiddenFiles])) ?? []
-            for folder in folders where folder.hasDirectoryPath {
-                let name = normalize(folder.lastPathComponent)
-                guard name.count >= 3 else { continue }
-                let related = name == key || (min(name.count, key.count) >= 4 && (key.hasPrefix(name) || name.hasPrefix(key)))
-                if related && !ignored.contains(name) { found.append(folder) }
-            }
+        return folders.filter { folder in
+            let name = normalize(folder.lastPathComponent)
+            guard name.count >= 3, !ignored.contains(name) else { return false }
+            return name == key || (min(name.count, key.count) >= 4 && (key.hasPrefix(name) || name.hasPrefix(key)))
         }
-        return found
     }
 
     /// System and app folders that must never be shown as a developer's data.

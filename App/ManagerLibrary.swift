@@ -24,7 +24,13 @@ final class ManagerLibrary: ObservableObject {
     /// Bytes on disk per bundle (by path), filled in the background after each scan.
     @Published private(set) var sizes: [String: Int64] = [:]
     /// Developer folders with presets and libraries, per vendor. Shown, never deleted.
-    @Published private(set) var vendorData: [String: [(url: URL, size: Int64)]] = [:]
+    @Published private(set) var vendorData: [String: [URL]] = [:]
+    /// Sizes of those folders, measured only when a plugin's details are opened: they can hold
+    /// hundreds of gigabytes of samples.
+    @Published private(set) var folderSizes: [URL: Int64] = [:]
+    private var measuring: Set<URL> = []
+    /// Bumped by every scan so a slower, older measurement can't overwrite a newer one.
+    private var sizeGeneration = 0
 
     private let queue = DispatchQueue(label: "plugin-sorter.manager", qos: .userInitiated)
     private let demo: Bool
@@ -52,17 +58,37 @@ final class ManagerLibrary: ObservableObject {
 
     /// Measures every bundle and finds developer data folders; runs off the main thread.
     private func computeSizes(for plugins: [ManagedPlugin]) {
+        sizeGeneration += 1
+        let generation = sizeGeneration
         DispatchQueue.global(qos: .utility).async {
             var sizes: [String: Int64] = [:]
             for bundle in plugins.flatMap(\.bundles) { sizes[bundle.id] = DiskUsage.size(of: bundle.url) }
-            var vendorData: [String: [(url: URL, size: Int64)]] = [:]
+            let folders = DiskUsage.dataFolders()
+            var vendorData: [String: [URL]] = [:]
             for vendor in Set(plugins.map(\.vendor)) where !vendor.isEmpty {
-                let folders = DiskUsage.vendorFolders(for: vendor).map { (url: $0, size: DiskUsage.size(of: $0)) }
-                if !folders.isEmpty { vendorData[vendor] = folders }
+                let found = DiskUsage.vendorFolders(for: vendor, among: folders)
+                if !found.isEmpty { vendorData[vendor] = found }
             }
             DispatchQueue.main.async {
+                guard generation == self.sizeGeneration else { return }
                 self.sizes = sizes
                 self.vendorData = vendorData
+            }
+        }
+    }
+
+    /// Measures developer folders the first time they're shown; later views use the cached size.
+    func measure(_ folders: [URL]) {
+        let todo = folders.filter { folderSizes[$0] == nil && !measuring.contains($0) }
+        guard !todo.isEmpty else { return }
+        measuring.formUnion(todo)
+        DispatchQueue.global(qos: .utility).async {
+            let measured = todo.map { ($0, DiskUsage.size(of: $0)) }
+            DispatchQueue.main.async {
+                for (url, size) in measured {
+                    self.folderSizes[url] = size
+                    self.measuring.remove(url)
+                }
             }
         }
     }

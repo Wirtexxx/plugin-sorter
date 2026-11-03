@@ -209,15 +209,15 @@ struct ManagerRow: View {
                     if let folders = library.vendorData[plugin.vendor], !folders.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(t("mgr.vendorData").uppercased()).caption()
-                            ForEach(folders, id: \.url) { folder in
+                            ForEach(folders, id: \.self) { folder in
                                 HStack(spacing: 8) {
-                                    Text(folder.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                                    Text(folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                                         .font(.system(size: 10, design: .monospaced))
                                         .foregroundColor(.text)
                                         .lineLimit(1)
                                     Spacer()
-                                    Text(formatBytes(folder.size)).caption()
-                                    Button { NSWorkspace.shared.activateFileViewerSelecting([folder.url]) } label: {
+                                    Text(library.folderSizes[folder].map(formatBytes) ?? "…").caption()
+                                    Button { NSWorkspace.shared.activateFileViewerSelecting([folder]) } label: {
                                         Image(systemName: "folder").font(.system(size: 10, weight: .semibold))
                                     }
                                     .buttonStyle(IconButtonStyle())
@@ -226,6 +226,7 @@ struct ManagerRow: View {
                             }
                         }
                         .padding(.top, 6)
+                        .onAppear { library.measure(folders) }
                     }
                 }
                 .padding(.leading, 16)
