@@ -103,29 +103,39 @@ struct MainView: View {
                 AppLogo()
                     .padding(.trailing, 4)
                     .help(t("subtitle"))
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 12))
-                        .foregroundColor(.label)
-                    TextField(t("main.search"), text: $model.query)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .font(.system(size: 13))
-                        .foregroundColor(.text)
-                }
-                .padding(.horizontal, 14)
-                .frame(height: 32)
-                .background(Capsule().fill(Color.inset))
-                filters
+                searchField
                 viewToggle
                 gearMenu
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.top, 12)
+            // On a line of their own: beside the search they squeezed it down to nothing
+            filters
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
             if let checking = model.manager.checking {
                 checkingLine(checking)
             }
         }
         .card()
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundColor(.label)
+            TextField(t("main.search"), text: $model.query)
+                .textFieldStyle(PlainTextFieldStyle())
+                .font(.system(size: 13))
+                .foregroundColor(.text)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity)
+        .frame(height: 32)
+        .background(Capsule().fill(Color.inset))
     }
 
     private var viewToggle: some View {
@@ -155,7 +165,8 @@ struct MainView: View {
     private var filters: some View {
         HStack(spacing: 6) {
             filterPill(.all, "filter.all")
-            filterPill(.problems, "filter.problems")
+            // Stays while it's the filter, or the list would be empty with nothing lit to say why
+            if model.count(.problems) > 0 || model.filter == .problems { filterPill(.problems, "filter.problems") }
             filterPill(.notInFL, "filter.notInFL")
             // Shown only once they find something
             if model.count(.new) > 0 { filterPill(.new, "filter.new") }
