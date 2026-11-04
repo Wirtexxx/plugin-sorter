@@ -17,6 +17,9 @@ struct CardArtwork: View {
     @State private var image: NSImage?
     @State private var loaded = false
 
+    /// One at a time: cards come and go by the dozen while scrolling, and each would take a thread.
+    private static let queue = DispatchQueue(label: "plugin-sorter.pictures", qos: .userInitiated)
+
     var body: some View {
         Color.chassis
             .aspectRatio(FLCard.size.width / (FLCard.size.height - FLCard.header), contentMode: .fit)
@@ -44,13 +47,20 @@ struct CardArtwork: View {
                 }
             })
             .clipped()
-            .onAppear(perform: load)
+            .onAppear {
+                // A card scrolled back into view shows its picture at once, then checks the file
+                if let url = url, let cached = CardPictures.shared.cached(at: url) {
+                    image = cached
+                    loaded = true
+                }
+                load()
+            }
             .onChange(of: busy) { if !$0 { load() } }
     }
 
     private func load() {
         guard let url = url else { loaded = true; return }
-        DispatchQueue.global(qos: .userInitiated).async {
+        Self.queue.async {
             let image = CardPictures.shared.image(at: url)
             DispatchQueue.main.async {
                 self.image = image
@@ -81,9 +91,6 @@ struct PluginCardView: View {
                     .frame(width: 18, height: 18)
                     .background(Circle().fill(Color.chassis.opacity(0.75)))
                     .padding(4), alignment: .topLeading)
-                .overlay(PluginStar(row: row, model: model, t: t, size: 12)
-                    .background(Circle().fill(Color.chassis.opacity(0.75)))
-                    .padding(2), alignment: .topTrailing)
                 .overlay(Group { if model.isNew(row) { NewBadge(t: t).padding(6) } }, alignment: .bottomLeading)
             Text(row.name)
                 .font(.system(size: 12, weight: .semibold))
@@ -97,6 +104,12 @@ struct PluginCardView: View {
         .background(hovered || isSelected ? Color.raised : Color.inset)
         .overlay(LabelStripe(color: model.labelColor(of: row)), alignment: .leading)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        // One layer per card: dozens of them are on screen, and scrolling moves each of their parts
+        .drawingGroup()
+        .overlay(PluginStar(row: row, model: model, t: t, size: 12)
+            .background(Circle().fill(Color.chassis.opacity(0.75)))
+            .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
+            .padding(2), alignment: .topTrailing)
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(isSelected ? Color.accent : .clear, lineWidth: 2))
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .help(row.vendor.isEmpty ? row.name : "\(row.name) · \(row.vendor)")

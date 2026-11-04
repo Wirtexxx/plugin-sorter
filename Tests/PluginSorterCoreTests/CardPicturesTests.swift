@@ -52,3 +52,17 @@ struct CardPicturesTests {
         #expect(pictures.image(at: url) == nil)
     }
 }
+
+extension CardPicturesTests {
+    @Test func aPictureNotReadYetIsNotInMemory() throws {
+        let url = try writePicture("a.png", width: 8, modified: Date())
+        #expect(CardPictures().cached(at: url) == nil)
+    }
+
+    @Test func aPictureReadOnceIsInMemory() throws {
+        let url = try writePicture("a.png", width: 8, modified: Date())
+        let pictures = CardPictures()
+        let image = try #require(pictures.image(at: url))
+        #expect(pictures.cached(at: url) === image)
+    }
+}

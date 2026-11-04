@@ -13,6 +13,9 @@ final class CardPictures {
 
     private let cache = NSCache<NSString, Entry>()
 
+    /// The picture as last read, without touching the disk: safe while the list scrolls.
+    func cached(at url: URL) -> NSImage? { cache.object(forKey: url.path as NSString)?.image }
+
     func image(at url: URL) -> NSImage? {
         let key = url.path as NSString
         guard let modified = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date else {

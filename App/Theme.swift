@@ -312,7 +312,8 @@ struct LED: View {
                 Circle()
                     .fill(color)
                     .frame(width: 8, height: 8)
-                    .shadow(color: level == nil ? .clear : color.opacity(0.8), radius: 4)
+                    // A halo, not a shadow: a shadow is drawn anew in every frame of the scroll
+                    .background(Circle().fill(color.opacity(level == nil ? 0 : 0.25)).frame(width: 14, height: 14))
             }
         }
         .frame(width: 10, height: 10)

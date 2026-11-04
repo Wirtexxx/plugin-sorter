@@ -164,7 +164,6 @@ struct PluginStar: View {
             Image(systemName: row.isFavorite ? "star.fill" : "star")
                 .font(.system(size: size, weight: .semibold))
                 .foregroundColor(row.isFavorite ? .accent : row.isKnownToFL ? .label : .edge)
-                .shadow(color: row.isFavorite ? Color.accent.opacity(0.5) : .clear, radius: 4)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }

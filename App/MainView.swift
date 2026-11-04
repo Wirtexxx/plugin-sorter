@@ -293,10 +293,15 @@ struct MainView: View {
                     .padding(.bottom, 8)
                     .background(SmoothScroll())
                 }
-                .overlay(edgeFade(.top), alignment: .top)
-                .overlay(edgeFade(.bottom), alignment: .bottom)
-                // The fades would otherwise paint over the card's rounded corners
+                // Only the fades are clipped, or they'd paint over the card's rounded corners.
+                // A clip on the list itself would mask all of it in every frame of the scroll.
+                .overlay(VStack(spacing: 0) {
+                    edgeFade(.top)
+                    Spacer(minLength: 0)
+                    edgeFade(.bottom)
+                }
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                .allowsHitTesting(false))
             }
         }
         .frame(maxHeight: .infinity)
