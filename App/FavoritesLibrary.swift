@@ -28,7 +28,7 @@ private struct TaggedBundle: Hashable {
     let url: URL
 }
 
-/// State of the Favourites section: what FL scanned, what's in its browser, and what's gone.
+/// FL's favourites: what FL scanned, what's in its browser, and what's gone.
 final class FavoritesLibrary: ObservableObject {
     @Published private(set) var entries: [InstalledEntry] = []
     @Published private(set) var favorites: [Favorite] = [] {

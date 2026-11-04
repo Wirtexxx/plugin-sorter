@@ -23,7 +23,6 @@ extension Color {
     // Accent colours follow the skin chosen in Settings
     static var accent: Color { Color(hex: Skin.current.accent) }
     static var accentHot: Color { Color(hex: Skin.current.accentHot) }
-    static var wave: Color { Color(hex: Skin.current.wave) }
     static let mint = Color(hex: 0x3EE28A)
     static let amber = Color(hex: 0xFFB547)
     static let danger = Color(hex: 0xFF5C6C)

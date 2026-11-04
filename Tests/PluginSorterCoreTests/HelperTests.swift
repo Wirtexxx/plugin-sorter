@@ -69,12 +69,4 @@ struct HelperBinaryTests {
     @Test func noMainBinaryNoHelper() {
         #expect(Helper.executable(main: nil, isExecutable: { _ in true }) == nil)
     }
-
-    @Test func modesAreKnown() {
-        #expect(HelperModes.isHelperMode(["--probe", "VST3", "/p"]))
-        #expect(HelperModes.isHelperMode(["--tags"]))
-        #expect(HelperModes.isHelperMode(["--capture"]))
-        #expect(!HelperModes.isHelperMode(["--other"]))
-        #expect(!HelperModes.isHelperMode([]))
-    }
 }

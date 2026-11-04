@@ -81,11 +81,6 @@ final class FLLibrary: ObservableObject {
         }
     }
 
-    /// Screenshot for every plugin without a picture, card when that fails.
-    func generateMissing() {
-        generate(missing, screenshots: true)
-    }
-
     /// Screenshots for the app's own collection, whether or not the plugins are favourites.
     /// FL's files stay as they are.
     func captureAll(_ targets: [ManagedPlugin]) {

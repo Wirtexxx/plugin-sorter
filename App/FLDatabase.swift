@@ -130,7 +130,7 @@ final class PictureManifest {
         records = store.load() ?? [:]
     }
 
-    /// The one the app uses: the FL tab and the favourites both change it, from their own queues.
+    /// The one the app uses: the pictures and the favourites both change it, from their own queues.
     static let shared = PictureManifest()
 
     private let lock = NSLock()

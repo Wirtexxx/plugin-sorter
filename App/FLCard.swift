@@ -123,3 +123,21 @@ struct FLCard: View {
         return ~crc
     }
 }
+
+/// The bars of a generated card.
+struct WaveBars: Shape {
+    let levels: [CGFloat]
+    let mirrored: Bool
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        guard !levels.isEmpty else { return path }
+        let step = rect.width / CGFloat(levels.count)
+        for (i, level) in levels.enumerated() {
+            let h = max(1, level * rect.height)
+            let y = mirrored ? rect.minY : rect.maxY - h
+            path.addRect(CGRect(x: rect.minX + CGFloat(i) * step + step * 0.15, y: y, width: step * 0.7, height: h))
+        }
+        return path
+    }
+}

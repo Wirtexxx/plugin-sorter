@@ -566,7 +566,7 @@ final class AppModel: ObservableObject {
         sorter.$status.dropFirst().sink { [weak self] status in
             guard let self = self else { return }
             switch status {
-            case .moved, .undone, .auRestored:
+            case .moved, .undone:
                 self.manager.scan()
                 self.sorter.preview(keepStatus: true)
                 fallthrough

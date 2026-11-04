@@ -52,7 +52,6 @@ struct L10n {
         case .moved(let n):      return self("status.moved", n)
         case .partlyMoved(let moved, let failed): return self("status.partlyMoved", moved, failed)
         case .undoIncomplete(let failed): return self("status.undoIncomplete", failed)
-        case .auRestored(let n): return self("status.auRestored", n)
         case .failed(let error): return self("status.failed", error)
         }
     }
@@ -546,12 +545,6 @@ struct L10n {
             .de: "Plugin Sorter möchte deine Plugin-Ordner ändern.",
         ]
         t["status.moved"] = [.en: "Moved: %d", .ru: "Перемещено: %d", .uk: "Переміщено: %d", .de: "Verschoben: %d"]
-        t["status.auRestored"] = [
-            .en: "AU restored: %d",
-            .ru: "AU возвращено: %d",
-            .uk: "AU повернено: %d",
-            .de: "AU wiederhergestellt: %d",
-        ]
         t["status.failed"] = [.en: "Error: %@", .ru: "Ошибка: %@", .uk: "Помилка: %@", .de: "Fehler: %@"]
         t["note.kept"] = [
             .en: "Kept in place (another plugin needs it): %@",

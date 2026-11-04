@@ -21,7 +21,6 @@ struct SorterParseTests {
         """
         let result = Sorter.parse(output)
         #expect(result.count == 3)
-        #expect(result.nestedAU == 3)
         #expect(result.moves.map(\.plugin) == ["FabFilter Pro-Q 4", "OTT", "OTT"])
         #expect(result.moves.map(\.format) == ["VST3", "VST3", "VST"])
         #expect(result.moves.map(\.vendor) == ["FabFilter", "Xfer Records", "Xfer Records"])

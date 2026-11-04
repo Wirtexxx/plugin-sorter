@@ -28,7 +28,6 @@ enum Status: Equatable {
     case partlyMoved(moved: Int, failed: Int)
     /// Some moves couldn't be taken back; the log is kept, so undoing again finishes the job.
     case undoIncomplete(failed: Int)
-    case auRestored(Int)
     case failed(String)
 }
 
@@ -36,8 +35,6 @@ enum Status: Equatable {
 final class Sorter: ObservableObject {
     @Published var vst3 = true
     @Published var vst = true
-    /// Audio Units left in subfolders by versions before 1.1, which macOS can't load.
-    @Published var nestedAU = 0
     @Published var moves: [Move] = []
     @Published var notes: [Note] = []
     @Published var status: Status = .idle
@@ -95,7 +92,6 @@ final class Sorter: ObservableObject {
             self.applied = false
             self.previewed = true
             self.moves = result.moves
-            self.nestedAU = result.nestedAU
             if !keepStatus {
                 self.notes = result.notes
                 self.status = .willMove(result.count)
@@ -123,15 +119,6 @@ final class Sorter: ObservableObject {
         }
     }
 
-    func restoreAU() {
-        run(["--restore-au"], admin: true) { output in
-            let result = Self.parse(output)
-            self.notes = result.notes
-            self.status = .auRestored(result.count)
-            self.preview(keepStatus: true)
-        }
-    }
-
     func refreshLatestLog() {
         let files = (try? FileManager.default.contentsOfDirectory(atPath: logDir)) ?? []
         latestLog = files
@@ -142,12 +129,11 @@ final class Sorter: ObservableObject {
 
     // MARK: - Output parsing
 
-    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, nestedAU: Int, failed: Int) {
+    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, failed: Int) {
         var format = ""
         var moves: [Move] = []
         var notes: [Note] = []
         var count = 0
-        var nestedAU = 0
         let number = { (line: String) in Int(String(line.drop { !$0.isNumber }.prefix { $0.isNumber })) ?? 0 }
         let prefixes: [(String, Note.Kind)] = [
             ("skip (Waves): ", .waves), ("keep: ", .kept), ("unknown vendor: ", .unknown), ("exists: ", .exists),
@@ -165,10 +151,10 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: kind, text: String(line.dropFirst(prefix.count))))
                 continue lines
             }
-            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") || line.hasPrefix("Restored AU: ") {
+            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") {
                 count = number(line)
             } else if line.hasPrefix("nested AU: ") {
-                nestedAU = number(line)
+                continue
             } else if line.hasSuffix("/"), let r = line.range(of: " -> ") {
                 let file = String(line[..<r.lowerBound])
                 moves.append(Move(plugin: (file as NSString).deletingPathExtension,
@@ -178,7 +164,7 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: .other, text: line))
             }
         }
-        return (moves, notes, count, nestedAU, notes.filter { $0.kind == .failed }.count)
+        return (moves, notes, count, notes.filter { $0.kind == .failed }.count)
     }
 
     // MARK: - Running the script
