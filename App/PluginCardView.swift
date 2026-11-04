@@ -71,10 +71,14 @@ struct CardArtwork: View {
 }
 
 /// One plugin as a tile: its picture, state, star and name. A click opens the panel on the right.
-struct PluginCardView: View {
+struct PluginCardView: View, Equatable {
     let row: CatalogRow
-    @ObservedObject var model: AppModel
+    /// Not observed, as in the list: `state` says when the card has to be drawn again.
+    let model: AppModel
+    let state: RowState
     let t: L10n
+
+    static func == (a: PluginCardView, b: PluginCardView) -> Bool { a.state == b.state }
 
     @State private var hovered = false
     private var isSelected: Bool { model.expanded == row.id }

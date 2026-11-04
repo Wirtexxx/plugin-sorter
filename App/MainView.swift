@@ -356,13 +356,13 @@ struct MainView: View {
                         if viewMode == .list {
                             LazyVStack(spacing: 2) {
                                 ForEach(rows) { row in
-                                    PluginRowView(row: row, model: model, t: t)
+                                    PluginRowView(row: row, model: model, state: model.state(of: row), t: t).equatable()
                                 }
                             }
                         } else {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], spacing: 8) {
                                 ForEach(rows) { row in
-                                    PluginCardView(row: row, model: model, t: t)
+                                    PluginCardView(row: row, model: model, state: model.state(of: row), t: t).equatable()
                                 }
                             }
                             .padding(.top, 2)

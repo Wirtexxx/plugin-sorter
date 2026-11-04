@@ -39,6 +39,64 @@ struct Banner: Identifiable {
     var fades: Bool { !isError && undo == nil }
 }
 
+/// What the model needs from the world around it, and from the person in front of it.
+struct Dialogs {
+    enum Answer { case cancel, proceed, continueAndDontAsk }
+
+    var hostsRunning: () -> [String] = { HostApps.running }
+    var flRunning: () -> Bool = { FLStudio.isRunning }
+    /// Title and text of a warning that can be silenced until the app quits.
+    var ask: (String, String) -> Answer = Dialogs.alert
+
+    private static func alert(_ title: String, _ text: String) -> Answer {
+        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = text
+        alert.addButton(withTitle: t("flOpen.continue"))
+        alert.addButton(withTitle: t("mgr.cancel"))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = t("flOpen.dontAsk")
+        guard alert.runModal() == .alertFirstButtonReturn else { return .cancel }
+        return alert.suppressionButton?.state == .on ? .continueAndDontAsk : .proceed
+    }
+}
+
+/// All a row shows, compared to tell whether it has to be drawn again. The rest of the window can change
+/// as much as it likes: a check moving on to the next plugin touches two rows, not all of them.
+struct RowState: Equatable {
+    struct Pill: Equatable {
+        let text: String
+        let level: CheckState.Level?
+    }
+
+    let id: String
+    let name: String
+    let vendor: String
+    let lang: Lang
+    let isStale: Bool
+    let isDisabled: Bool
+    let level: CheckState.Level?
+    let running: Bool
+    let isNew: Bool
+    let pills: [Pill]
+    let isFavorite: Bool
+    let isKnownToFL: Bool
+    let category: String?
+    let size: Int64
+    let color: LabelColor?
+    let isExpanded: Bool
+    let usesFL: Bool
+    let favoritesBusy: Bool
+    let pictureURL: URL?
+    let pictureHasHeader: Bool
+    let picturesBusy: Bool
+    /// What the row's buttons act on.
+    let entries: [String]
+    let favorites: [String]
+}
+
 /// Why the list has nothing to show.
 enum EmptyList: Equatable {
     case noMatches, noPlugins
@@ -88,8 +146,12 @@ final class AppModel: ObservableObject {
     /// The plugin of the uninstall running now.
     private var uninstalling: String?
     private let refreshes = Debouncer(delay: 0.3)
+    var dialogs = Dialogs()
     /// `allRows`, kept until a library it's made from changes.
     private var cachedRows: [CatalogRow]?
+    /// `rows` and the filters' counts, kept until something they depend on changes.
+    private var cachedVisible: [CatalogRow]?
+    private var cachedCounts: [CatalogFilter: Int] = [:]
     /// `findings`, kept until the installed plugins change.
     private var cachedFindings: [CleanupFinding]?
     /// FL's pictures by favourite file, kept until they change: every card asks on every redraw.
@@ -113,7 +175,18 @@ final class AppModel: ObservableObject {
             publisher.receive(on: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &bag)
         }
         // Right away, not on the next run loop pass: a redraw must never see rows older than the data
-        let forget: (Any) -> Void = { [weak self] _ in self?.cachedRows = nil }
+        let forget: (Any) -> Void = { [weak self] _ in
+            self?.cachedRows = nil
+            self?.forgetVisible()
+        }
+        let forgetList: (Any) -> Void = { [weak self] _ in self?.forgetVisible() }
+        manager.$results.sink(receiveValue: forgetList).store(in: &bag)
+        manager.$sizes.sink(receiveValue: forgetList).store(in: &bag)
+        labels.$all.sink(receiveValue: forgetList).store(in: &bag)
+        $query.sink(receiveValue: forgetList).store(in: &bag)
+        $filter.sink(receiveValue: forgetList).store(in: &bag)
+        $sort.sink(receiveValue: forgetList).store(in: &bag)
+        $newKeys.sink(receiveValue: forgetList).store(in: &bag)
         manager.$plugins.sink(receiveValue: forget).store(in: &bag)
         manager.$plugins.sink { [weak self] _ in self?.cachedFindings = nil }.store(in: &bag)
         manager.$plugins.sink { [weak self] plugins in
@@ -162,7 +235,20 @@ final class AppModel: ObservableObject {
     /// Space the finding's files take.
     func size(of finding: CleanupFinding) -> Int64 { finding.bundles.reduce(0) { $0 + (manager.sizes[$1.path] ?? 0) } }
 
+    private func forgetVisible() {
+        cachedVisible = nil
+        cachedCounts = [:]
+    }
+
+    /// The list as it is on screen. Asked for several times per redraw.
     var rows: [CatalogRow] {
+        if let rows = cachedVisible { return rows }
+        let rows = visibleRows()
+        cachedVisible = rows
+        return rows
+    }
+
+    private func visibleRows() -> [CatalogRow] {
         let matching = allRows.filter { row in
             passes(row, filter)
                 && (query.isEmpty || row.name.localizedCaseInsensitiveContains(query)
@@ -207,7 +293,25 @@ final class AppModel: ObservableObject {
         if filter == .new { filter = .all }
     }
 
-    func count(_ filter: CatalogFilter) -> Int { allRows.filter { passes($0, filter) }.count }
+    func count(_ filter: CatalogFilter) -> Int {
+        if let count = cachedCounts[filter] { return count }
+        let count = allRows.filter { passes($0, filter) }.count
+        cachedCounts[filter] = count
+        return count
+    }
+
+    func state(of row: CatalogRow) -> RowState {
+        let bundles = row.plugin?.bundles ?? []
+        let art = artwork(of: row)
+        return RowState(id: row.id, name: row.name, vendor: row.vendor, lang: currentLanguage, isStale: row.isStale,
+                        isDisabled: row.plugin?.isDisabled ?? false, level: level(of: row),
+                        running: bundles.contains { manager.state(of: $0) == .running }, isNew: isNew(row),
+                        pills: bundles.map { RowState.Pill(text: $0.format.rawValue, level: manager.state(of: $0).level) },
+                        isFavorite: row.isFavorite, isKnownToFL: row.isKnownToFL, category: category(of: row),
+                        size: size(of: row), color: labelColor(of: row), isExpanded: expanded == row.id, usesFL: usesFL,
+                        favoritesBusy: favorites.busy, pictureURL: art?.url, pictureHasHeader: art?.hasHeader ?? false,
+                        picturesBusy: pictures.busy, entries: row.entries.map(\.id), favorites: row.favorites.map(\.id))
+    }
 
     func level(of row: CatalogRow) -> CheckState.Level? {
         if row.isStale { return .failed }
@@ -262,20 +366,14 @@ final class AppModel: ObservableObject {
 
     /// Runs a change to plugin files now, or asks first while a host that may have them loaded is open.
     func whenHostsClosed(_ action: @escaping () -> Void) {
-        let hosts = HostApps.running
+        let hosts = dialogs.hostsRunning()
         guard !skipHostCheck, !hosts.isEmpty else { return action() }
-        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en)
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = t("hosts.title", hosts.joined(separator: ", "))
-        alert.informativeText = t("hosts.text")
-        alert.addButton(withTitle: t("flOpen.continue"))
-        alert.addButton(withTitle: t("mgr.cancel"))
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = t("flOpen.dontAsk")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if alert.suppressionButton?.state == .on { skipHostCheck = true }
-        action()
+        let t = L10n(lang: currentLanguage)
+        switch dialogs.ask(t("hosts.title", hosts.joined(separator: ", ")), t("hosts.text")) {
+        case .cancel:             return
+        case .proceed:            action()
+        case .continueAndDontAsk: skipHostCheck = true; action()
+        }
     }
 
     func sortFolders() { whenHostsClosed { self.sorter.apply() } }
@@ -284,19 +382,17 @@ final class AppModel: ObservableObject {
 
     /// Runs an FL change now, or asks first while FL Studio is open.
     func whenFLClosed(_ action: @escaping () -> Void) {
-        guard !skipFLCheck, FLStudio.isRunning else { return action() }
-        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en)
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = t("flOpen.title")
-        alert.informativeText = t("flOpen.text")
-        alert.addButton(withTitle: t("flOpen.continue"))
-        alert.addButton(withTitle: t("mgr.cancel"))
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = t("flOpen.dontAsk")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if alert.suppressionButton?.state == .on { skipFLCheck = true }
-        action()
+        guard !skipFLCheck, dialogs.flRunning() else { return action() }
+        let t = L10n(lang: currentLanguage)
+        switch dialogs.ask(t("flOpen.title"), t("flOpen.text")) {
+        case .cancel:             return
+        case .proceed:            action()
+        case .continueAndDontAsk: skipFLCheck = true; action()
+        }
+    }
+
+    private var currentLanguage: Lang {
+        Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en
     }
 
     // MARK: - Licenses
@@ -422,7 +518,7 @@ final class AppModel: ObservableObject {
     func captureAllPictures() {
         let targets = shotTargets
         guard !targets.isEmpty else { return }
-        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en)
+        let t = L10n(lang: currentLanguage)
         let alert = NSAlert()
         alert.messageText = t("capture.confirm", targets.count)
         alert.informativeText = t("capture.confirmInfo")

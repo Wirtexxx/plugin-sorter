@@ -4,10 +4,14 @@ import UniformTypeIdentifiers
 
 /// One plugin in the list. A click opens its details right in place: what's wrong, what can be done,
 /// its formats, its picture in FL and the developer's data.
-struct PluginRowView: View {
+struct PluginRowView: View, Equatable {
     let row: CatalogRow
-    @ObservedObject var model: AppModel
+    /// Not observed: the list hands every row its `state`, and a row is drawn again only when that changes.
+    let model: AppModel
+    let state: RowState
     let t: L10n
+
+    static func == (a: PluginRowView, b: PluginRowView) -> Bool { a.state == b.state }
 
     static let spacing: CGFloat = 14
     static let ledWidth: CGFloat = 10
@@ -169,7 +173,7 @@ struct NewBadge: View {
 /// The FL star: adds the plugin to FL's favourites or takes it out.
 struct PluginStar: View {
     let row: CatalogRow
-    @ObservedObject var model: AppModel
+    let model: AppModel
     let t: L10n
     var size: CGFloat = 14
 
@@ -197,7 +201,7 @@ extension PluginStar {
 /// The FL category of a favourite, as a menu of FL's folders.
 struct PluginCategoryMenu: View {
     let row: CatalogRow
-    @ObservedObject var model: AppModel
+    let model: AppModel
     let t: L10n
 
     @ViewBuilder var body: some View {

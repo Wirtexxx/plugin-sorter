@@ -308,3 +308,95 @@ struct StateWordsTests {
         }
     }
 }
+
+@Suite("What the window recalculates")
+@MainActor struct WindowStateTests {
+    let dir: TempDir
+    init() throws { dir = try TempDir() }
+
+    private struct NoSecrets: SecretStore {
+        func accounts() throws -> Set<String> { [] }
+        func read(_ account: String) throws -> Data? { nil }
+        func write(_ data: Data, account: String) throws {}
+        func delete(_ account: String) throws {}
+    }
+
+    private func plugin(_ name: String) -> ManagedPlugin {
+        let bundle = PluginBundle(url: URL(fileURLWithPath: "/p/\(name).vst3"), format: .vst3, vendor: "V", version: "1",
+                                  executable: nil, archs: [], quarantined: false, au: nil, nested: false)
+        return ManagedPlugin(key: name, name: name, vendor: "V", bundles: [bundle])
+    }
+
+    private func model(_ plugins: [ManagedPlugin], dialogs: Dialogs? = nil) -> AppModel {
+        let manager = ManagerLibrary(demo: true, cache: CheckCache(url: dir.path("c.json")))
+        manager.plugins = plugins
+        let model = AppModel(sorter: Sorter(demo: true), manager: manager,
+                             favorites: FavoritesLibrary(demoEntries: [], favorites: [], storage: dir.path("fav")),
+                             pictures: FLLibrary(demo: true), known: KnownPlugins(url: dir.path("k.json")),
+                             labels: UserLabels(url: dir.path("l.json")), vault: LicenseVault(store: NoSecrets()))
+        if let dialogs = dialogs { model.dialogs = dialogs }
+        return model
+    }
+
+    @Test func aRowStaysTheSameWhileAnotherIsChecked() throws {
+        let model = model([plugin("A"), plugin("B")])
+        let row = try #require(model.rows.first { $0.name == "A" })
+        let before = model.state(of: row)
+        model.manager.results["/p/B.vst3"] = .running
+        #expect(model.state(of: row) == before)
+    }
+
+    @Test func aRowChangesWithItsOwnResult() throws {
+        let model = model([plugin("A")])
+        let row = try #require(model.rows.first)
+        let before = model.state(of: row)
+        model.manager.results["/p/A.vst3"] = .done([.rosetta])
+        #expect(model.state(of: row) != before)
+    }
+
+    @Test func theListFollowsSearchFilterAndResults() {
+        let model = model([plugin("Alpha"), plugin("Beta")])
+        #expect(model.rows.count == 2)
+        model.query = "alp"
+        #expect(model.rows.map(\.name) == ["Alpha"])
+        model.query = ""
+        model.filter = .problems
+        #expect(model.rows.isEmpty)
+        #expect(model.count(.problems) == 0)
+        model.manager.results["/p/Beta.vst3"] = .done([.rosetta])
+        #expect(model.rows.map(\.name) == ["Beta"])
+        #expect(model.count(.problems) == 1)
+    }
+
+    @Test func theListFollowsTags() {
+        let model = model([plugin("Alpha")])
+        model.labels.addTag("fav", to: "Alpha")
+        model.query = "fav"
+        #expect(model.rows.count == 1)
+        model.labels.removeTag("fav", from: "Alpha")
+        #expect(model.rows.isEmpty)
+    }
+
+    @Test func noHostOpenMeansNoQuestion() {
+        var asked = 0, ran = 0
+        let model = model([], dialogs: Dialogs(hostsRunning: { [] }, flRunning: { false }, ask: { _, _ in asked += 1; return .cancel }))
+        model.whenHostsClosed { ran += 1 }
+        #expect((asked, ran) == (0, 1))
+    }
+
+    @Test func cancellingStopsTheChange() {
+        var ran = 0
+        let model = model([], dialogs: Dialogs(hostsRunning: { ["Cubase"] }, flRunning: { false }, ask: { _, _ in .cancel }))
+        model.whenHostsClosed { ran += 1 }
+        #expect(ran == 0)
+    }
+
+    @Test func dontAskAgainHoldsUntilQuit() {
+        var asked = 0, ran = 0
+        let model = model([], dialogs: Dialogs(hostsRunning: { ["Cubase"] }, flRunning: { false },
+                                               ask: { _, _ in asked += 1; return .continueAndDontAsk }))
+        model.whenHostsClosed { ran += 1 }
+        model.whenHostsClosed { ran += 1 }
+        #expect((asked, ran) == (1, 2))
+    }
+}
