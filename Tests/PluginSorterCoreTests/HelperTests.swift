@@ -51,3 +51,30 @@ struct HelperTests {
         #expect(limits == 3)   // --probe, --tags, --capture
     }
 }
+
+@Suite("Which binary a helper is")
+struct HelperBinaryTests {
+    private let main = URL(fileURLWithPath: "/A/Plugin Sorter.app/Contents/MacOS/PluginSorter")
+    private let helper = "/A/Plugin Sorter.app/Contents/Helpers/PluginSorterHelper.app/Contents/MacOS/PluginSorterHelper"
+
+    @Test func theSeparateHelperIsPreferred() {
+        #expect(Helper.executable(main: main, isExecutable: { $0 == helper })?.path == helper)
+    }
+
+    /// A build without the helper, like a run from the tests, keeps the old way: a copy of the app.
+    @Test func withoutItTheAppItselfIsUsed() {
+        #expect(Helper.executable(main: main, isExecutable: { _ in false }) == main)
+    }
+
+    @Test func noMainBinaryNoHelper() {
+        #expect(Helper.executable(main: nil, isExecutable: { _ in true }) == nil)
+    }
+
+    @Test func modesAreKnown() {
+        #expect(HelperModes.isHelperMode(["--probe", "VST3", "/p"]))
+        #expect(HelperModes.isHelperMode(["--tags"]))
+        #expect(HelperModes.isHelperMode(["--capture"]))
+        #expect(!HelperModes.isHelperMode(["--other"]))
+        #expect(!HelperModes.isHelperMode([]))
+    }
+}
