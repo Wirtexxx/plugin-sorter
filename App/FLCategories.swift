@@ -3,37 +3,34 @@ import Foundation
 /// Favourites Plugin Sorter moved into category folders, kept so they can be put back.
 final class CategoryJournal {
     /// Where each moved .fst is now → where it was before Plugin Sorter first moved it.
-    private(set) var moves: [String: String] = [:]
-    private let url: URL
+    var moves: [String: String] { lock.lock(); defer { lock.unlock() }; return saved }
+    /// Read by the window while the favourites' queue changes it.
+    private let lock = NSLock()
+    private var saved: [String: String] = [:]
+    private let store: JSONStore<[String: String]>
 
     static let defaultURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Plugin Sorter/fl-categories.json")
 
     init(url: URL = CategoryJournal.defaultURL) {
-        self.url = url
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: url),
-           let saved = try? JSONDecoder().decode([String: String].self, from: data) {
-            moves = saved
-        }
+        store = JSONStore(url: url, pretty: true)
+        saved = store.load() ?? [:]
     }
 
-    fileprivate func record(from: URL, to: URL) {
+    func record(from: URL, to: URL) throws {
+        lock.lock()
+        defer { lock.unlock() }
         // A second move keeps where the favourite was in the first place
-        let original = moves.removeValue(forKey: from.path) ?? from.path
-        if original != to.path { moves[to.path] = original }
-        save()
+        let original = saved.removeValue(forKey: from.path) ?? from.path
+        if original != to.path { saved[to.path] = original }
+        try store.save(saved)
     }
 
-    fileprivate func forget(_ path: String) {
-        moves[path] = nil
-        save()
-    }
-
-    private func save() {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? encoder.encode(moves).write(to: url, options: .atomic)
+    fileprivate func forget(_ path: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        saved[path] = nil
+        try store.save(saved)
     }
 }
 
@@ -140,23 +137,23 @@ enum FLCategories {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let destination = freeName(for: favorite.fst, in: dir)
         try relocate(favorite.fst, to: destination, pictures: pictures)
-        journal.record(from: favorite.fst, to: destination)
+        try journal.record(from: favorite.fst, to: destination)
         return destination
     }
 
     /// Puts every favourite Plugin Sorter moved back where it was, unless something new took its place.
     @discardableResult
-    static func restoreAll(journal: CategoryJournal, pictures: PictureManifest) -> Int {
+    static func restoreAll(journal: CategoryJournal, pictures: PictureManifest) throws -> Int {
         let fm = FileManager.default
         var restored = 0
         for (current, original) in journal.moves {
             let from = URL(fileURLWithPath: current)
             let to = URL(fileURLWithPath: original)
-            guard fm.fileExists(atPath: from.path) else { journal.forget(current); continue }
+            guard fm.fileExists(atPath: from.path) else { try journal.forget(current); continue }
             guard !fm.fileExists(atPath: to.path) else { continue }
             try? fm.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
             if (try? relocate(from, to: to, pictures: pictures)) != nil {
-                journal.forget(current)
+                try journal.forget(current)
                 restored += 1
             }
         }
@@ -171,13 +168,19 @@ enum FLCategories {
         let newNfo = destination.deletingPathExtension().appendingPathExtension("nfo")
         let newPng = destination.deletingPathExtension().appendingPathExtension("png")
 
-        try fm.moveItem(at: fst, to: destination)
-        if fm.fileExists(atPath: png.path) {
-            try fm.moveItem(at: png, to: newPng)
-            pictures.move(png, to: newPng)
+        // The three go together: what moved goes back if one of them can't
+        var moved: [(from: URL, to: URL)] = []
+        do {
+            for (from, to) in [(fst, destination), (png, newPng), (nfo, newNfo)] where fm.fileExists(atPath: from.path) {
+                try fm.moveItem(at: from, to: to)
+                moved.append((from, to))
+            }
+        } catch {
+            for step in moved.reversed() { try? fm.moveItem(at: step.to, to: step.from) }
+            throw error
         }
-        if fm.fileExists(atPath: nfo.path) {
-            try fm.moveItem(at: nfo, to: newNfo)
+        if fm.fileExists(atPath: newPng.path) { try pictures.move(png, to: newPng) }
+        if fm.fileExists(atPath: newNfo.path) {
             // A renamed favourite needs its Bitmap= line to follow the picture's new name
             if newPng.lastPathComponent != png.lastPathComponent, fm.fileExists(atPath: newPng.path) {
                 let data = try? Data(contentsOf: newNfo)

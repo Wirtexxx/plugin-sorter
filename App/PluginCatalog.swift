@@ -17,6 +17,20 @@ struct CatalogRow: Identifiable {
     let isStale: Bool
 }
 
+/// What a click on the star does. The star never turns its click down: a disabled button would pass it
+/// on to the row, which opens instead.
+enum StarTap: Equatable {
+    case toggle
+    /// FL has no scan of the plugin, and a favourite is a copy of that scan.
+    case notSeen
+    /// A change to the favourites is still running.
+    case wait
+
+    init(row: CatalogRow, busy: Bool) {
+        self = !row.isKnownToFL ? .notSeen : busy ? .wait : .toggle
+    }
+}
+
 enum PluginCatalog {
     /// Every disk plugin as a row, with FL's entries and favourites joined in. FL's own plugins are left out.
     /// FL entries with no plugin here still get a row: installed elsewhere, or favourites of a deleted plugin.
@@ -29,7 +43,11 @@ enum PluginCatalog {
         var byPath: [String: ManagedPlugin] = [:]
         var byName: [String: ManagedPlugin] = [:]
         for plugin in plugins {
-            for bundle in plugin.bundles { byPath[bundle.url.standardizedFileURL.path] = plugin }
+            // A turned-off plugin is still found where FL last saw it
+            for bundle in plugin.bundles {
+                byPath[bundle.url.standardizedFileURL.path] = plugin
+                byPath[bundle.enabledURL.standardizedFileURL.path] = plugin
+            }
             for name in names(of: plugin) { byName[key(plugin.vendor, name)] = byName[key(plugin.vendor, name)] ?? plugin }
         }
 
@@ -75,9 +93,16 @@ enum PluginCatalog {
     }
 
     /// The plugin's name, and without its developer in front ("FabFilter Pro-Q 4" is "Pro-Q 4" in FL).
+    /// An Audio Unit's own name counts too: FL lists it by that, and its file may be called anything.
     private static func names(of plugin: ManagedPlugin) -> [String] {
+        var names = [plugin.name]
         let prefix = plugin.vendor + " "
-        guard !plugin.vendor.isEmpty, plugin.name.lowercased().hasPrefix(prefix.lowercased()) else { return [plugin.name] }
-        return [plugin.name, String(plugin.name.dropFirst(prefix.count))]
+        if !plugin.vendor.isEmpty, plugin.name.lowercased().hasPrefix(prefix.lowercased()) {
+            names.append(String(plugin.name.dropFirst(prefix.count)))
+        }
+        for bundle in plugin.bundles where !bundle.auName.isEmpty && !names.contains(bundle.auName) {
+            names.append(bundle.auName)
+        }
+        return names
     }
 }

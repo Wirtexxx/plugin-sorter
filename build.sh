@@ -12,9 +12,13 @@ APP="build/Plugin Sorter.app"
 # Built on the side and swapped in at the end: a copy may be running from build/ and needs its script
 NEW="build/staging/Plugin Sorter.app"
 TARGET_MACOS=11
+# Loads plugins so the app doesn't have to: its own program, without a window of its own or the app's Keychain access
+HELPER="$NEW/Contents/Helpers/PluginSorterHelper.app"
+HELPER_SOURCES=(Helper/HelperMain.swift App/Helper.swift App/HelperModes.swift App/PluginFormat.swift
+                App/ProbeHelper.swift App/TagsHelper.swift App/CaptureHelper.swift App/Thumbnail.swift)
 
 rm -rf build/staging build/AppIcon.iconset
-mkdir -p "$NEW/Contents/MacOS" "$NEW/Contents/Resources" build/AppIcon.iconset
+mkdir -p "$NEW/Contents/MacOS" "$NEW/Contents/Resources" "$HELPER/Contents/MacOS" build/AppIcon.iconset
 
 echo "› Compiling"
 for arch in arm64 x86_64; do
@@ -22,8 +26,11 @@ for arch in arm64 x86_64; do
   swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" \
     -Xfrontend -warn-long-expression-type-checking=200 \
     App/*.swift -o "build/PluginSorter-$arch"
+  swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" \
+    "${HELPER_SOURCES[@]}" -o "build/PluginSorterHelper-$arch"
 done
 lipo -create build/PluginSorter-arm64 build/PluginSorter-x86_64 -output "$NEW/Contents/MacOS/PluginSorter"
+lipo -create build/PluginSorterHelper-arm64 build/PluginSorterHelper-x86_64 -output "$HELPER/Contents/MacOS/PluginSorterHelper"
 
 cp scripts/sort-plugins.sh "$NEW/Contents/Resources/sort-plugins.sh"
 
@@ -58,6 +65,25 @@ cat > "$NEW/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
+cat > "$HELPER/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Plugin Sorter Helper</string>
+  <key>CFBundleIdentifier</key><string>io.github.wirtexxx.plugin-sorter.helper</string>
+  <key>CFBundleExecutable</key><string>PluginSorterHelper</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>${VERSION:-1.0.0}</string>
+  <key>LSMinimumSystemVersion</key><string>$TARGET_MACOS.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+EOF
+
+# Inside out: the app's signature covers the helper's
+codesign --force -s - "$HELPER"
 codesign --force -s - "$NEW"
 
 if [ "${1:-}" = "--screenshot" ]; then
@@ -68,6 +94,7 @@ if [ "${1:-}" = "--screenshot" ]; then
   mkdir -p docs
   build/snapshot docs/screenshot.png en main
   build/snapshot docs/screenshot-expanded.png en main-expanded
+  build/snapshot docs/screenshot-cards.png en cards-panel
   cp build/icon.png docs/icon.png
 fi
 

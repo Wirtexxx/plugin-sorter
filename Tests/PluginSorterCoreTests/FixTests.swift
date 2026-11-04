@@ -79,9 +79,9 @@ struct FixTests {
 
     @Test func keepListAddsEachNameOnce() throws {
         let file = dir.path("keep/keep.txt")
-        PluginFixes.keep("Serum2.vst3", file: file)
-        PluginFixes.keep("Other.vst3", file: file)
-        PluginFixes.keep("Serum2.vst3", file: file)
+        try PluginFixes.keep("Serum2.vst3", file: file)
+        try PluginFixes.keep("Other.vst3", file: file)
+        try PluginFixes.keep("Serum2.vst3", file: file)
         #expect(try String(contentsOf: file, encoding: .utf8) == "Serum2.vst3\nOther.vst3\n")
     }
 }

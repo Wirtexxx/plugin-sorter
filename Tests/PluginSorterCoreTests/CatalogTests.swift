@@ -113,4 +113,51 @@ struct CatalogTests {
         #expect(!rows().contains { $0.name == "Fruity Limiter" })
         #expect(rows().count == 4)
     }
+
+    @Test func disabledPluginStaysJoinedToFL() throws {
+        // FL's entry still names the file where it used to be; only that path ties it to "Disk Name"
+        try makeBundle(plugins.appendingPathComponent("Disabled/VST3/Zed/Disk Name.vst3"), id: "com.zed.disk")
+        // The scan reports /private/var/…, where the temporary folder says /var/…
+        let tree = plugins.path.hasPrefix("/var/") ? "/private" + plugins.path : plugins.path
+        try installed("Effects/VST3/Wobbly", name: "Wobbly", vendor: "Other Co",
+                      files: [tree + "/VST3/Zed/Disk Name.vst3"])
+        try favorite("Effects/VST3/Wobbly", as: "Effects/Wobbly")
+        let entries = FLFavorites.installed(root: db)
+        // Whatever the file check says about the old path, the plugin is not gone
+        let removed = Set(entries.map(\.id))
+        let all = PluginCatalog.rows(plugins: PluginInventory.scan(root: plugins), entries: entries,
+                                     favorites: FLFavorites.favorites(root: db, installed: entries), removed: removed)
+        let row = try #require(all.first { $0.name == "Disk Name" })
+        #expect(row.plugin?.isDisabled == true)
+        #expect(!row.isStale)
+        #expect(!row.entries.isEmpty)
+        #expect(row.isFavorite)
+        #expect(!all.contains { $0.name == "Wobbly" })
+    }
+
+    @Test func disabledAudioUnitIsNeitherDeletedNorStale() throws {
+        // FL lists an AU without a path, by its own name; the file is called something else
+        try makeBundle(plugins.appendingPathComponent("Disabled/Components/iZOzone11ClarityAUHook.component"), id: "com.izotope.clarity", extra: [
+            "AudioComponents": [["type": "aufx", "subtype": "Clar", "manufacturer": "iZtp", "name": "iZotope: Ozone 11 Clarity"]],
+        ])
+        try installed("Effects/AudioUnit/Clarity", name: "Ozone 11 Clarity", vendor: "iZotope", files: [])
+        try favorite("Effects/AudioUnit/Clarity", as: "Effects/Ozone 11 Clarity")
+        let entries = FLFavorites.installed(root: db)
+        let scanned = PluginInventory.scan(root: plugins)
+
+        // The availability check: the registry no longer lists it, the turned-off file does
+        let entry = try #require(entries.first { $0.name == "Ozone 11 Clarity" })
+        let registry: Set<String> = [FLFavorites.auKey(vendor: "Xfer Records", name: "OTT")]
+        #expect(FLFavorites.availability(entry, bundleNames: [], audioUnits: registry) == .removed)
+        #expect(FLFavorites.availability(entry, bundleNames: [],
+                                         audioUnits: registry.union(FLFavorites.disabledAudioUnitKeys(scanned))) == .available)
+
+        // And even if it were reported removed, the row stays the plugin's, not a "deleted" one
+        let all = PluginCatalog.rows(plugins: scanned, entries: entries,
+                                     favorites: FLFavorites.favorites(root: db, installed: entries), removed: [entry.id])
+        let row = try #require(all.first { $0.plugin?.isDisabled == true })
+        #expect(!row.isStale)
+        #expect(row.entries.map(\.name) == ["Ozone 11 Clarity"])
+        #expect(!all.contains { $0.isStale && $0.name == "Ozone 11 Clarity" })
+    }
 }

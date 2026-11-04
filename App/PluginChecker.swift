@@ -55,6 +55,10 @@ enum PluginChecker {
             return issues + [.wrongArch(bundle.archs)]
         }
 
+        // Checking means running the plugin's code. Nobody has vouched for a download yet: that's the
+        // user's call, and clearing the flag brings the check back
+        if bundle.quarantined { return issues }
+
         if bundle.format == .au {
             // macOS only registers components that sit directly in Components
             guard !bundle.nested, let code = bundle.au else { return issues + [.notRegistered] }
@@ -85,52 +89,11 @@ enum PluginChecker {
     // MARK: - VST, VST3, CLAP
 
     private static func probe(_ bundle: PluginBundle) -> [Issue] {
-        guard let executable = Bundle.main.executableURL else { return [] }
-        guard let output = runLogged(executable, ["--probe", bundle.format.rawValue, bundle.url.path], timeout: 30,
-                                     successMarker: "PROBE OK") else { return [.timeout] }
+        guard let helper = Helper.process(["--probe", bundle.format.rawValue, bundle.url.path]),
+              let output = runLogged(helper, timeout: 30, successMarker: "PROBE OK") else { return [.timeout] }
         if output.contains("PROBE OK") { return [] }
         let reason = output.split(separator: "\n").last.map(String.init) ?? ""
         return [.loadFailed(reason.isEmpty ? "crashed" : reason)]
-    }
-
-    /// Entry point for `--probe FORMAT PATH`. Prints "PROBE OK" or the reason it failed.
-    static func runProbe(_ args: [String]) -> Never {
-        guard args.count >= 3, let format = PluginFormat(rawValue: args[1]) else { _exit(1) }
-        let url = URL(fileURLWithPath: args[2])
-        func fail(_ message: String) -> Never {
-            print(message)
-            fflush(stdout)
-            _exit(10)
-        }
-
-        guard let bundle = Bundle(url: url), let executable = bundle.executablePath else { fail("no executable") }
-        guard let handle = dlopen(executable, RTLD_NOW | RTLD_LOCAL) else {
-            fail(dlerror().map { String(cString: $0) } ?? "dlopen failed")
-        }
-
-        switch format {
-        case .vst3:
-            // Hosts call bundleEntry before asking for the factory
-            if let entry = dlsym(handle, "bundleEntry"), let cfBundle = CFBundleCreate(nil, url as CFURL) {
-                typealias BundleEntry = @convention(c) (CFBundle) -> Bool
-                guard unsafeBitCast(entry, to: BundleEntry.self)(cfBundle) else { fail("bundleEntry returned false") }
-            }
-            guard let symbol = dlsym(handle, "GetPluginFactory") else { fail("GetPluginFactory not found") }
-            typealias GetFactory = @convention(c) () -> UnsafeMutableRawPointer?
-            guard unsafeBitCast(symbol, to: GetFactory.self)() != nil else { fail("no plugin factory") }
-        case .vst:
-            guard dlsym(handle, "VSTPluginMain") != nil || dlsym(handle, "main_macho") != nil else {
-                fail("VSTPluginMain not found")
-            }
-        case .clap:
-            guard dlsym(handle, "clap_entry") != nil else { fail("clap_entry not found") }
-        case .au:
-            break
-        }
-        print("PROBE OK")
-        fflush(stdout)
-        // _exit skips plugin destructors, some of which abort outside a real host
-        _exit(0)
     }
 
     // MARK: - Running tools
@@ -139,22 +102,27 @@ enum PluginChecker {
     /// Returns nil on timeout unless the output already contains `successMarker`.
     static func runLogged(_ tool: URL, _ args: [String], timeout: TimeInterval,
                                   successMarker: String? = nil) -> String? {
+        let process = Process()
+        process.executableURL = tool
+        process.arguments = args
+        return runLogged(process, timeout: timeout, successMarker: successMarker)
+    }
+
+    /// The same for a process set up by the caller.
+    static func runLogged(_ process: Process, timeout: TimeInterval, successMarker: String? = nil) -> String? {
         let log = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".log")
         FileManager.default.createFile(atPath: log.path, contents: nil)
         defer { try? FileManager.default.removeItem(at: log) }
         guard let handle = try? FileHandle(forWritingTo: log) else { return nil }
 
-        let process = Process()
-        process.executableURL = tool
-        process.arguments = args
         process.currentDirectoryURL = FileManager.default.temporaryDirectory
         process.standardOutput = handle
         process.standardError = handle
+        let ended = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in ended.signal() }
         guard (try? process.run()) != nil else { return nil }
 
-        let deadline = Date().addingTimeInterval(timeout)
-        while process.isRunning && Date() < deadline { usleep(100_000) }
-        let timedOut = process.isRunning
+        let timedOut = ended.wait(timeout: .now() + timeout) == .timedOut
         if timedOut { kill(process.processIdentifier, SIGKILL) }
         process.waitUntilExit()
         try? handle.close()

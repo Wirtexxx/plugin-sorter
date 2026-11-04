@@ -23,6 +23,10 @@ struct ContentView: View {
                 .id(skin)
         }
         .background(WindowStyler())
-        .onAppear { model.refresh() }
+        .onAppear {
+            Shell.prompt = t("admin.prompt")
+            model.scheduleRefresh()
+        }
+        .onChange(of: language) { _ in Shell.prompt = t("admin.prompt") }
     }
 }

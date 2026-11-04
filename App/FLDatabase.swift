@@ -120,37 +120,46 @@ final class PictureManifest {
     }
 
     private(set) var records: [String: Record] = [:]
-    private let url: URL
+    private let store: JSONStore<[String: Record]>
 
     static let defaultURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Plugin Sorter/fl-pictures.json")
 
     init(url: URL = PictureManifest.defaultURL) {
-        self.url = url
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: url),
-           let saved = try? JSONDecoder().decode([String: Record].self, from: data) {
-            records = saved
-        }
+        store = JSONStore(url: url, pretty: true)
+        records = store.load() ?? [:]
     }
 
-    /// The one the app uses: the FL tab and the favourites both change it, from their own queues.
+    /// The one the app uses: the pictures and the favourites both change it, from their own queues.
     static let shared = PictureManifest()
 
     private let lock = NSLock()
 
     subscript(picture: URL) -> Record? {
-        get { lock.lock(); defer { lock.unlock() }; return records[Self.key(picture)] }
-        set { lock.lock(); defer { lock.unlock() }; records[Self.key(picture)] = newValue; save() }
+        lock.lock()
+        defer { lock.unlock() }
+        return records[Self.key(picture)]
+    }
+
+    /// Nil forgets the picture. A record that can't be saved isn't kept: the way back must be on disk.
+    func set(_ record: Record?, for picture: URL) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        var next = records
+        next[Self.key(picture)] = record
+        try store.save(next)
+        records = next
     }
 
     /// Follows a picture that moved with its favourite into another folder.
-    func move(_ picture: URL, to destination: URL) {
+    func move(_ picture: URL, to destination: URL) throws {
         lock.lock()
         defer { lock.unlock() }
-        guard let record = records.removeValue(forKey: Self.key(picture)) else { return }
-        records[Self.key(destination)] = record
-        save()
+        var next = records
+        guard let record = next.removeValue(forKey: Self.key(picture)) else { return }
+        next[Self.key(destination)] = record
+        try store.save(next)
+        records = next
     }
 
     /// The same file can be reached through a symlinked folder (/var vs /private/var, a linked Documents),
@@ -158,12 +167,6 @@ final class PictureManifest {
     private static func key(_ picture: URL) -> String {
         picture.deletingLastPathComponent().resolvingSymlinksInPath()
             .appendingPathComponent(picture.lastPathComponent).path
-    }
-
-    private func save() {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? encoder.encode(records).write(to: url, options: .atomic)
     }
 }
 
@@ -196,19 +199,24 @@ enum FLDatabase {
     /// Writes Name.png and points Name.nfo at it, the same way FL's stock entries do.
     static func install(_ png: Data, for plugin: FLPlugin, source: FLPlugin.Source, manifest: PictureManifest) throws {
         // Work on bytes: FL's files aren't always UTF-8, and String I/O can also drop a BOM.
-        // Only the Bitmap= line changes; every other byte stays as it was.
+        // Only the Bitmap= line changes, and it moves to the end.
         let original = try? Data(contentsOf: plugin.nfo)
         let previous = manifest[plugin.picture]
-        try png.write(to: plugin.picture, options: .atomic)
-        try nfoPointing(at: plugin.picture.lastPathComponent, from: original).write(to: plugin.nfo, options: .atomic)
-
         var record = PictureManifest.Record(source: source, originalNfoData: original, originalNfo: nil)
         if let previous = previous {
             // A second write keeps what was there before the first one
             record.originalNfoData = previous.originalNfoData
             record.originalNfo = previous.originalNfo
         }
-        manifest[plugin.picture] = record
+        // The way back first: FL's files change only once it's on disk
+        try manifest.set(record, for: plugin.picture)
+        do {
+            try png.write(to: plugin.picture, options: .atomic)
+            try nfoPointing(at: plugin.picture.lastPathComponent, from: original).write(to: plugin.nfo, options: .atomic)
+        } catch {
+            try? manifest.set(previous, for: plugin.picture)
+            throw error
+        }
     }
 
     /// "Bitmap=…" in any letter case, compared as ASCII bytes.
@@ -222,7 +230,8 @@ enum FLDatabase {
         return true
     }
 
-    /// The .nfo with its Bitmap= line replaced, keeping the BOM, line endings and all other bytes.
+    /// The .nfo with its Bitmap= line last, keeping the BOM, the line endings and the other lines as they
+    /// are. Empty lines and a final line break don't survive.
     static func nfoPointing(at picture: String, from original: Data?) -> Data {
         let bom: [UInt8] = [0xEF, 0xBB, 0xBF]
         var bytes = [UInt8](original ?? Data())
@@ -251,17 +260,19 @@ enum FLDatabase {
         return Data(out)
     }
 
-    /// Deletes a picture added by Plugin Sorter and restores the original .nfo.
-    static func remove(_ plugin: FLPlugin, manifest: PictureManifest) {
+    /// Deletes a picture added by Plugin Sorter and restores the original .nfo. The record goes last: as
+    /// long as the .nfo isn't back, it is the only copy of what was there.
+    static func remove(_ plugin: FLPlugin, manifest: PictureManifest) throws {
         guard let record = manifest[plugin.picture] else { return }
-        try? FileManager.default.removeItem(at: plugin.picture)
+        let fm = FileManager.default
         if let original = record.originalNfoData {
-            try? original.write(to: plugin.nfo, options: .atomic)
+            try original.write(to: plugin.nfo, options: .atomic)
         } else if let legacy = record.originalNfo {
-            try? Data(legacy.utf8).write(to: plugin.nfo, options: .atomic)
-        } else {
-            try? FileManager.default.removeItem(at: plugin.nfo)
+            try Data(legacy.utf8).write(to: plugin.nfo, options: .atomic)
+        } else if fm.fileExists(atPath: plugin.nfo.path) {
+            try fm.removeItem(at: plugin.nfo)
         }
-        manifest[plugin.picture] = nil
+        if fm.fileExists(atPath: plugin.picture.path) { try fm.removeItem(at: plugin.picture) }
+        try manifest.set(nil, for: plugin.picture)
     }
 }

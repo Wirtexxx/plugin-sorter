@@ -12,23 +12,20 @@ final class CheckCache {
         .appendingPathComponent("Plugin Sorter/checks.json")
 
     private var records: [String: Record] = [:]
-    private let url: URL
+    private let store: JSONStore<[String: Record]>
     private let lock = NSLock()
 
     init(url: URL = CheckCache.defaultURL) {
-        self.url = url
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: url),
-           let saved = try? JSONDecoder().decode([String: Record].self, from: data) {
-            records = saved
-        }
+        store = JSONStore(url: url)
+        records = store.load() ?? [:]
     }
 
     /// The saved result, nil when the bundle was never checked or changed since.
     func issues(for bundle: PluginBundle) -> [Issue]? {
         lock.lock()
         defer { lock.unlock() }
-        guard let record = records[bundle.url.path], record.modified == Self.modified(bundle) else { return nil }
+        guard let record = records[bundle.url.path], record.modified == Self.modified(bundle),
+              record.issues.contains(.quarantined) == bundle.quarantined else { return nil }
         return record.issues
     }
 
@@ -65,7 +62,7 @@ final class CheckCache {
     }
 
     private func save() {
-        try? JSONEncoder().encode(records).write(to: url, options: .atomic)
+        try? store.save(records)   // only a cache: the next run checks again
     }
 
     /// The newest of the bundle folder, its Info.plist and its binary: an installer that rewrites files

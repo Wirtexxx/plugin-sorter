@@ -28,7 +28,7 @@ private struct TaggedBundle: Hashable {
     let url: URL
 }
 
-/// State of the Favourites section: what FL scanned, what's in its browser, and what's gone.
+/// FL's favourites: what FL scanned, what's in its browser, and what's gone.
 final class FavoritesLibrary: ObservableObject {
     @Published private(set) var entries: [InstalledEntry] = []
     @Published private(set) var favorites: [Favorite] = [] {
@@ -46,17 +46,26 @@ final class FavoritesLibrary: ObservableObject {
     /// The plugin being read while sorting by category.
     @Published private(set) var current = ""
 
-    private let backup = FavoriteBackup()
-    private let journal = CategoryJournal()
-    private let tags = TagCache()
+    private let backup: FavoriteBackup
+    private let journal: CategoryJournal
+    private let tags: TagCache
+    private let scans = ScanGate()
     private let queue = DispatchQueue(label: "plugin-sorter.favorites", qos: .userInitiated)
 
     private var demo = false
 
-    init() {}
+    init() {
+        backup = FavoriteBackup()
+        journal = CategoryJournal()
+        tags = TagCache()
+    }
 
     /// Fixed content for README screenshots; never touches FL's database.
-    init(demoEntries: [InstalledEntry], favorites: [Favorite]) {
+    /// - Parameter storage: where its own files go; the app's folder unless given.
+    init(demoEntries: [InstalledEntry], favorites: [Favorite], storage: URL? = nil) {
+        backup = storage.map { FavoriteBackup(directory: $0.appendingPathComponent("removed")) } ?? FavoriteBackup()
+        journal = storage.map { CategoryJournal(url: $0.appendingPathComponent("categories.json")) } ?? CategoryJournal()
+        tags = storage.map { TagCache(url: $0.appendingPathComponent("tags.json")) } ?? TagCache()
         demo = true
         entries = demoEntries
         self.favorites = favorites
@@ -88,13 +97,17 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     func scan() {
-        guard !demo else { return }
+        guard !demo, scans.request() else { return }
         queue.async {
+            self.scans.started()
             let entries = FLFavorites.installed()
             let favorites = FLFavorites.favorites(installed: entries)
-            let bundleNames = Set(PluginInventory.scan().flatMap(\.bundles).map { $0.url.lastPathComponent })
-            let audioUnits = Set(AVAudioUnitComponentManager.shared().components { _, _ in true }
+            let plugins = PluginInventory.scanAll()
+            let bundleNames = Set(plugins.flatMap(\.bundles).map { $0.url.lastPathComponent })
+            var audioUnits = Set(AVAudioUnitComponentManager.shared().components { _, _ in true }
                 .map { FLFavorites.auKey(vendor: $0.manufacturerName, name: $0.name) })
+            // A turned-off AU is gone from the registry but still installed; empty stays "unknown"
+            if !audioUnits.isEmpty { audioUnits.formUnion(FLFavorites.disabledAudioUnitKeys(plugins)) }
             var availability: [String: Availability] = [:]
             for entry in entries {
                 availability[entry.id] = FLFavorites.availability(entry, bundleNames: bundleNames, audioUnits: audioUnits)
@@ -109,12 +122,14 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     /// A format chip: adds or removes just that format.
-    func toggle(_ entry: InstalledEntry) {
+    /// - Parameter added: gets the favourite's file when one was added.
+    func toggle(_ entry: InstalledEntry, added: ((URL) -> Void)? = nil) {
         if isFavorite(entry) {
             remove(favorites.filter { $0.entry?.id == entry.id })
         } else {
             perform {
-                _ = try FLFavorites.add(entry)
+                let fst = try FLFavorites.add(entry)
+                if let added = added { DispatchQueue.main.async { added(fst) } }
                 return nil
             }
         }
@@ -173,7 +188,7 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     func unsort() {
-        perform { .unsorted(FLCategories.restoreAll(journal: self.journal, pictures: .shared)) }
+        perform { .unsorted(try FLCategories.restoreAll(journal: self.journal, pictures: .shared)) }
     }
 
     /// The VST3 or CLAP file to ask for tags: the favourite's own format, else another format of the same plugin.
@@ -195,7 +210,7 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     func restore() {
-        perform { .restored(FLFavorites.restoreAll(backup: self.backup)) }
+        perform { .restored(try FLFavorites.restoreAll(backup: self.backup)) }
     }
 
     /// Runs a change off the main thread, then reports its status and rescans.

@@ -79,7 +79,7 @@ struct FLPictureTests {
     @Test func removeDeletesWhatItCreated() throws {
         let ott = try plugin("OTT")
         try FLDatabase.install(png, for: ott, source: .card, manifest: manifest)
-        FLDatabase.remove(ott, manifest: manifest)
+        try FLDatabase.remove(ott, manifest: manifest)
         #expect(!FileManager.default.fileExists(atPath: ott.picture.path))
         #expect(!FileManager.default.fileExists(atPath: ott.nfo.path))
         #expect(manifest.records.isEmpty)
@@ -96,7 +96,7 @@ struct FLPictureTests {
         let expected = Data([0xEF, 0xBB, 0xBF]) + Data("fileversion=2\r\ncolor=$40B6F6\r\nBitmap=Pro-Q 4.png".utf8)
         #expect(try Data(contentsOf: proQ.nfo) == expected)
 
-        FLDatabase.remove(proQ, manifest: PictureManifest(url: dir.path("manifest.json")))  // also survives a reload
+        try FLDatabase.remove(proQ, manifest: PictureManifest(url: dir.path("manifest.json")))  // also survives a reload
         #expect(try Data(contentsOf: proQ.nfo) == before)
     }
 
@@ -110,7 +110,7 @@ struct FLPictureTests {
         let written = try Data(contentsOf: ott.nfo)
         #expect(written == Data("color=1\r\ntip=R".utf8) + Data([0xF6]) + Data("hre\r\nBitmap=OTT.png".utf8))
 
-        FLDatabase.remove(ott, manifest: PictureManifest(url: dir.path("manifest.json")))
+        try FLDatabase.remove(ott, manifest: PictureManifest(url: dir.path("manifest.json")))
         #expect(try Data(contentsOf: ott.nfo) == before)
     }
 
@@ -119,8 +119,8 @@ struct FLPictureTests {
         try png.write(to: ott.picture)
         try Data("Bitmap=OTT.png".utf8).write(to: ott.nfo)
         // An older manifest kept the original .nfo as text
-        manifest[ott.picture] = PictureManifest.Record(source: .card, originalNfoData: nil, originalNfo: "fileversion=2")
-        FLDatabase.remove(ott, manifest: manifest)
+        try manifest.set(PictureManifest.Record(source: .card, originalNfoData: nil, originalNfo: "fileversion=2"), for: ott.picture)
+        try FLDatabase.remove(ott, manifest: manifest)
         #expect(try String(contentsOf: ott.nfo, encoding: .utf8) == "fileversion=2")
         #expect(!FileManager.default.fileExists(atPath: ott.picture.path))
     }

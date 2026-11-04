@@ -1,6 +1,6 @@
 import Foundation
 
-enum Lang: String, CaseIterable, Identifiable {
+enum Lang: String, CaseIterable, Identifiable, Equatable {
     case en, ru, uk, de
 
     var id: String { rawValue }
@@ -32,6 +32,16 @@ struct L10n {
         return args.isEmpty ? format : String(format: format, arguments: args)
     }
 
+    /// A check result in words: what the lamp says in colour.
+    func level(_ level: CheckState.Level?) -> String {
+        switch level {
+        case .ok?:      return self("level.ok")
+        case .warning?: return self("level.warning")
+        case .failed?:  return self("level.failed")
+        case nil:       return self("level.unchecked")
+        }
+    }
+
     func status(_ status: Status) -> String {
         switch status {
         case .idle:              return ""
@@ -40,7 +50,8 @@ struct L10n {
         case .cancelled:         return self("status.cancelled")
         case .willMove(let n):   return self("status.willMove", n)
         case .moved(let n):      return self("status.moved", n)
-        case .auRestored(let n): return self("status.auRestored", n)
+        case .partlyMoved(let moved, let failed): return self("status.partlyMoved", moved, failed)
+        case .undoIncomplete(let failed): return self("status.undoIncomplete", failed)
         case .failed(let error): return self("status.failed", error)
         }
     }
@@ -48,7 +59,10 @@ struct L10n {
     func flStatus(_ status: FLStatus) -> String {
         switch status {
         case .idle:                         return ""
-        case .done(let shots, let cards):   return self("fl.done", shots, cards)
+        case .done(let shots, let cards, let failed):
+            return self("fl.done", shots, cards) + (failed > 0 ? " · " + self("fl.noPicture", failed) : "")
+        case .captured(let shots, let failed):
+            return self("fl.captured", shots, failed.count) + (failed.isEmpty ? "" : "\n" + failed.joined(separator: ", "))
         case .removed(let n):               return self("fl.removed", n)
         case .failed(let error):            return self("status.failed", error)
         }
@@ -59,7 +73,12 @@ struct L10n {
         case .idle:                          return ""
         case .checked(let ok, let w, let f): return self("mgr.checked", ok, w, f)
         case .trashed(let n):                return self("mgr.trashed", n)
+        case .exported(let n):               return self("mgr.exported", n)
+        case .toggled(let disabled, let n):  return self(disabled ? "mgr.turnedOff" : "mgr.turnedOn", n)
         case .fixed:                         return self("mgr.fixed")
+        case .notSeenByFL:                   return self("row.notSeen")
+        case .partly(let done, let failed):
+            return self("mgr.partly", done, failed.count) + (failed.isEmpty ? "" : "\n" + failed.joined(separator: "\n"))
         case .cancelled:                     return self("status.cancelled")
         case .failed(let error):             return self("status.failed", error)
         }
@@ -110,6 +129,7 @@ struct L10n {
         case .exists:   return self("note.exists", note.text)
         case .restored: return self("note.restored", note.text)
         case .skipped:  return self("note.skipped", note.text)
+        case .failed:   return self("note.failed", note.text)
         case .other:    return note.text
         }
     }
@@ -136,17 +156,75 @@ struct L10n {
         t["fav.reading"] = [.en: "Reading categories", .ru: "Читаю категории", .uk: "Читаю категорії", .de: "Lese Kategorien"]
         t["fav.noCategory"] = [.en: "No category", .ru: "Без категории", .uk: "Без категорії", .de: "Ohne Kategorie"]
         t["main.search"] = [.en: "Find a plugin", .ru: "Найти плагин", .uk: "Знайти плагін", .de: "Plugin suchen"]
+        t["view.list"] = [.en: "List", .ru: "Список", .uk: "Список", .de: "Liste"]
+        t["view.cards"] = [.en: "Cards", .ru: "Карточки", .uk: "Картки", .de: "Karten"]
         t["filter.all"] = [.en: "All", .ru: "Все", .uk: "Усі", .de: "Alle"]
         t["filter.problems"] = [.en: "Problems", .ru: "Проблемы", .uk: "Проблеми", .de: "Probleme"]
         t["filter.notInFL"] = [.en: "Not in FL", .ru: "Не в FL", .uk: "Не в FL", .de: "Nicht in FL"]
         t["filter.new"] = [.en: "New", .ru: "Новые", .uk: "Нові", .de: "Neu"]
+        t["new.badge"] = [.en: "NEW", .ru: "НОВЫЙ", .uk: "НОВИЙ", .de: "NEU"]
+        t["new.markSeen"] = [.en: "All seen", .ru: "Всё просмотрено", .uk: "Усе переглянуто", .de: "Alles gesehen"]
+        t["filter.tags"] = [.en: "Tags", .ru: "Теги", .uk: "Теги", .de: "Tags"]
+        t["tags.add"] = [.en: "New tag", .ru: "Новый тег", .uk: "Новий тег", .de: "Neuer Tag"]
+        t["tags.existing"] = [.en: "Existing tags", .ru: "Уже есть", .uk: "Вже є", .de: "Vorhandene Tags"]
+        t["tags.remove"] = [.en: "Remove the tag", .ru: "Убрать тег", .uk: "Прибрати тег", .de: "Tag entfernen"]
+        t["tags.noColor"] = [.en: "No colour", .ru: "Без цвета", .uk: "Без кольору", .de: "Keine Farbe"]
+        t["tab.files"] = [.en: "Files", .ru: "Файлы", .uk: "Файли", .de: "Dateien"]
+        t["tab.fl"] = [.en: "FL Studio", .ru: "FL Studio", .uk: "FL Studio", .de: "FL Studio"]
+        t["tab.tags"] = [.en: "Tags", .ru: "Теги", .uk: "Теги", .de: "Tags"]
+        t["tab.license"] = [.en: "License", .ru: "Лицензия", .uk: "Ліцензія", .de: "Lizenz"]
+        t["row.more"] = [.en: "More actions", .ru: "Другие действия", .uk: "Інші дії", .de: "Weitere Aktionen"]
+        t["license.add"] = [.en: "Add a license", .ru: "Добавить лицензию", .uk: "Додати ліцензію", .de: "Lizenz hinzufügen"]
+        t["license.show"] = [.en: "Show", .ru: "Показать", .uk: "Показати", .de: "Anzeigen"]
+        t["license.hide"] = [.en: "Hide", .ru: "Скрыть", .uk: "Сховати", .de: "Ausblenden"]
+        t["license.copy"] = [.en: "Copy the serial", .ru: "Скопировать серийник", .uk: "Скопіювати серійник", .de: "Seriennummer kopieren"]
+        t["license.edit"] = [.en: "Edit", .ru: "Изменить", .uk: "Змінити", .de: "Bearbeiten"]
+        t["license.delete"] = [.en: "Delete", .ru: "Удалить", .uk: "Видалити", .de: "Löschen"]
+        t["license.save"] = [.en: "Save", .ru: "Сохранить", .uk: "Зберегти", .de: "Sichern"]
+        t["license.serial"] = [.en: "Serial or key", .ru: "Серийный номер или ключ", .uk: "Серійний номер або ключ", .de: "Seriennummer oder Schlüssel"]
+        t["license.email"] = [.en: "Account email", .ru: "Почта аккаунта", .uk: "Пошта акаунта", .de: "E-Mail des Kontos"]
+        t["license.note"] = [.en: "Note", .ru: "Заметка", .uk: "Нотатка", .de: "Notiz"]
+        t["license.hint"] = [
+            .en: "Kept in the macOS Keychain. Copied text leaves the clipboard after a minute.",
+            .ru: "Хранится в Связке ключей macOS. Скопированное стирается из буфера через минуту.",
+            .uk: "Зберігається в в'язці ключів macOS. Скопійоване стирається з буфера за хвилину.",
+            .de: "Liegt im macOS-Schlüsselbund. Kopierter Text verschwindet nach einer Minute aus der Zwischenablage.",
+        ]
+        t["license.confirm"] = [.en: "Delete the license of “%@”?", .ru: "Удалить лицензию «%@»?", .uk: "Видалити ліцензію «%@»?", .de: "Lizenz von „%@“ löschen?"]
+        t["filter.disabled"] = [.en: "Off", .ru: "Выключены", .uk: "Вимкнені", .de: "Aus"]
         t["filter.duplicates"] = [.en: "Duplicates", .ru: "Дубли", .uk: "Дублі", .de: "Duplikate"]
         t["col.plugin"] = [.en: "Plugin", .ru: "Плагин", .uk: "Плагін", .de: "Plugin"]
         t["col.formats"] = [.en: "Formats", .ru: "Форматы", .uk: "Формати", .de: "Formate"]
         t["col.category"] = [.en: "FL category", .ru: "Категория FL", .uk: "Категорія FL", .de: "FL-Kategorie"]
         t["col.size"] = [.en: "Size", .ru: "Размер", .uk: "Розмір", .de: "Größe"]
         t["main.checking"] = [.en: "Checking %d of %d · %@", .ru: "Проверяю %d из %d · %@", .uk: "Перевіряю %d з %d · %@", .de: "Prüfe %d von %d · %@"]
-        t["main.empty"] = [.en: "Nothing here", .ru: "Здесь пусто", .uk: "Тут порожньо", .de: "Nichts hier"]
+        t["main.capturing"] = [.en: "Capturing %d of %d · %@", .ru: "Снимаю %d из %d · %@", .uk: "Знімаю %d з %d · %@", .de: "Aufnahme %d von %d · %@"]
+        t["main.stopping"] = [.en: "Stopping…", .ru: "Останавливаю…", .uk: "Зупиняю…", .de: "Wird gestoppt…"]
+        t["main.empty"] = [.en: "Nothing matches", .ru: "Ничего не найдено", .uk: "Нічого не знайдено", .de: "Keine Treffer"]
+        t["main.clearFilters"] = [.en: "Show all plugins", .ru: "Показать все плагины", .uk: "Показати всі плагіни", .de: "Alle Plugins zeigen"]
+        t["main.noPlugins"] = [
+            .en: "No plugins in /Library/Audio/Plug-Ins or ~/Library/Audio/Plug-Ins",
+            .ru: "В /Library/Audio/Plug-Ins и ~/Library/Audio/Plug-Ins нет плагинов",
+            .uk: "У /Library/Audio/Plug-Ins і ~/Library/Audio/Plug-Ins немає плагінів",
+            .de: "Keine Plugins in /Library/Audio/Plug-Ins oder ~/Library/Audio/Plug-Ins",
+        ]
+        t["level.ok"] = [.en: "Works", .ru: "Работает", .uk: "Працює", .de: "Funktioniert"]
+        t["level.warning"] = [.en: "Warning", .ru: "Есть предупреждение", .uk: "Є попередження", .de: "Warnung"]
+        t["level.failed"] = [.en: "Problem", .ru: "Есть проблема", .uk: "Є проблема", .de: "Problem"]
+        t["level.unchecked"] = [.en: "Not checked yet", .ru: "Ещё не проверен", .uk: "Ще не перевірено", .de: "Noch nicht geprüft"]
+        t["gear.menu"] = [.en: "More actions", .ru: "Другие действия", .uk: "Інші дії", .de: "Weitere Aktionen"]
+        t["row.open"] = [.en: "Show details", .ru: "Показать подробности", .uk: "Показати подробиці", .de: "Details anzeigen"]
+        t["row.close"] = [.en: "Hide details", .ru: "Скрыть подробности", .uk: "Сховати подробиці", .de: "Details ausblenden"]
+        t["banner.more"] = [.en: "Details", .ru: "Подробнее", .uk: "Докладніше", .de: "Details"]
+        t["banner.less"] = [.en: "Less", .ru: "Свернуть", .uk: "Згорнути", .de: "Weniger"]
+        t["mgr.partly"] = [.en: "Done: %d, failed: %d", .ru: "Готово: %d, не удалось: %d", .uk: "Готово: %d, не вдалося: %d", .de: "Erledigt: %d, fehlgeschlagen: %d"]
+        t["hosts.title"] = [.en: "%@ is open", .ru: "Открыто: %@", .uk: "Відкрито: %@", .de: "%@ ist geöffnet"]
+        t["hosts.text"] = [
+            .en: "A plugin moved while a host has it loaded can crash the host, and an open project may lose it. Better close it first.",
+            .ru: "Если переместить плагин, пока он загружен, программа может упасть, а открытый проект потеряет плагин. Лучше сначала закрыть её.",
+            .uk: "Якщо перемістити плагін, поки він завантажений, програма може впасти, а відкритий проєкт втратить плагін. Краще спершу закрити її.",
+            .de: "Wird ein geladenes Plugin verschoben, kann das Programm abstürzen und ein offenes Projekt es verlieren. Besser zuerst schließen.",
+        ]
         t["row.notSeen"] = [
             .en: "FL hasn't seen this plugin yet — refresh the plugin list in FL",
             .ru: "FL ещё не видел этот плагин — обновите список плагинов в FL",
@@ -165,7 +243,7 @@ struct L10n {
         t["row.removeFromFL"] = [.en: "Remove from FL", .ru: "Убрать из FL", .uk: "Прибрати з FL", .de: "Aus FL entfernen"]
         t["row.picture"] = [.en: "Picture in FL", .ru: "Картинка в FL", .uk: "Картинка в FL", .de: "Bild in FL"]
         t["row.dropHint"] = [.en: "Drop an image here", .ru: "Перетащите картинку сюда", .uk: "Перетягніть картинку сюди", .de: "Bild hierher ziehen"]
-        t["row.inFL"] = [.en: "In FL", .ru: "В FL", .uk: "У FL", .de: "In FL"]
+        t["row.inFL"] = [.en: "In FL favourites", .ru: "В избранном FL", .uk: "В обраному FL", .de: "In FL-Favoriten"]
         t["row.formatsHint"] = [
             .en: "Click a format to add or remove it in FL's favourites",
             .ru: "Клик по формату добавляет его в избранное FL или убирает",
@@ -223,6 +301,13 @@ struct L10n {
         ]
         t["gear.recheck"] = [.en: "Check all plugins again", .ru: "Проверить все плагины заново", .uk: "Перевірити всі плагіни заново", .de: "Alle Plugins neu prüfen"]
         t["gear.restore"] = [.en: "Put back favourites removed from FL", .ru: "Вернуть убранное из избранного FL", .uk: "Повернути прибране з обраного FL", .de: "Aus FL entfernte Favoriten zurückholen"]
+        t["row.writeSupport"] = [.en: "Write to support", .ru: "Написать в поддержку", .uk: "Написати в підтримку", .de: "An den Support schreiben"]
+        t["row.copyDraft"] = [.en: "Copy the message", .ru: "Скопировать письмо", .uk: "Скопіювати лист", .de: "Nachricht kopieren"]
+        t["gear.export"] = [.en: "Export the list", .ru: "Экспорт списка", .uk: "Експорт списку", .de: "Liste exportieren"]
+        t["export.md"] = [.en: "Markdown (.md)", .ru: "Markdown (.md)", .uk: "Markdown (.md)", .de: "Markdown (.md)"]
+        t["export.csv"] = [.en: "CSV (.csv)", .ru: "CSV (.csv)", .uk: "CSV (.csv)", .de: "CSV (.csv)"]
+        t["export.json"] = [.en: "JSON (.json)", .ru: "JSON (.json)", .uk: "JSON (.json)", .de: "JSON (.json)"]
+        t["mgr.exported"] = [.en: "List saved: %d plugins", .ru: "Список сохранён: плагинов %d", .uk: "Список збережено: плагінів %d", .de: "Liste gespeichert: %d Plugins"]
         t["gear.settings"] = [.en: "Settings…", .ru: "Настройки…", .uk: "Налаштування…", .de: "Einstellungen…"]
         t["settings.language"] = [.en: "Language", .ru: "Язык", .uk: "Мова", .de: "Sprache"]
         t["settings.skin"] = [.en: "Skin", .ru: "Скин", .uk: "Скін", .de: "Skin"]
@@ -260,6 +345,83 @@ struct L10n {
             .ru: "Данные разработчика: пресеты, библиотеки — не удаляются вместе с плагином",
             .uk: "Дані розробника: пресети, бібліотеки — не видаляються разом із плагіном",
             .de: "Herstellerdaten: Presets, Bibliotheken — werden nicht mit dem Plugin gelöscht",
+        ]
+        t["mgr.turnedOff"] = [.en: "Turned off: %d", .ru: "Выключено: %d", .uk: "Вимкнено: %d", .de: "Ausgeschaltet: %d"]
+        t["mgr.turnedOn"] = [.en: "Turned on: %d", .ru: "Включено: %d", .uk: "Увімкнено: %d", .de: "Eingeschaltet: %d"]
+        t["row.disable"] = [.en: "Turn off", .ru: "Выключить", .uk: "Вимкнути", .de: "Ausschalten"]
+        t["row.enable"] = [.en: "Turn on", .ru: "Включить", .uk: "Увімкнути", .de: "Einschalten"]
+        t["row.disableInfo"] = [
+            .en: "Projects that use this plugin will open without it until you turn it on again. Nothing is deleted.",
+            .ru: "Проекты с этим плагином будут открываться без него, пока вы его не включите. Ничего не удаляется.",
+            .uk: "Проєкти з цим плагіном відкриватимуться без нього, доки ви його не ввімкнете. Нічого не видаляється.",
+            .de: "Projekte mit diesem Plugin öffnen sich ohne es, bis du es wieder einschaltest. Nichts wird gelöscht.",
+        ]
+        t["row.disabledNote"] = [
+            .en: "Turned off: hosts don't see this plugin. Its files wait in the Disabled folder.",
+            .ru: "Выключен: программы не видят этот плагин. Файлы лежат в папке Disabled.",
+            .uk: "Вимкнено: програми не бачать цей плагін. Файли лежать у теці Disabled.",
+            .de: "Ausgeschaltet: Hosts sehen dieses Plugin nicht. Die Dateien liegen im Ordner Disabled.",
+        ]
+        t["cleanup.found"] = [
+            .en: "Found %d · %@ can be freed", .ru: "Найдено: %d · можно освободить %@",
+            .uk: "Знайдено: %d · можна звільнити %@", .de: "Gefunden: %d · %@ lassen sich freigeben",
+        ]
+        t["cleanup.review"] = [.en: "Review", .ru: "Посмотреть", .uk: "Переглянути", .de: "Ansehen"]
+        t["cleanup.title"] = [.en: "Old versions and duplicates", .ru: "Старые версии и дубли", .uk: "Старі версії та дублі", .de: "Alte Versionen und Duplikate"]
+        t["cleanup.subtitle"] = [
+            .en: "Only suggestions: nothing is ticked until you choose.",
+            .ru: "Только предложения: пока вы не выберете, ничего не отмечено.",
+            .uk: "Лише пропозиції: доки ви не оберете, нічого не позначено.",
+            .de: "Nur Vorschläge: Nichts ist angekreuzt, bis du wählst.",
+        ]
+        t["cleanup.empty"] = [.en: "Nothing to clean up", .ru: "Чистить нечего", .uk: "Нічого чистити", .de: "Nichts aufzuräumen"]
+        t["cleanup.older"] = [.en: "Older versions", .ru: "Старые версии", .uk: "Старі версії", .de: "Ältere Versionen"]
+        t["cleanup.copies"] = [.en: "Extra copies", .ru: "Лишние копии", .uk: "Зайві копії", .de: "Überzählige Kopien"]
+        t["cleanup.vst2"] = [.en: "VST2 next to VST3", .ru: "VST2 рядом с VST3", .uk: "VST2 поруч із VST3", .de: "VST2 neben VST3"]
+        t["cleanup.newer"] = [.en: "Newer version: %@", .ru: "Новая версия: %@", .uk: "Нова версія: %@", .de: "Neuere Version: %@"]
+        t["cleanup.inFL"] = [.en: "In FL favourites", .ru: "Есть в избранном FL", .uk: "Є в обраному FL", .de: "In FL-Favoriten"]
+        t["cleanup.selected"] = [
+            .en: "Selected: %d · %@", .ru: "Отмечено: %d · %@", .uk: "Позначено: %d · %@", .de: "Gewählt: %d · %@",
+        ]
+        t["cleanup.confirm"] = [
+            .en: "Move %d to the Trash?", .ru: "Переместить в Корзину: %d?",
+            .uk: "Перемістити у Кошик: %d?", .de: "%d in den Papierkorb legen?",
+        ]
+        t["cleanup.confirmInfo"] = [
+            .en: "Old projects open only with the version you keep, and projects that use a removed one will miss it. These files go to the Trash:",
+            .ru: "Старые проекты откроются только с версией, которую вы оставите, а проектам с удалённой версией её будет не хватать. В Корзину уйдут файлы:",
+            .uk: "Старі проєкти відкриються лише з версією, яку ви залишите, а проєктам із видаленою версією її бракуватиме. У Кошик підуть файли:",
+            .de: "Alte Projekte öffnen sich nur mit der Version, die du behältst; Projekte mit einer entfernten Version vermissen sie. Diese Dateien kommen in den Papierkorb:",
+        ]
+        t["mgr.uninstall"] = [.en: "Uninstall…", .ru: "Удалить полностью…", .uk: "Видалити повністю…", .de: "Vollständig entfernen…"]
+        t["uninstall.title"] = [.en: "Uninstall “%@”", .ru: "Удалить «%@» полностью", .uk: "Видалити «%@» повністю", .de: "„%@“ vollständig entfernen"]
+        t["uninstall.subtitle"] = [
+            .en: "Everything ticked goes to the Trash and can be put back. Nothing is deleted.",
+            .ru: "Всё отмеченное уйдёт в Корзину, его можно вернуть. Ничего не удаляется насовсем.",
+            .uk: "Усе позначене піде в Кошик, його можна повернути. Нічого не видаляється назавжди.",
+            .de: "Alles Angekreuzte kommt in den Papierkorb und lässt sich zurückholen. Nichts wird endgültig gelöscht.",
+        ]
+        t["uninstall.files"] = [.en: "Plugin files", .ru: "Файлы плагина", .uk: "Файли плагіна", .de: "Plugin-Dateien"]
+        t["uninstall.leftovers"] = [.en: "Left behind", .ru: "Что осталось после него", .uk: "Що залишилося після нього", .de: "Übrig geblieben"]
+        t["uninstall.searching"] = [
+            .en: "Looking for leftovers and installer records…", .ru: "Ищу хвосты и чеки установщика…",
+            .uk: "Шукаю залишки та чеки інсталятора…", .de: "Suche nach Resten und Installer-Belegen…",
+        ]
+        t["uninstall.none"] = [.en: "No leftovers found", .ru: "Хвостов не найдено", .uk: "Залишків не знайдено", .de: "Keine Reste gefunden"]
+        t["uninstall.receipts"] = [
+            .en: "Installer records: %d will be forgotten, %d stay because other plugins share them",
+            .ru: "Чеки установщика: забудется %d, останется %d, потому что их делят другие плагины",
+            .uk: "Чеки інсталятора: забудеться %d, залишиться %d, бо їх ділять інші плагіни",
+            .de: "Installer-Belege: %d werden vergessen, %d bleiben, weil andere Plugins sie teilen",
+        ]
+        t["left.preferences"] = [.en: "Preferences", .ru: "Настройки", .uk: "Налаштування", .de: "Einstellungen"]
+        t["left.cache"] = [.en: "Cache", .ru: "Кеш", .uk: "Кеш", .de: "Cache"]
+        t["left.presets"] = [.en: "Presets (may include your own)", .ru: "Пресеты (могут быть ваши)", .uk: "Пресети (можуть бути ваші)", .de: "Presets (evtl. eigene dabei)"]
+        t["left.vendorData"] = [
+            .en: "Developer folder: may hold libraries you paid for",
+            .ru: "Папка разработчика: там могут быть купленные библиотеки",
+            .uk: "Тека розробника: там можуть бути куплені бібліотеки",
+            .de: "Herstellerordner: kann bezahlte Bibliotheken enthalten",
         ]
         t["mgr.fixed"] = [.en: "Fixed, checking again", .ru: "Исправлено, проверяю заново", .uk: "Виправлено, перевіряю знову", .de: "Behoben, prüfe erneut"]
         t["fix.unquarantine"] = [.en: "Remove quarantine", .ru: "Снять карантин", .uk: "Зняти карантин", .de: "Quarantäne aufheben"]
@@ -309,6 +471,32 @@ struct L10n {
             .uk: "Завис під час перевірки",
             .de: "Hing während der Prüfung",
         ]
+        t["gear.allPictures"] = [.en: "Capture pictures of all plugins", .ru: "Снять картинки всех плагинов", .uk: "Зняти картинки всіх плагінів", .de: "Bilder aller Plugins aufnehmen"]
+        t["gear.stopPictures"] = [.en: "Stop capturing", .ru: "Остановить съёмку", .uk: "Зупинити зйомку", .de: "Aufnahme stoppen"]
+        t["fl.noPicture"] = [.en: "no picture: %d", .ru: "без картинки: %d", .uk: "без картинки: %d", .de: "ohne Bild: %d"]
+        t["gear.retryPictures"] = [
+            .en: "Try plugins that didn't open again (%d)", .ru: "Снова попробовать неоткрывшиеся (%d)",
+            .uk: "Знову спробувати ті, що не відкрилися (%d)", .de: "Nicht geöffnete erneut versuchen (%d)",
+        ]
+        t["capture.confirm"] = [
+            .en: "Open %d plugins one by one?", .ru: "Открыть плагины по очереди: %d?",
+            .uk: "Відкрити плагіни по черзі: %d?", .de: "%d Plugins nacheinander öffnen?",
+        ]
+        t["capture.confirmInfo"] = [
+            .en: "Each plugin's window comes to the front for a few seconds and takes the keyboard focus, so it's best to leave the Mac alone meanwhile. You can stop at any time.",
+            .ru: "Окно каждого плагина на несколько секунд выйдет вперёд и заберёт фокус клавиатуры, поэтому лучше пока не работать за компьютером. Остановить можно в любой момент.",
+            .uk: "Вікно кожного плагіна на кілька секунд вийде наперед і забере фокус клавіатури, тож краще поки не працювати за комп'ютером. Зупинити можна будь-коли.",
+            .de: "Jedes Plugin-Fenster kommt für einige Sekunden nach vorn und übernimmt den Tastaturfokus, also den Mac währenddessen am besten nicht benutzen. Du kannst jederzeit stoppen.",
+        ]
+        t["capture.start"] = [.en: "Start", .ru: "Начать", .uk: "Почати", .de: "Starten"]
+        t["mgr.trashFiles"] = [
+            .en: "Only the plugin files to the Trash…", .ru: "Только файлы плагина в Корзину…",
+            .uk: "Лише файли плагіна у Кошик…", .de: "Nur die Plugin-Dateien in den Papierkorb…",
+        ]
+        t["fl.captured"] = [
+            .en: "Pictures taken: %d, couldn't open: %d", .ru: "Снято картинок: %d, не открылось: %d",
+            .uk: "Знято картинок: %d, не відкрилося: %d", .de: "Bilder aufgenommen: %d, nicht geöffnet: %d",
+        ]
         t["fl.capturing"] = [.en: "Capturing", .ru: "Снимаю", .uk: "Знімаю", .de: "Aufnahme"]
         t["fl.retake"] = [.en: "Retake screenshot", .ru: "Переснять скриншот", .uk: "Перезняти скриншот", .de: "Screenshot neu aufnehmen"]
         t["fl.useCard"] = [.en: "Use a card", .ru: "Сделать карточку", .uk: "Зробити картку", .de: "Karte verwenden"]
@@ -341,13 +529,22 @@ struct L10n {
             .uk: "До переміщення: %d",
             .de: "Zu verschieben: %d",
         ]
-        t["status.moved"] = [.en: "Moved: %d", .ru: "Перемещено: %d", .uk: "Переміщено: %d", .de: "Verschoben: %d"]
-        t["status.auRestored"] = [
-            .en: "AU restored: %d",
-            .ru: "AU возвращено: %d",
-            .uk: "AU повернено: %d",
-            .de: "AU wiederhergestellt: %d",
+        t["status.partlyMoved"] = [
+            .en: "Moved: %d, stayed in place: %d", .ru: "Перемещено: %d, осталось на месте: %d",
+            .uk: "Переміщено: %d, залишилося на місці: %d", .de: "Verschoben: %d, an Ort und Stelle geblieben: %d",
         ]
+        t["status.undoIncomplete"] = [
+            .en: "Not moved back: %d. Undo again to finish", .ru: "Не удалось вернуть: %d. Отмените ещё раз, чтобы закончить",
+            .uk: "Не вдалося повернути: %d. Скасуйте ще раз, щоб завершити", .de: "Nicht zurückverschoben: %d. Erneut rückgängig machen, um abzuschließen",
+        ]
+        t["note.failed"] = [.en: "Failed: %@", .ru: "Не удалось: %@", .uk: "Не вдалося: %@", .de: "Fehlgeschlagen: %@"]
+        t["admin.prompt"] = [
+            .en: "Plugin Sorter wants to change your plugin folders.",
+            .ru: "Plugin Sorter хочет изменить папки плагинов.",
+            .uk: "Plugin Sorter хоче змінити теки плагінів.",
+            .de: "Plugin Sorter möchte deine Plugin-Ordner ändern.",
+        ]
+        t["status.moved"] = [.en: "Moved: %d", .ru: "Перемещено: %d", .uk: "Переміщено: %d", .de: "Verschoben: %d"]
         t["status.failed"] = [.en: "Error: %@", .ru: "Ошибка: %@", .uk: "Помилка: %@", .de: "Fehler: %@"]
         t["note.kept"] = [
             .en: "Kept in place (another plugin needs it): %@",

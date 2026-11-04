@@ -10,20 +10,47 @@ extension Color {
                   opacity: opacity)
     }
 
-    static let chassis = Color(hex: 0x17171A)
-    static let panel = Color(hex: 0x27272C)
-    static let inset = Color(hex: 0x1E1E22)
-    static let raised = Color(hex: 0x323238)
+    static let chassis = Color(hex: Palette.chassis)
+    static let panel = Color(hex: Palette.panel)
+    static let inset = Color(hex: Palette.inset)
+    static let raised = Color(hex: Palette.raised)
+    /// Lines and shapes only: too dark for anything that has to be read or clicked.
     static let edge = Color(hex: 0x3A3A41)
-    static let label = Color(hex: 0x8C8C97)
-    static let text = Color(hex: 0xDCDCE2)
+    /// Something that works but has nothing to say yet: 3:1 on every surface.
+    static let dim = Color(hex: Palette.dim)
+    static let label = Color(hex: Palette.label)
+    static let text = Color(hex: Palette.text)
     // Accent colours follow the skin chosen in Settings
     static var accent: Color { Color(hex: Skin.current.accent) }
     static var accentHot: Color { Color(hex: Skin.current.accentHot) }
-    static var wave: Color { Color(hex: Skin.current.wave) }
     static let mint = Color(hex: 0x3EE28A)
     static let amber = Color(hex: 0xFFB547)
     static let danger = Color(hex: 0xFF5C6C)
+}
+
+/// The neutral colours as numbers, so a test can hold them to WCAG's contrast ratios.
+enum Palette {
+    static let chassis: UInt32 = 0x17171A
+    static let panel: UInt32 = 0x27272C
+    static let inset: UInt32 = 0x1E1E22
+    static let raised: UInt32 = 0x323238
+    static let dim: UInt32 = 0x7C7C85
+    static let label: UInt32 = 0x9C9CA7
+    static let text: UInt32 = 0xDCDCE2
+
+    /// WCAG contrast ratio, 1 to 21.
+    static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+        let lighter = max(luminance(a), luminance(b)), darker = min(luminance(a), luminance(b))
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private static func luminance(_ hex: UInt32) -> Double {
+        func linear(_ shift: UInt32) -> Double {
+            let channel: Double = Double((hex >> shift) & 0xFF) / 255
+            return channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(16) + 0.7152 * linear(8) + 0.0722 * linear(0)
+    }
 }
 
 /// Colour skins, like the ones many plugins offer. Stored under "skin" in UserDefaults.
@@ -147,6 +174,53 @@ extension View {
     func card() -> some View { panel(.panel, radius: 16) }
 }
 
+/// The pointing hand while the mouse is over an enabled control. Each view undoes its own push, also
+/// when it goes away under the mouse, so the hand can't stick.
+private struct PointerCursor: ViewModifier {
+    /// Also told about the hover, so a control that wants to light up needs no tracking area of its own.
+    var hover: ((Bool) -> Void)?
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var pushed = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover {
+                hover?($0)
+                set($0 && isEnabled && !SmoothScrollView.isScrolling)
+            }
+            .onChange(of: isEnabled) { if !$0 { set(false) } }
+            .onDisappear { set(false) }
+    }
+
+    private func set(_ on: Bool) {
+        guard on != pushed else { return }
+        pushed = on
+        if on { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+    }
+}
+
+extension View {
+    func pointerCursor(hover: ((Bool) -> Void)? = nil) -> some View { modifier(PointerCursor(hover: hover)) }
+}
+
+/// A button drawn by its label alone, with the pointing hand over it.
+struct PointerButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Face(configuration: configuration)
+    }
+
+    private struct Face: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .opacity(!isEnabled ? 0.5 : configuration.isPressed ? 0.7 : 1)
+                .pointerCursor()
+        }
+    }
+}
+
 /// Capsule button. The primary one carries the accent gradient and glows; destructive text is red.
 struct PillButtonStyle: ButtonStyle {
     var primary = false
@@ -180,7 +254,7 @@ struct PillButtonStyle: ButtonStyle {
                 .clipShape(Capsule())
                 .shadow(color: primary && isEnabled ? Color.accent.opacity(lit ? 0.55 : 0.35) : .clear, radius: 10)
                 .opacity(isEnabled ? 1 : 0.4)
-                .onHover { hovered = $0 }
+                .pointerCursor { hovered = $0 }
                 .animation(.easeOut(duration: 0.15), value: lit)
         }
 
@@ -216,7 +290,7 @@ struct FilterPill: View {
             .contentShape(Capsule())
             .fixedSize()
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
         .animation(.easeOut(duration: 0.15), value: isOn)
     }
 }
@@ -248,10 +322,13 @@ struct TaskRing: View {
     }
 }
 
-/// A plugin's state: green works, amber warning, red problem, grey not checked yet.
+/// A plugin's state: green works, amber warning, red problem, grey not checked yet. Warnings and problems
+/// also differ in shape, for those who can't tell the colours apart.
 struct LED: View {
     let level: CheckState.Level?
     var running = false
+    /// The state in words, for VoiceOver and the tooltip.
+    var label = ""
 
     var body: some View {
         let color: Color = {
@@ -259,35 +336,50 @@ struct LED: View {
             case .ok?:      return .mint
             case .warning?: return .amber
             case .failed?:  return .danger
-            case nil:       return .edge
+            case nil:       return .dim
             }
         }()
         return Group {
             if running {
                 PulseDot()
+            } else if level == .warning || level == .failed {
+                Image(systemName: level == .warning ? "exclamationmark.triangle.fill" : "xmark.octagon.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(color)
             } else {
                 Circle()
                     .fill(color)
                     .frame(width: 8, height: 8)
-                    .shadow(color: level == nil ? .clear : color.opacity(0.8), radius: 4)
+                    // A halo, not a shadow: a shadow is drawn anew in every frame of the scroll
+                    .background(Circle().fill(color.opacity(level == nil ? 0 : 0.25)).frame(width: 14, height: 14))
             }
         }
         .frame(width: 10, height: 10)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 
-/// The app's mark and name, top left in the header. The mark takes its colours from the skin.
+/// The app's mark and name, top left in the header: the icon's knob without its tile. The mark
+/// takes its colours from the skin.
 struct AppLogo: View {
-    /// Three bars in rising order: mixer levels, sorted.
-    private let bars: [CGFloat] = [13, 20, 28]
+    /// The scale is 270° with the gap at the bottom, and the value covers most of it, as on the icon.
+    private func scale(to end: CGFloat) -> some Shape {
+        Circle().trim(from: 0, to: end).rotation(.degrees(135))
+    }
+
+    private var mark: some View {
+        ZStack {
+            scale(to: 0.75).stroke(Color.edge, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            scale(to: 0.625).stroke(accentGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            accentGradient.mask(Text("VST").font(.system(size: 10, weight: .heavy)).fixedSize())
+        }
+        .frame(width: 34, height: 34)
+    }
 
     var body: some View {
         HStack(spacing: 9) {
-            accentGradient
-                .mask(HStack(alignment: .bottom, spacing: 4) {
-                    ForEach(bars, id: \.self) { Capsule().frame(width: 7, height: $0) }
-                })
-                .frame(width: 29, height: 28)
+            mark
                 .shadow(color: Color.accent.opacity(0.35), radius: 5)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {

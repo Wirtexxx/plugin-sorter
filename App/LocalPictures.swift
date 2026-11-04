@@ -1,0 +1,72 @@
+import Foundation
+
+/// Screenshots of plugins, kept by the app itself. FL can only hold a picture beside a favourite;
+/// these exist for every plugin and go into FL when the plugin becomes one.
+final class LocalPictures {
+    static let defaultDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Plugin Sorter/Pictures", isDirectory: true)
+
+    private let directory: URL
+    /// Plugins that wouldn't open, with the version that didn't: they cost up to 25 seconds each, and
+    /// crash or hang the same way next time. An update gets another try.
+    private let failureStore: JSONStore<[String: String]>
+    private var failures: [String: String]
+    private let lock = NSLock()
+
+    init(directory: URL = LocalPictures.defaultDirectory) {
+        self.directory = directory
+        failureStore = JSONStore(url: directory.appendingPathComponent("failed.json"))
+        failures = failureStore.load() ?? [:]
+    }
+
+    func noteFailures(_ plugins: [ManagedPlugin]) {
+        lock.lock()
+        defer { lock.unlock() }
+        for plugin in plugins { failures[plugin.key] = plugin.version }
+        try? failureStore.save(failures)   // at worst they're tried again
+    }
+
+    func forgetFailures() {
+        lock.lock()
+        defer { lock.unlock() }
+        failures = [:]
+        try? failureStore.save(failures)
+    }
+
+    /// Of these plugins, the ones that failed in the version installed now.
+    func failedKeys(among plugins: [ManagedPlugin]) -> Set<String> {
+        lock.lock()
+        defer { lock.unlock() }
+        return Set(plugins.filter { failures[$0.key] == $0.version }.map(\.key))
+    }
+
+    /// The screenshot of a plugin that was uninstalled.
+    func remove(_ key: String) {
+        try? FileManager.default.removeItem(at: url(for: key))
+    }
+
+    /// Plugin keys hold any character, so the file name is percent-encoded: nothing can leave the folder.
+    func url(for key: String) -> URL {
+        let name = key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
+        return directory.appendingPathComponent(name).appendingPathExtension("png")
+    }
+
+    /// Keys of the plugins with a screenshot. Reads the disk.
+    var keys: Set<String> {
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        return Set(files.filter { $0.pathExtension == "png" }
+            .compactMap { $0.deletingPathExtension().lastPathComponent.removingPercentEncoding })
+    }
+
+    func save(_ png: Data, for key: String) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try png.write(to: url(for: key), options: .atomic)
+    }
+
+    /// What a capture can take: only an Audio Unit that's turned on can be opened for a screenshot.
+    static func targets(_ plugins: [ManagedPlugin], skipping keys: Set<String>) -> [ManagedPlugin] {
+        plugins.filter { plugin in
+            !keys.contains(plugin.key) && plugin.activeBundles.contains { $0.format == .au }
+        }
+    }
+}

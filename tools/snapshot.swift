@@ -1,7 +1,16 @@
 // Renders the main window with demo data for the README:
-// snapshot <out.png> [lang] [main|main-expanded|banner|sheet|settings] [violet|mint|amber|ice]
+// snapshot <out.png> [lang] [main|main-expanded|main-tab-<tab>|cards|cards-panel|cards-panel-tab-<tab>|banner|sheet|settings] [violet|mint|amber|ice]
 import SwiftUI
 import AppKit
+
+/// Licenses of the demo live in memory: a snapshot must never reach the real Keychain.
+final class DemoSecrets: SecretStore {
+    private var records: [String: Data] = [:]
+    func accounts() throws -> Set<String> { Set(records.keys) }
+    func read(_ account: String) throws -> Data? { records[account] }
+    func write(_ data: Data, account: String) throws { records[account] = data }
+    func delete(_ account: String) throws { records[account] = nil }
+}
 
 @main
 struct Snapshot {
@@ -49,13 +58,28 @@ struct Snapshot {
             let dir = FileManager.default.temporaryDirectory.appendingPathComponent("plugin-sorter-demo", isDirectory: true)
             let manager = demoManager()
             let (favorites, titles) = demoFavorites(for: manager, in: dir)
-            model = AppModel(sorter: sorter, manager: manager, favorites: favorites, pictures: demoLibrary(titles, in: dir))
+            model = AppModel(sorter: sorter, manager: manager, favorites: favorites, pictures: demoLibrary(titles, in: dir),
+                             known: KnownPlugins(url: dir.appendingPathComponent("known-plugins.json")),
+                             labels: UserLabels(url: dir.appendingPathComponent("labels.json")),
+                             vault: LicenseVault(store: DemoSecrets()))
             model.flRoot = dir
+        }
+        // Always set the view: UserDefaults persist between runs of this tool
+        UserDefaults.standard.set(mode.hasPrefix("cards") ? "cards" : "list", forKey: "viewMode")
+        if mode.contains("-tab-"), let tab = mode.components(separatedBy: "-tab-").last.flatMap(DetailsTab.init) {
+            model.detailsTab = tab
+        }
+        if mode.hasPrefix("cards-panel") {
+            // A tab's content needs a plugin without a problem above it to fit in the panel
+            let name = mode.contains("-tab-") ? "OTT" : "Serum2"
+            model.expanded = model.rows.first { $0.name == name }?.id
         }
         if mode == "banner" {
             model.banner = Banner(source: .favorites(.sorted(12)), isError: false, undo: {})
         }
-        if mode == "main-expanded" {
+        if mode == "main-expanded" || mode.hasPrefix("main-tab-") {
+            // Just this developer's plugins: the row is at the bottom of the list otherwise, cut off
+            model.query = "Xfer"
             model.expanded = model.rows.first { $0.name == "Serum2" }?.id ?? model.rows.first?.id
         }
 

@@ -57,12 +57,25 @@ VST3/                                VST3/
 - 🗂️ **FL Studio categories in one click.** Favourites go under the picker's tabs (Dynamics,
   Filter, Delay reverb…) by the category each plugin reports about itself.
 - 🩺 **Plugin manager.** Checks that every plugin actually loads (Apple's `auval` for AU,
-  a test load for VST, VST3 and CLAP) and moves the ones you don't need to the Trash.
+  a test load for VST, VST3 and CLAP), including the ones in `~/Library/Audio/Plug-Ins`.
+- 🧹 **Clean uninstall.** Turn a plugin off without deleting it, or remove it with its preferences,
+  caches and installer receipts. Old versions and duplicates are found for you.
+- 🏷️ **Your own catalogue.** Tags and colours, licenses kept in the Keychain, and the list exported
+  to Markdown, CSV or JSON.
 - 🧩 **Keeps Audio Units working.** AU stay in `Components`, and AU moved by 1.0 can be
   restored with one click.
-- 🎛️ **Plugin-style UI.** Graphite panels, format knobs and a waveform of your developers,
-  in English, Русский, Українська and Deutsch.
+- 🎛️ **Plugin-style UI.** Graphite panels, status lamps and colour skins, in English, Русский,
+  Українська and Deutsch.
 - ⌨️ **CLI included** for people who live in the terminal.
+
+## In FL Studio
+
+Third-party plugins finally look like FL's own: a real picture of each one, filed under the tabs
+of the plugin picker.
+
+<p align="center">
+  <img src="docs/screenshot-fl-picker.png" width="760" alt="FL Studio's plugin picker with a picture of every plugin, sorted into category tabs">
+</p>
 
 ## Install
 
@@ -71,7 +84,8 @@ VST3/                                VST3/
 1. Download **[PluginSorter.dmg](https://github.com/Wirtexxx/plugin-sorter/releases/latest/download/PluginSorter.dmg)**
    from the latest release.
 2. Open it and drag **Plugin Sorter** onto the **Applications** folder.
-3. The app is not notarized, so on first launch right-click it → **Open**, or run:
+3. The app is not notarized, so macOS refuses the first launch. On macOS 15 and later open
+   **System Settings → Privacy & Security** and click **Open Anyway** (on older versions: right-click the app → **Open**), or run:
 
    ```bash
    xattr -dr com.apple.quarantine "/Applications/Plugin Sorter.app"
@@ -95,11 +109,12 @@ cd plugin-sorter
   <img src="docs/screenshot-expanded.png" width="760" alt="A plugin opened in the list">
 </p>
 
-Open **Plugin Sorter** and every plugin in `/Library/Audio/Plug-Ins` is right there, one row per
-plugin with all its formats. Each row shows whether it works, whether it's in FL Studio's favourites
+Open **Plugin Sorter** and every plugin in `/Library/Audio/Plug-Ins` and `~/Library/Audio/Plug-Ins`
+is right there, one row per plugin with all its formats. Each row shows whether it works, whether it's in FL Studio's favourites
 (the star), its FL category and its size.
 
-- **Search and filters** at the top: **All**, **Problems**, **Not in FL**.
+- **Search and filters** at the top: **All** and **Not in FL**, plus **Problems**, **New**,
+  **Duplicates**, **Off** and **Tags** once they have something to show. **⌘F** jumps to the search.
 - **Checks run by themselves** in the background and are remembered, so the lights are on as soon as
   the window opens; only new and updated plugins are checked again.
 
@@ -112,11 +127,25 @@ plugin with all its formats. Each row shows whether it works, whether it's in FL
 
 - **Click a plugin** to open it in place: what's wrong in plain words with a one-click **Fix**
   (remove quarantine, move an AU back to Components, reset the AU cache, put a moved bundle back
-  where another plugin loads it), **Show in Finder**, **Move to Trash**, its formats, its picture in FL
-  and its developer's data folders (shown, never deleted).
+  where another plugin loads it) and a ready draft for the developer's support. Tabs hold its files,
+  its picture in FL, your tags and its license. **Show in Finder**, **Turn off** and **Check again** are
+  always at hand; **Uninstall…** and **Move to Trash** are in the **…** menu.
+- **Turn off** moves a plugin out of every host's sight without deleting it, and it can be turned on
+  again at any time. **Uninstall…** also offers what the plugin left behind. Its developer's folder is
+  never ticked for you, as it may hold libraries you paid for.
+- **Duplicates** lists old versions and extra copies. Nothing is ticked at first, and everything goes
+  to the Trash.
 - **The star** adds the plugin to FL's browser and plugin picker or removes it; inside the row, each
   format can be picked on its own. **The category** next to it is a menu of FL's category folders.
 - **Click a column title** to sort by name or by size.
+- **Switch to cards** with the button at the top right, next to the gear. Each plugin becomes a small
+  tile with its picture from FL; plugins without one get a generated card, shown only here. A click on
+  a tile opens its details in a panel on the right, as in Finder's preview pane. Close it with the cross,
+  Esc or another click on the tile. The app remembers which view you chose.
+
+<p align="center">
+  <img src="docs/screenshot-cards.png" width="760" alt="Plugins as cards, with one open in the panel">
+</p>
 
 Three jobs sit at the bottom, each showing what's left:
 
@@ -132,11 +161,13 @@ Three jobs sit at the bottom, each showing what's left:
 
 Once all three are done they fold into a small strip; click it to open them again. Every job can be
 undone. If FL Studio is open while the app changes its plugin database, it asks first:
-FL shows the changes after a restart. The gear menu has a full recheck, **Reset AU cache**, putting back
-favourites removed from FL, and the settings (language, colour skin).
+FL shows the changes after a restart. It also asks before moving plugin files while a DAW is open.
+The gear menu has a full recheck, **Reset AU cache**, screenshots of all plugins, putting back
+favourites removed from FL, exporting the list, and the settings (language, colour skin).
 
 > Plugin windows briefly pop up in the corner of the screen while screenshots are taken.
 > Each plugin runs in its own helper process, so a plugin that crashes or hangs is simply skipped.
+> Plugins in quarantine are not loaded until you clear the flag.
 
 ### Command line
 
@@ -175,19 +206,20 @@ identifier. Missing your favourite developer? Pull requests are welcome.
   than file paths, so existing projects keep loading them.
 - **Audio Units are not sorted.** macOS only registers components that sit directly in
   `/Library/Audio/Plug-Ins/Components`, so an AU in a subfolder disappears from every host.
-  Version 1.0 did sort them: if your AU vanished, open the app and press **Restore AU**
-  (or run `--restore-au`), then restart your DAW.
+  Version 1.0 did sort them: if your AU vanished, click the plugin and press **Move back to Components**
+  (or run `--restore-au` for all of them), then restart your DAW.
 - Plugin installers usually drop updates back into the root folder. Just run Plugin Sorter again.
 
 ## Project structure
 
 ```
 App/            SwiftUI app: model, window, theme, translations
+Helper/         entry point of the helper that loads plugins, apart from the app
 scripts/        sort-plugins.sh: the engine, usable on its own
 Tests/          Swift Testing suite for the parsers, checks and the script
 tools/          icon and README screenshot renderers
 build.sh        builds a universal Plugin Sorter.app without Xcode
-Package.swift   test-only package around the UI-free part of App/
+Package.swift   test-only package around App/, without the @main entry point
 ```
 
 ## Development

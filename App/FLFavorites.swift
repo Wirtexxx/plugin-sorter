@@ -56,30 +56,30 @@ final class FavoriteBackup {
         .appendingPathComponent("Plugin Sorter/Removed favorites", isDirectory: true)
 
     let directory: URL
-    private(set) var records: [Record] = []
-    private var journal: URL { directory.appendingPathComponent("removed.json") }
+    /// Read by the window while the favourites' queue changes it.
+    private let lock = NSLock()
+    private var saved: [Record] = []
+    var records: [Record] { lock.lock(); defer { lock.unlock() }; return saved }
+    private var store: JSONStore<[Record]> { JSONStore(url: directory.appendingPathComponent("removed.json")) }
 
     init(directory: URL = FavoriteBackup.defaultDirectory) {
         self.directory = directory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: journal),
-           let saved = try? JSONDecoder().decode([Record].self, from: data) {
-            records = saved
-        }
+        saved = store.load() ?? []
     }
 
-    fileprivate func add(_ record: Record) {
-        records.append(record)
-        save()
+    func add(_ record: Record) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        saved.append(record)
+        try store.save(saved)
     }
 
-    fileprivate func remove(where shouldRemove: (Record) -> Bool) {
-        records.removeAll(where: shouldRemove)
-        save()
-    }
-
-    private func save() {
-        try? JSONEncoder().encode(records).write(to: journal, options: .atomic)
+    fileprivate func remove(where shouldRemove: (Record) -> Bool) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        saved.removeAll(where: shouldRemove)
+        try store.save(saved)
     }
 }
 
@@ -184,6 +184,17 @@ enum FLFavorites {
 
     static func auKey(vendor: String, name: String) -> String { normalize(vendor) + "|" + normalize(name) }
 
+    /// The turned-off Audio Units as `auKey`s. macOS no longer lists them, but they are not gone.
+    static func disabledAudioUnitKeys(_ plugins: [ManagedPlugin]) -> Set<String> {
+        var keys: Set<String> = []
+        for bundle in plugins.flatMap(\.bundles) where bundle.format == .au && bundle.isDisabled {
+            let file = bundle.url.deletingPathExtension().lastPathComponent
+            keys.insert(auKey(vendor: bundle.vendor, name: file))
+            if !bundle.auName.isEmpty { keys.insert(auKey(vendor: bundle.vendor, name: bundle.auName)) }
+        }
+        return keys
+    }
+
     // MARK: - Changing
 
     /// Puts a scanned plugin into FL's browser. A second format of the same plugin gets its format in the name.
@@ -207,14 +218,15 @@ enum FLFavorites {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         for file in [favorite.fst, favorite.nfo, favorite.picture] where FileManager.default.fileExists(atPath: file.path) {
             let target = folder.appendingPathComponent(file.lastPathComponent)
+            // The record first: a file in the backup that nothing points to could never come back
+            try backup.add(FavoriteBackup.Record(original: file.path, backup: target.path, date: Date()))
             try FileManager.default.moveItem(at: file, to: target)
-            backup.add(FavoriteBackup.Record(original: file.path, backup: target.path, date: Date()))
         }
     }
 
     /// Puts every removed favourite back where it was, unless something new took its place. Returns how many came back.
     @discardableResult
-    static func restoreAll(backup: FavoriteBackup) -> Int {
+    static func restoreAll(backup: FavoriteBackup) throws -> Int {
         var restored = 0
         let fm = FileManager.default
         for record in backup.records {
@@ -226,7 +238,7 @@ enum FLFavorites {
                 restored += 1
             }
         }
-        backup.remove { !fm.fileExists(atPath: $0.backup) }
+        try backup.remove { !fm.fileExists(atPath: $0.backup) }
         return restored
     }
 

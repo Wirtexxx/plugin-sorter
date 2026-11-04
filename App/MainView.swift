@@ -1,39 +1,76 @@
 import SwiftUI
 import AppKit
 
+/// How the window shows the plugins. The raw value is what's remembered between launches.
+enum PluginViewMode: String {
+    case list, cards
+}
+
 /// The whole window: header with search and filters, every plugin, and the tasks below.
 struct MainView: View {
     @ObservedObject var model: AppModel
     let t: L10n
 
     @State private var gearHovered = false
+    /// The banner on screen is shown in full.
+    @State private var bannerOpen = false
+    @AppStorage("viewMode") private var viewMode: PluginViewMode = .list
 
     var body: some View {
         VStack(spacing: 10) {
             header
             if let banner = model.banner { bannerView(banner) }
-            list
+            HStack(spacing: 10) {
+                list
+                if let row = panelRow {
+                    PluginDetailPanel(row: row, model: model, t: t)
+                        .id(row.id)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
             TasksView(model: model, t: t)
         }
         .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: model.banner?.id)
+        .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: panelRow == nil)
         .animation(Motion.reduced ? nil : .easeOut(duration: 0.2), value: model.tasksAllDone)
         .sheet(isPresented: $model.showFolderSheet) {
             FolderSortSheet(model: model, t: t)
         }
+        .sheet(isPresented: $model.showCleanupSheet) {
+            CleanupSheet(model: model, t: t)
+        }
+        .sheet(item: $model.uninstallTarget) { plugin in
+            UninstallSheet(plugin: plugin, model: model, t: t)
+        }
+    }
+
+    /// The plugin open in the panel. Only the cards have one; the list opens plugins in place. Gone when
+    /// a filter or the Trash takes the plugin away.
+    private var panelRow: CatalogRow? {
+        guard viewMode == .cards, let id = model.expanded else { return nil }
+        return model.rows.first { $0.id == id }
     }
 
     // MARK: - Result banner
 
     private func bannerView(_ banner: Banner) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: banner.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+            Image(systemName: icon(of: banner))
                 .font(.system(size: 16))
-                .foregroundColor(banner.isError ? .danger : .mint)
-            Text(text(of: banner))
+                .foregroundColor(color(of: banner))
+                .accessibilityHidden(true)
+            let message = text(of: banner)
+            Text(message)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.text)
-                .lineLimit(2)
+                .lineLimit(bannerOpen ? nil : 2)
+                .fixedSize(horizontal: false, vertical: bannerOpen)
             Spacer()
+            // A long error is what's needed to report it, so it can be read in full
+            if message.count > 120 || message.contains("\n") {
+                Button(t(bannerOpen ? "banner.less" : "banner.more")) { bannerOpen.toggle() }
+                    .buttonStyle(PillButtonStyle())
+            }
             if let undo = banner.undo {
                 Button(t("task.undo")) {
                     model.banner = nil
@@ -44,14 +81,32 @@ struct MainView: View {
             Button { model.banner = nil } label: {
                 Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.label)
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(PointerButtonStyle())
             .help(t("banner.close"))
+            .accessibilityLabel(t("banner.close"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 16)
-            .fill(banner.isError ? Color.danger.opacity(0.14) : Color.mint.opacity(0.1)))
+            .fill(banner.tone == .error ? Color.danger.opacity(0.14) : banner.tone == .info ? Color.raised : Color.mint.opacity(0.1)))
         .transition(.opacity)
+        .onChange(of: banner.id) { _ in bannerOpen = false }
+    }
+
+    private func icon(of banner: Banner) -> String {
+        switch banner.tone {
+        case .success: return "checkmark.circle.fill"
+        case .info:    return "info.circle.fill"
+        case .error:   return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private func color(of banner: Banner) -> Color {
+        switch banner.tone {
+        case .success: return .mint
+        case .info:    return .label
+        case .error:   return .danger
+        }
     }
 
     private func text(of banner: Banner) -> String {
@@ -76,41 +131,130 @@ struct MainView: View {
                 AppLogo()
                     .padding(.trailing, 4)
                     .help(t("subtitle"))
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 12))
-                        .foregroundColor(.label)
-                    TextField(t("main.search"), text: $model.query)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .font(.system(size: 13))
-                        .foregroundColor(.text)
-                }
-                .padding(.horizontal, 14)
-                .frame(height: 32)
-                .background(Capsule().fill(Color.inset))
-                filters
+                searchField
+                viewToggle
                 gearMenu
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.top, 12)
+            // On a line of their own: beside the search they squeezed it down to nothing
+            filters
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
             if let checking = model.manager.checking {
-                checkingLine(checking)
+                progressLine(t("main.checking", checking.done + 1, checking.total, checking.current), checking)
+            }
+            if let capture = model.pictures.capture {
+                progressLine(t("main.capturing", capture.done + 1, capture.total, capture.current), capture) {
+                    let stopping = model.pictures.stopRequested
+                    Button(t(stopping ? "main.stopping" : "gear.stopPictures")) { model.pictures.stopCapture() }
+                        .buttonStyle(PillButtonStyle(compact: true))
+                        .disabled(stopping)
+                }
             }
         }
         .card()
     }
 
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundColor(.label)
+            TextField(t("main.search"), text: $model.query)
+                .textFieldStyle(PlainTextFieldStyle())
+                .font(.system(size: 13))
+                .foregroundColor(.text)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity)
+        .frame(height: 32)
+        .background(Capsule().fill(Color.inset))
+        .background(findShortcut)
+    }
+
+    /// ⌘F. SwiftUI's focus API starts at macOS 12, so the field is found in the window.
+    private var findShortcut: some View {
+        Button("") { Self.focusSearch(in: NSApp.keyWindow?.contentView) }
+            .keyboardShortcut("f", modifiers: .command)
+            .opacity(0)
+            .accessibilityHidden(true)
+    }
+
+    /// The first text field from the top of the window is the search.
+    @discardableResult
+    private static func focusSearch(in view: NSView?) -> Bool {
+        guard let view = view else { return false }
+        if let field = view as? NSTextField, field.isEditable {
+            return field.window?.makeFirstResponder(field) ?? false
+        }
+        return view.subviews.contains { focusSearch(in: $0) }
+    }
+
+    private var viewToggle: some View {
+        HStack(spacing: 2) {
+            viewButton(.list, icon: "list.bullet", help: "view.list")
+            viewButton(.cards, icon: "square.grid.2x2", help: "view.cards")
+        }
+        .padding(2)
+        .background(Capsule().fill(Color.inset))
+    }
+
+    private func viewButton(_ mode: PluginViewMode, icon: String, help: String) -> some View {
+        Button {
+            withAnimation(Motion.reduced ? nil : .easeOut(duration: 0.2)) { viewMode = mode }
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(viewMode == mode ? .text : .label)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(viewMode == mode ? Color.raised : .clear))
+                .contentShape(Circle())
+        }
+        .buttonStyle(PointerButtonStyle())
+        .help(t(help))
+        .accessibilityLabel(t(help))
+        .accessibilityAddTraits(viewMode == mode ? .isSelected : [])
+    }
+
     private var filters: some View {
         HStack(spacing: 6) {
             filterPill(.all, "filter.all")
-            filterPill(.problems, "filter.problems")
-            filterPill(.notInFL, "filter.notInFL")
-            // Places for later features: shown only once they find something
+            // Stays while it's the filter, or the list would be empty with nothing lit to say why
+            if model.count(.problems) > 0 || model.filter == .problems { filterPill(.problems, "filter.problems") }
+            if model.usesFL { filterPill(.notInFL, "filter.notInFL") }
+            // Shown only once they find something
             if model.count(.new) > 0 { filterPill(.new, "filter.new") }
             if model.count(.duplicates) > 0 { filterPill(.duplicates, "filter.duplicates") }
+            if model.count(.disabled) > 0 { filterPill(.disabled, "filter.disabled") }
+            if !model.labels.allTags.isEmpty { tagsMenu }
         }
     }
 
+
+    /// The user's tags as a pill that opens a menu; it shows the tag while one is the filter.
+    private var tagsMenu: some View {
+        var active: String?
+        if case .tag(let tag) = model.filter { active = tag }
+        return Menu {
+            ForEach(model.labels.allTags, id: \.tag) { item in
+                Button(item.tag + "  (\(item.count))") { model.filter = active == item.tag ? .all : .tag(item.tag) }
+            }
+        } label: {
+            Text(active ?? t("filter.tags"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(active == nil ? .text : .white)
+        }
+        .menuStyle(BorderlessButtonMenuStyle())
+        .pointerCursor()
+        .fixedSize()
+        .padding(.horizontal, 10)
+        .frame(height: 32)
+        .background(Group { if active != nil { accentGradient } else { Color.raised } })
+        .clipShape(Capsule())
+    }
 
     private func filterPill(_ filter: CatalogFilter, _ key: String) -> some View {
         FilterPill(title: t(key), count: model.count(filter), isOn: model.filter == filter) {
@@ -124,8 +268,25 @@ struct MainView: View {
             Button(t("gear.recheck")) { model.manager.recheckAll() }
             Button(t("fix.resetAU")) { model.manager.apply(.resetAUCache, for: nil) }
                 .disabled(model.manager.busy)
-            Button(t("gear.restore")) { model.whenFLClosed { model.favorites.restore() } }
-                .disabled(!model.favorites.canRestore)
+            if model.pictures.capturingAll {
+                Button(t("gear.stopPictures")) { model.pictures.stopCapture() }
+            } else {
+                Button(t("gear.allPictures")) { model.captureAllPictures() }
+                    .disabled(model.pictures.busy || model.shotTargets.isEmpty)
+                if model.failedShots > 0 {
+                    Button(t("gear.retryPictures", model.failedShots)) { model.retryFailedPictures() }
+                        .disabled(model.pictures.busy)
+                }
+            }
+            if model.usesFL {
+                Button(t("gear.restore")) { model.whenFLClosed { model.favorites.restore() } }
+                    .disabled(!model.favorites.canRestore)
+            }
+            Menu(t("gear.export")) {
+                ForEach(ExportFormat.allCases, id: \.self) { format in
+                    Button(t("export." + format.rawValue)) { model.export(as: format) }
+                }
+            }
             Divider()
             Button(t("gear.settings")) { openSettings() }
         } label: {
@@ -134,6 +295,7 @@ struct MainView: View {
             Image(nsImage: NSImage(size: NSSize(width: 32, height: 32)))
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
+        .pointerCursor { gearHovered = $0 }
         .frame(width: 32, height: 32)
         .background(ZStack {
             Circle().fill(gearHovered ? Color.inset : Color.raised)
@@ -142,7 +304,7 @@ struct MainView: View {
                 .foregroundColor(gearHovered ? .text : .label)
         })
         .contentShape(Circle())
-        .onHover { gearHovered = $0 }
+        .accessibilityLabel(t("gear.menu"))
     }
 
     private func openSettings() {
@@ -153,21 +315,23 @@ struct MainView: View {
         menu.performActionForItem(at: item)
     }
 
-    private func checkingLine(_ checking: CheckProgress) -> some View {
+    private func progressLine<Accessory: View>(_ text: String, _ progress: CheckProgress,
+                                               @ViewBuilder accessory: () -> Accessory = { EmptyView() }) -> some View {
         VStack(spacing: 6) {
             HStack {
-                Text(t("main.checking", checking.done + 1, checking.total, checking.current))
+                Text(text)
                     .font(.system(size: 12))
                     .foregroundColor(.label)
                     .lineLimit(1)
                 Spacer()
+                accessory()
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.inset)
                     Capsule()
                         .fill(accentGradient)
-                        .frame(width: max(4, geo.size.width * CGFloat(checking.done) / CGFloat(max(checking.total, 1))))
+                        .frame(width: max(4, geo.size.width * CGFloat(progress.done) / CGFloat(max(progress.total, 1))))
                 }
             }
             .frame(height: 3)
@@ -181,31 +345,86 @@ struct MainView: View {
     private var list: some View {
         let rows = model.rows
         return VStack(spacing: 0) {
-            columnHeaders
+            if model.filter == .duplicates { cleanupBar }
+            if model.filter == .new { newBar }
+            if viewMode == .list { columnHeaders } else { cardHeaders }
             if rows.isEmpty {
-                Text(t("main.empty"))
-                    .font(.system(size: 13))
-                    .foregroundColor(.label)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                emptyList
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(rows) { row in
-                            PluginRowView(row: row, model: model, t: t)
+                    Group {
+                        if viewMode == .list {
+                            LazyVStack(spacing: 2) {
+                                ForEach(rows) { row in
+                                    PluginRowView(row: row, model: model, state: model.state(of: row), t: t).equatable()
+                                }
+                            }
+                        } else {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], spacing: 8) {
+                                ForEach(rows) { row in
+                                    PluginCardView(row: row, model: model, state: model.state(of: row), t: t).equatable()
+                                }
+                            }
+                            .padding(.top, 2)
                         }
                     }
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
                     .background(SmoothScroll())
                 }
-                .overlay(edgeFade(.top), alignment: .top)
-                .overlay(edgeFade(.bottom), alignment: .bottom)
-                // The fades would otherwise paint over the card's rounded corners
+                // Only the fades are clipped, or they'd paint over the card's rounded corners.
+                // A clip on the list itself would mask all of it in every frame of the scroll.
+                .overlay(VStack(spacing: 0) {
+                    edgeFade(.top)
+                    Spacer(minLength: 0)
+                    edgeFade(.bottom)
+                }
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                .allowsHitTesting(false))
             }
         }
         .frame(maxHeight: .infinity)
         .card()
+    }
+
+    /// Says why there's nothing, and offers the way back when a search or filter is the reason.
+    @ViewBuilder private var emptyList: some View {
+        VStack(spacing: 12) {
+            switch EmptyList(query: model.query, filter: model.filter, plugins: model.allRows.count) {
+            case .noMatches:
+                Text(t("main.empty")).font(.system(size: 13)).foregroundColor(.label)
+                Button(t("main.clearFilters")) { model.clearFilters() }.buttonStyle(PillButtonStyle())
+            case .noPlugins:
+                Text(t("main.noPlugins")).font(.system(size: 13)).foregroundColor(.label)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Above the list while the duplicates filter is on: how much there is to clean and a way to do it.
+    private var cleanupBar: some View {
+        let findings = model.findings
+        let bytes = findings.reduce(0) { $0 + model.size(of: $1) }
+        return HStack(spacing: 12) {
+            Text(t("cleanup.found", findings.count, formatBytes(bytes)))
+                .font(.system(size: 13)).foregroundColor(.text)
+            Spacer()
+            Button(t("cleanup.review")) { model.showCleanupSheet = true }
+                .buttonStyle(PillButtonStyle(primary: true))
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
+    }
+
+    /// Above the list while the new filter is on: the marks stay until they are cleared here.
+    private var newBar: some View {
+        HStack {
+            Spacer()
+            Button(t("new.markSeen")) { model.markAllSeen() }
+                .buttonStyle(PillButtonStyle(primary: true))
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
     }
 
     /// Rows melt into the card's edge instead of being cut off by it.
@@ -221,9 +440,23 @@ struct MainView: View {
             Color.clear.frame(width: PluginRowView.ledWidth, height: 1)
             sortHeader(t("col.plugin"), .name).frame(maxWidth: .infinity, alignment: .leading)
             header(t("col.formats")).frame(width: PluginRowView.formatsWidth, alignment: .trailing)
-            header("FL").frame(width: PluginRowView.starWidth)
-            header(t("col.category")).frame(width: PluginRowView.categoryWidth, alignment: .leading)
+            if model.usesFL {
+                header("FL").frame(width: PluginRowView.starWidth)
+                header(t("col.category")).frame(width: PluginRowView.categoryWidth, alignment: .leading)
+            }
             sortHeader(t("col.size"), .size).frame(width: PluginRowView.sizeWidth, alignment: .trailing)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
+        .padding(.bottom, 6)
+    }
+
+    /// The list's column titles sort it; the cards have no columns, so only the sorting stays.
+    private var cardHeaders: some View {
+        HStack(spacing: PluginRowView.spacing) {
+            sortHeader(t("col.plugin"), .name)
+            sortHeader(t("col.size"), .size)
+            Spacer()
         }
         .padding(.horizontal, 22)
         .padding(.top, 12)
@@ -243,6 +476,6 @@ struct MainView: View {
                 }
             }
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
     }
 }

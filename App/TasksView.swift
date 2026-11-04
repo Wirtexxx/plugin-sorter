@@ -14,8 +14,10 @@ struct TasksView: View {
             if !allDone || expanded {
                 HStack(spacing: 10) {
                     folders
-                    categories
-                    pictures
+                    if model.usesFL {
+                        categories
+                        pictures
+                    }
                 }
                 .frame(height: 100)
             }
@@ -46,7 +48,7 @@ struct TasksView: View {
             .frame(height: 34)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
         .card()
         .help(t(expanded ? "task.collapse" : "task.expand"))
     }
@@ -59,7 +61,7 @@ struct TasksView: View {
                         remaining: remaining, total: max(model.manager.plugins.count, remaining),
                         progress: nil, busy: sorter.running,
                         action: t("task.sort"), run: { model.showFolderSheet = true },
-                        canUndo: sorter.latestLog != nil, undo: { sorter.undo() }, t: t)
+                        canUndo: sorter.latestLog != nil, undo: { model.undoSort() }, t: t)
     }
 
     private var categories: some View {
@@ -81,7 +83,7 @@ struct TasksView: View {
                         detail: library.busy ? "\(t("fl.capturing")) · \(library.current)" : t("task.pictures.left", remaining),
                         remaining: remaining, total: max(model.pictureTargets.count, remaining),
                         progress: library.busy ? library.progress : nil, busy: library.busy,
-                        action: t("task.add"), run: { model.whenFLClosed { library.generate(model.missingPictures, screenshots: true) } },
+                        action: t("task.add"), run: { model.addMissingPictures() },
                         canUndo: !library.mine.isEmpty, undo: { model.whenFLClosed { library.remove(library.mine) } }, t: t)
     }
 }
@@ -109,15 +111,17 @@ private struct TaskCard: View {
                     .foregroundColor(remaining == 0 && !busy ? .mint : .label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-                Group {
+                // Undo stays here whatever the banner above the list has moved on to
+                HStack(spacing: 6) {
                     if remaining > 0 || busy {
                         Button(action, action: run)
                             .buttonStyle(PillButtonStyle(primary: true, compact: true))
                             .disabled(busy)
-                    } else {
+                    }
+                    if canUndo || (remaining == 0 && !busy) {
                         Button(t("task.undo"), action: undo)
                             .buttonStyle(PillButtonStyle(compact: true))
-                            .disabled(!canUndo)
+                            .disabled(!canUndo || busy)
                     }
                 }
                 .padding(.top, 2)
@@ -176,7 +180,7 @@ struct FolderSortSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Button(t("task.sort")) {
                     model.showFolderSheet = false
-                    sorter.apply()
+                    model.sortFolders()
                 }
                 .buttonStyle(PillButtonStyle(primary: true))
                 .keyboardShortcut(.defaultAction)

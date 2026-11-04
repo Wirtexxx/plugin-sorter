@@ -4,18 +4,10 @@ import AppKit
 @main
 enum Entry {
     static func main() {
-        // The FL tab launches the app again in this mode to screenshot plugins in isolation
-        if CommandLine.arguments.dropFirst().first == "--capture" {
-            PluginCapture.runHelper(Array(CommandLine.arguments.dropFirst()))
-        }
-        // The Manager tab test-loads VST, VST3 and CLAP plugins in this mode
-        if CommandLine.arguments.dropFirst().first == "--probe" {
-            PluginChecker.runProbe(Array(CommandLine.arguments.dropFirst()))
-        }
-        // The FL tab reads the categories VST3 and CLAP plugins report about themselves in this mode
-        if CommandLine.arguments.dropFirst().first == "--tags" {
-            PluginTags.runHelper(Array(CommandLine.arguments.dropFirst()))
-        }
+        // Bundles with PluginSorterHelper.app never come here: this is for builds that run a copy of the app
+        HelperModes.run(Array(CommandLine.arguments.dropFirst()))
+        // Marked as a helper but no mode to run: the window must never open from here
+        if Helper.isHelper() { _exit(64) }
         PluginSorterApp.main()
     }
 }

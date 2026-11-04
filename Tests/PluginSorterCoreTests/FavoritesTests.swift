@@ -130,7 +130,7 @@ struct FavoritesTests {
         #expect(backup.records.count == 3)
         #expect(FavoriteBackup(directory: dir.path("backup")).records.count == 3)  // journal survives a reload
 
-        #expect(FLFavorites.restoreAll(backup: backup) == 1)
+        #expect(try FLFavorites.restoreAll(backup: backup) == 1)
         for file in [gone.fst, gone.nfo, gone.picture] {
             #expect(FileManager.default.fileExists(atPath: file.path))
         }
@@ -143,8 +143,29 @@ struct FavoritesTests {
         try FLFavorites.remove(ott, backup: backup)
         try Data("new".utf8).write(to: ott.fst)
 
-        #expect(FLFavorites.restoreAll(backup: backup) == 0)
+        #expect(try FLFavorites.restoreAll(backup: backup) == 0)
         #expect(try Data(contentsOf: ott.fst) == Data("new".utf8))
         #expect(backup.records.count == 1)  // still restorable later
+    }
+}
+
+@Suite("Undo records read from the window")
+struct UndoRecordThreadTests {
+    /// The window asks on every redraw while the favourites' queue writes.
+    @Test func recordsCanBeReadWhileTheyChange() throws {
+        let dir = try TempDir()
+        let backup = FavoriteBackup(directory: dir.path("backup"))
+        let journal = CategoryJournal(url: dir.path("journal.json"))
+        DispatchQueue.concurrentPerform(iterations: 200) { n in
+            if n % 2 == 0 {
+                try? backup.add(FavoriteBackup.Record(original: "/o\(n)", backup: "/b\(n)", date: Date()))
+                try? journal.record(from: URL(fileURLWithPath: "/a\(n)"), to: URL(fileURLWithPath: "/b\(n)"))
+            } else {
+                _ = backup.records.count
+                _ = journal.moves.count
+            }
+        }
+        #expect(backup.records.count == 100)
+        #expect(journal.moves.count == 100)
     }
 }

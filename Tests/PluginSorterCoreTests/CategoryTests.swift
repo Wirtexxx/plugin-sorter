@@ -88,7 +88,7 @@ struct CategoryTests {
         // A second move still remembers the very first place
         let again = Favorite(fst: moved, title: "OTT", section: "Effects", entry: nil)
         try FLCategories.move(again, to: "Misc", root: db, journal: journal, pictures: pictures)
-        #expect(FLCategories.restoreAll(journal: CategoryJournal(url: dir.path("categories.json")), pictures: pictures) == 1)
+        #expect(try FLCategories.restoreAll(journal: CategoryJournal(url: dir.path("categories.json")), pictures: pictures) == 1)
         #expect(dir.exists("Plugin database/Effects/OTT.fst"))
         #expect(dir.exists("Plugin database/Effects/OTT.png"))
         #expect(!dir.exists("Plugin database/Effects/Misc/OTT.fst"))

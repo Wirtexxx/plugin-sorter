@@ -20,15 +20,15 @@ struct CheckCacheTests {
 
     @Test func storedResultSurvivesReload() throws {
         let ott = try bundle("OTT.vst3")
-        CheckCache(url: file).store([.quarantined, .loadFailed("x")], for: ott)
-        #expect(CheckCache(url: file).issues(for: ott) == [.quarantined, .loadFailed("x")])
+        CheckCache(url: file).store([.rosetta, .loadFailed("x")], for: ott)
+        #expect(CheckCache(url: file).issues(for: ott) == [.rosetta, .loadFailed("x")])
     }
 
     @Test func savedResultsCoverOnlyUnchangedBundles() throws {
         let ott = try bundle("OTT.vst3"), other = try bundle("Other.vst3")
         let cache = CheckCache(url: file)
-        cache.store([.quarantined], for: ott)
-        #expect(cache.saved(for: [ott, other]) == [ott.id: [.quarantined]])
+        cache.store([.rosetta], for: ott)
+        #expect(cache.saved(for: [ott, other]) == [ott.id: [.rosetta]])
         try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(3600)], ofItemAtPath: ott.url.path)
         #expect(cache.saved(for: [ott, other]).isEmpty)
     }
@@ -60,8 +60,8 @@ struct CheckCacheTests {
         #expect(cache.issues(for: ott) == nil)
         cache.store([.notRegistered], for: ott)
         #expect(cache.issues(for: ott) == nil)
-        cache.store([.quarantined], for: ott)
-        #expect(cache.issues(for: ott) == [.quarantined])
+        cache.store([.rosetta], for: ott)
+        #expect(cache.issues(for: ott) == [.rosetta])
     }
 
     @Test func unknownBundleHasNoResult() throws {
@@ -93,6 +93,17 @@ struct CheckQueueTests {
         cache.store([], for: one)
         #expect(CheckCache.pending(bundles, saved: cache.saved(for: bundles), forgotten: [two.id]).isEmpty)
     }
+
+    @Test func disabledBundlesAreNotQueuedForChecks() throws {
+        let dir = try TempDir()
+        try makeBundle(dir.path("Plug-Ins/VST3/A/One.vst3"), id: "com.a.one")
+        try makeBundle(dir.path("Plug-Ins/Disabled/Components/One.component"), id: "com.a.one.au")
+        let plugin = try #require(PluginInventory.scan(root: dir.path("Plug-Ins")).first)
+        #expect(plugin.bundles.count == 2)
+        #expect(plugin.activeBundles.map(\.format) == [.vst3])
+        let pending = CheckCache.pending(plugin.activeBundles, saved: [:], forgotten: [])
+        #expect(pending.map(\.format) == [.vst3])
+    }
 }
 
 @Suite("FL Studio")
@@ -114,5 +125,22 @@ struct KnownIssueTests {
         let flat = try #require(bundles.first { $0.url.lastPathComponent == "Flat.component" })
         #expect(PluginChecker.knownIssues(nested) == [.notRegistered])
         #expect(PluginChecker.knownIssues(flat) == nil)
+    }
+}
+
+@Suite("Saved results and quarantine")
+struct CheckCacheQuarantineTests {
+    private func bundle(_ url: URL, quarantined: Bool) -> PluginBundle {
+        PluginBundle(url: url, format: .vst3, vendor: "x", version: "1", executable: nil, archs: [],
+                     quarantined: quarantined, au: nil, nested: false)
+    }
+
+    @Test func aResultSavedInQuarantineEndsWithIt() throws {
+        let dir = try TempDir()
+        let url = try makeBundle(dir.path("P.vst3"))
+        let cache = CheckCache(url: dir.path("c.json"))
+        cache.store([.quarantined], for: bundle(url, quarantined: true))
+        #expect(cache.issues(for: bundle(url, quarantined: true)) == [.quarantined])
+        #expect(cache.issues(for: bundle(url, quarantined: false)) == nil)
     }
 }

@@ -14,7 +14,7 @@ struct VendorGroup: Identifiable {
 }
 
 struct Note: Identifiable {
-    enum Kind { case waves, kept, unknown, exists, restored, skipped, other }
+    enum Kind { case waves, kept, unknown, exists, restored, skipped, failed, other }
     let id = UUID()
     let kind: Kind
     let text: String
@@ -24,7 +24,10 @@ enum Status: Equatable {
     case idle, noFormats, undone, cancelled
     case willMove(Int)
     case moved(Int)
-    case auRestored(Int)
+    /// Some of the plugins stayed where they were.
+    case partlyMoved(moved: Int, failed: Int)
+    /// Some moves couldn't be taken back; the log is kept, so undoing again finishes the job.
+    case undoIncomplete(failed: Int)
     case failed(String)
 }
 
@@ -32,8 +35,6 @@ enum Status: Equatable {
 final class Sorter: ObservableObject {
     @Published var vst3 = true
     @Published var vst = true
-    /// Audio Units left in subfolders by versions before 1.1, which macOS can't load.
-    @Published var nestedAU = 0
     @Published var moves: [Move] = []
     @Published var notes: [Note] = []
     @Published var status: Status = .idle
@@ -46,9 +47,19 @@ final class Sorter: ObservableObject {
 
     private let logDir = NSHomeDirectory()
     private let demo: Bool
+    private let runner: Runner
+    // Owned by the main thread
+    private var inFlight = 0 { didSet { running = inFlight > 0 } }
+    /// A run that moves plugins: there is one at a time, and nothing looks at the folders meanwhile.
+    private var changing = false
+    /// Bumped by every preview and every move, so only the newest preview gets to speak.
+    private var previewGeneration = 0
 
-    init(demo: Bool = false) {
+    typealias Runner = (_ args: [String], _ admin: Bool, _ env: [String: String]) -> Shell.Result
+
+    init(demo: Bool = false, runner: @escaping Runner = { Shell.runScript($0, admin: $1, env: $2) }) {
         self.demo = demo
+        self.runner = runner
     }
 
     var formats: String {
@@ -71,13 +82,16 @@ final class Sorter: ObservableObject {
 
     func preview(keepStatus: Bool = false) {
         guard !demo else { return }
+        guard !changing else { return }
         guard !formats.isEmpty else { moves = []; notes = []; status = .noFormats; previewed = true; return }
+        previewGeneration += 1
+        let generation = previewGeneration
         run([], admin: false) { output in
+            guard generation == self.previewGeneration else { return }
             let result = Self.parse(output)
             self.applied = false
             self.previewed = true
             self.moves = result.moves
-            self.nestedAU = result.nestedAU
             if !keepStatus {
                 self.notes = result.notes
                 self.status = .willMove(result.count)
@@ -91,24 +105,16 @@ final class Sorter: ObservableObject {
             self.applied = true
             self.moves = result.moves
             self.notes = result.notes
-            self.status = .moved(result.count)
+            self.status = result.failed > 0 ? .partlyMoved(moved: result.count, failed: result.failed) : .moved(result.count)
         }
     }
 
     func undo() {
         guard let log = latestLog else { return }
         run(["--undo", log], admin: true) { output in
-            self.notes = Self.parse(output).notes
-            self.status = .undone
-            self.preview(keepStatus: true)
-        }
-    }
-
-    func restoreAU() {
-        run(["--restore-au"], admin: true) { output in
             let result = Self.parse(output)
             self.notes = result.notes
-            self.status = .auRestored(result.count)
+            self.status = result.failed > 0 ? .undoIncomplete(failed: result.failed) : .undone
             self.preview(keepStatus: true)
         }
     }
@@ -123,16 +129,15 @@ final class Sorter: ObservableObject {
 
     // MARK: - Output parsing
 
-    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, nestedAU: Int) {
+    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, failed: Int) {
         var format = ""
         var moves: [Move] = []
         var notes: [Note] = []
         var count = 0
-        var nestedAU = 0
         let number = { (line: String) in Int(String(line.drop { !$0.isNumber }.prefix { $0.isNumber })) ?? 0 }
         let prefixes: [(String, Note.Kind)] = [
             ("skip (Waves): ", .waves), ("keep: ", .kept), ("unknown vendor: ", .unknown), ("exists: ", .exists),
-            ("restored: ", .restored), ("skip: ", .skipped),
+            ("restored: ", .restored), ("skip: ", .skipped), ("failed: ", .failed),
         ]
 
         lines: for raw in output.split(separator: "\n") {
@@ -146,10 +151,10 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: kind, text: String(line.dropFirst(prefix.count))))
                 continue lines
             }
-            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") || line.hasPrefix("Restored AU: ") {
+            if line.hasPrefix("Would move: ") || line.hasPrefix("Moved: ") {
                 count = number(line)
             } else if line.hasPrefix("nested AU: ") {
-                nestedAU = number(line)
+                continue
             } else if line.hasSuffix("/"), let r = line.range(of: " -> ") {
                 let file = String(line[..<r.lowerBound])
                 moves.append(Move(plugin: (file as NSString).deletingPathExtension,
@@ -159,22 +164,32 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: .other, text: line))
             }
         }
-        return (moves, notes, count, nestedAU)
+        return (moves, notes, count, notes.filter { $0.kind == .failed }.count)
     }
 
     // MARK: - Running the script
 
     private func run(_ args: [String], admin: Bool, done: @escaping (String) -> Void) {
-        running = true
+        if admin {
+            guard !changing else { return }
+            changing = true
+            previewGeneration += 1   // what a preview running now sees is about to change
+        }
+        inFlight += 1
         let env = self.env
+        let runner = self.runner
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Shell.runScript(args, admin: admin, env: env)
+            let result = runner(args, admin, env)
             DispatchQueue.main.async {
-                self.running = false
+                self.inFlight -= 1
+                if admin { self.changing = false }
                 if result.succeeded {
                     done(result.output)
                 } else if result.cancelled {
                     self.status = .cancelled
+                } else if Self.parse(result.output).failed > 0 {
+                    // Part of it went through: the caller says how much
+                    done(result.output)
                 } else {
                     self.status = .failed(result.error)
                 }
