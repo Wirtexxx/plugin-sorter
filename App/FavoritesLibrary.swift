@@ -46,18 +46,26 @@ final class FavoritesLibrary: ObservableObject {
     /// The plugin being read while sorting by category.
     @Published private(set) var current = ""
 
-    private let backup = FavoriteBackup()
-    private let journal = CategoryJournal()
-    private let tags = TagCache()
+    private let backup: FavoriteBackup
+    private let journal: CategoryJournal
+    private let tags: TagCache
     private let scans = ScanGate()
     private let queue = DispatchQueue(label: "plugin-sorter.favorites", qos: .userInitiated)
 
     private var demo = false
 
-    init() {}
+    init() {
+        backup = FavoriteBackup()
+        journal = CategoryJournal()
+        tags = TagCache()
+    }
 
     /// Fixed content for README screenshots; never touches FL's database.
-    init(demoEntries: [InstalledEntry], favorites: [Favorite]) {
+    /// - Parameter storage: where its own files go; the app's folder unless given.
+    init(demoEntries: [InstalledEntry], favorites: [Favorite], storage: URL? = nil) {
+        backup = storage.map { FavoriteBackup(directory: $0.appendingPathComponent("removed")) } ?? FavoriteBackup()
+        journal = storage.map { CategoryJournal(url: $0.appendingPathComponent("categories.json")) } ?? CategoryJournal()
+        tags = storage.map { TagCache(url: $0.appendingPathComponent("tags.json")) } ?? TagCache()
         demo = true
         entries = demoEntries
         self.favorites = favorites
@@ -94,7 +102,7 @@ final class FavoritesLibrary: ObservableObject {
             self.scans.started()
             let entries = FLFavorites.installed()
             let favorites = FLFavorites.favorites(installed: entries)
-            let plugins = PluginInventory.scan()
+            let plugins = PluginInventory.scanAll()
             let bundleNames = Set(plugins.flatMap(\.bundles).map { $0.url.lastPathComponent })
             var audioUnits = Set(AVAudioUnitComponentManager.shared().components { _, _ in true }
                 .map { FLFavorites.auKey(vendor: $0.manufacturerName, name: $0.name) })

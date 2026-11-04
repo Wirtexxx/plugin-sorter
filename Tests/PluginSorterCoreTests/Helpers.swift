@@ -107,3 +107,8 @@ func makeBundle(_ url: URL, id: String? = nil, version: String = "1.0", binary: 
     }
     return url
 }
+
+/// Lets the main queue run until `condition` holds.
+@MainActor func wait(until condition: @escaping () -> Bool) async {
+    for _ in 0..<1000 where !condition() { try? await Task.sleep(nanoseconds: 2_000_000) }
+}

@@ -56,8 +56,10 @@ struct PluginRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             formats.frame(width: Self.formatsWidth, alignment: .trailing)
-            PluginStar(row: row, model: model, t: t).frame(width: Self.starWidth)
-            PluginCategoryMenu(row: row, model: model, t: t).frame(width: Self.categoryWidth, alignment: .leading)
+            if model.usesFL {
+                PluginStar(row: row, model: model, t: t).frame(width: Self.starWidth)
+                PluginCategoryMenu(row: row, model: model, t: t).frame(width: Self.categoryWidth, alignment: .leading)
+            }
             Text(size)
                 .font(.system(size: 12))
                 .foregroundColor(.label)
@@ -243,7 +245,7 @@ struct PluginDetailsView: View {
         if let text = problemText(plugin) {
             problem(text) {
                 ForEach(plugin.activeBundles.flatMap(manager.fixes)) { fix in
-                    Button(t.fix(fix)) { manager.apply(fix, for: plugin) }
+                    Button(t.fix(fix)) { model.whenHostsClosed { manager.apply(fix, for: plugin) } }
                         .buttonStyle(PillButtonStyle(primary: true))
                         .disabled(manager.busy)
                 }
@@ -600,10 +602,10 @@ struct PluginDetailsView: View {
             .buttonStyle(PillButtonStyle())
     }
 
-    /// Turning off asks first: open projects lose the plugin. Both ways wait for FL to be closed.
+    /// Turning off asks first: open projects lose the plugin. Both ways wait for the hosts to be closed.
     private func toggleDisabled(_ plugin: ManagedPlugin) {
         if plugin.isDisabled {
-            model.whenFLClosed { manager.setDisabled(plugin, false) }
+            model.whenHostsClosed { manager.setDisabled(plugin, false) }
             return
         }
         let alert = NSAlert()
@@ -613,7 +615,7 @@ struct PluginDetailsView: View {
         alert.addButton(withTitle: t("row.disable"))
         alert.addButton(withTitle: t("mgr.cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        model.whenFLClosed { manager.setDisabled(plugin, true) }
+        model.whenHostsClosed { manager.setDisabled(plugin, true) }
     }
 
     private func confirmTrash(_ plugin: ManagedPlugin) {
@@ -624,7 +626,7 @@ struct PluginDetailsView: View {
         alert.addButton(withTitle: t("mgr.trash"))
         alert.addButton(withTitle: t("mgr.cancel"))
         if alert.runModal() == .alertFirstButtonReturn {
-            manager.trash(plugin.bundles)
+            model.whenHostsClosed { manager.trash(plugin.bundles) }
         }
     }
 }

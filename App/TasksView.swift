@@ -14,8 +14,10 @@ struct TasksView: View {
             if !allDone || expanded {
                 HStack(spacing: 10) {
                     folders
-                    categories
-                    pictures
+                    if model.usesFL {
+                        categories
+                        pictures
+                    }
                 }
                 .frame(height: 100)
             }
@@ -59,7 +61,7 @@ struct TasksView: View {
                         remaining: remaining, total: max(model.manager.plugins.count, remaining),
                         progress: nil, busy: sorter.running,
                         action: t("task.sort"), run: { model.showFolderSheet = true },
-                        canUndo: sorter.latestLog != nil, undo: { sorter.undo() }, t: t)
+                        canUndo: sorter.latestLog != nil, undo: { model.undoSort() }, t: t)
     }
 
     private var categories: some View {
@@ -109,15 +111,17 @@ private struct TaskCard: View {
                     .foregroundColor(remaining == 0 && !busy ? .mint : .label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-                Group {
+                // Undo stays here whatever the banner above the list has moved on to
+                HStack(spacing: 6) {
                     if remaining > 0 || busy {
                         Button(action, action: run)
                             .buttonStyle(PillButtonStyle(primary: true, compact: true))
                             .disabled(busy)
-                    } else {
+                    }
+                    if canUndo || (remaining == 0 && !busy) {
                         Button(t("task.undo"), action: undo)
                             .buttonStyle(PillButtonStyle(compact: true))
-                            .disabled(!canUndo)
+                            .disabled(!canUndo || busy)
                     }
                 }
                 .padding(.top, 2)
@@ -176,7 +180,7 @@ struct FolderSortSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Button(t("task.sort")) {
                     model.showFolderSheet = false
-                    sorter.apply()
+                    model.sortFolders()
                 }
                 .buttonStyle(PillButtonStyle(primary: true))
                 .keyboardShortcut(.defaultAction)

@@ -33,11 +33,6 @@ private final class HeldScript {
     }
 }
 
-/// Lets the main queue run until `condition` holds.
-@MainActor private func wait(until condition: @escaping () -> Bool) async {
-    for _ in 0..<500 where !condition() { try? await Task.sleep(nanoseconds: 2_000_000) }
-}
-
 @Suite("Runs of the script don't step on each other")
 @MainActor struct SorterRunTests {
     @Test func aPreviewDoesNotStartWhilePluginsAreMoving() async {

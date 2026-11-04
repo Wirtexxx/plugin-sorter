@@ -19,10 +19,33 @@ struct Banner: Identifiable {
         case sorter(Status), pictures(FLStatus), manager(ManagerStatus), favorites(FavoritesStatus)
     }
 
+    enum Tone { case success, info, error }
+
     let id = UUID()
     let source: Source
     let isError: Bool
     let undo: (() -> Void)?
+
+    /// A cancel and a hint are neither a success nor a failure.
+    var tone: Tone {
+        if isError { return .error }
+        switch source {
+        case .sorter(.cancelled), .manager(.cancelled), .manager(.notSeenByFL): return .info
+        default: return .success
+        }
+    }
+
+    /// Errors stay until read, and results with an undo until decided on.
+    var fades: Bool { !isError && undo == nil }
+}
+
+/// Why the list has nothing to show.
+enum EmptyList: Equatable {
+    case noMatches, noPlugins
+
+    init(query: String, filter: CatalogFilter, plugins: Int) {
+        self = !query.isEmpty || filter != .all || plugins > 0 ? .noMatches : .noPlugins
+    }
 }
 
 /// State of the one-screen window. The four libraries keep doing the work; this joins their results
@@ -51,7 +74,13 @@ final class AppModel: ObservableObject {
     /// "Don't ask again" in the FL dialog, until the app quits.
     var skipFLCheck = false
     /// FL's plugin database; a demo folder for README screenshots.
-    var flRoot = FLDatabase.root
+    var flRoot = FLDatabase.root { didSet { findFL() } }
+    /// FL's database is on this Mac.
+    @Published private var flFound = FLDatabase.exists
+    /// Whether to show anything about FL: without it those columns and tasks would only say "done".
+    var usesFL: Bool { flFound || !favorites.entries.isEmpty }
+    /// "Don't ask again" in the dialog about open hosts, until the app quits.
+    var skipHostCheck = false
 
     private let known: KnownPlugins
     private var bag: Set<AnyCancellable> = []
@@ -210,12 +239,46 @@ final class AppModel: ObservableObject {
     /// Rescans everything.
     func refresh() {
         guard !Helper.isHelper() else { return }
+        findFL()
         manager.scan()
         favorites.scan()
         pictures.scan()
         sorter.refreshLatestLog()
         sorter.preview(keepStatus: true)
     }
+
+    private func findFL() {
+        let found = FileManager.default.fileExists(atPath: flRoot.path)
+        if found != flFound { flFound = found }
+    }
+
+    /// Goes back to every plugin, from a search or filter that found nothing.
+    func clearFilters() {
+        query = ""
+        filter = .all
+    }
+
+    /// Runs a change to plugin files now, or asks first while a host that may have them loaded is open.
+    func whenHostsClosed(_ action: @escaping () -> Void) {
+        let hosts = HostApps.running
+        guard !skipHostCheck, !hosts.isEmpty else { return action() }
+        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = t("hosts.title", hosts.joined(separator: ", "))
+        alert.informativeText = t("hosts.text")
+        alert.addButton(withTitle: t("flOpen.continue"))
+        alert.addButton(withTitle: t("mgr.cancel"))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = t("flOpen.dontAsk")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        if alert.suppressionButton?.state == .on { skipHostCheck = true }
+        action()
+    }
+
+    func sortFolders() { whenHostsClosed { self.sorter.apply() } }
+
+    func undoSort() { whenHostsClosed { self.sorter.undo() } }
 
     /// Runs an FL change now, or asks first while FL Studio is open.
     func whenFLClosed(_ action: @escaping () -> Void) {
@@ -265,9 +328,9 @@ final class AppModel: ObservableObject {
     /// Nothing left in any task. False until everything is read: every count is 0 before that.
     /// `sorter.running` is left out because each return to the window runs a preview.
     var tasksAllDone: Bool {
-        sorter.loaded && favorites.loaded && pictures.loaded
-            && (sorter.applied || sorter.moves.isEmpty)
-            && favorites.unsorted.isEmpty && missingPictures.isEmpty
+        guard sorter.loaded, sorter.applied || sorter.moves.isEmpty else { return false }
+        guard usesFL else { return true }
+        return favorites.loaded && pictures.loaded && favorites.unsorted.isEmpty && missingPictures.isEmpty
             && !favorites.busy && !pictures.busy
     }
 
@@ -304,7 +367,7 @@ final class AppModel: ObservableObject {
     func tapStar(_ row: CatalogRow) {
         switch StarTap(row: row, busy: favorites.busy) {
         case .toggle: toggleFavorite(row)
-        case .notSeen: show(Banner(source: .manager(.notSeenByFL), isError: true, undo: nil))
+        case .notSeen: show(Banner(source: .manager(.notSeenByFL), isError: false, undo: nil))
         case .wait: break
         }
     }
@@ -383,15 +446,15 @@ final class AppModel: ObservableObject {
                 self.sorter.preview(keepStatus: true)
                 fallthrough
             case .cancelled:
-                let undo: (() -> Void)? = { if case .moved = status { return { self.sorter.undo() } }; return nil }()
+                let undo: (() -> Void)? = { if case .moved = status { return { self.undoSort() } }; return nil }()
                 self.show(Banner(source: .sorter(status), isError: false, undo: undo))
             case .partlyMoved(let moved, _):
                 self.manager.scan()
                 self.sorter.preview(keepStatus: true)
-                self.show(Banner(source: .sorter(status), isError: true, undo: moved > 0 ? { self.sorter.undo() } : nil))
+                self.show(Banner(source: .sorter(status), isError: true, undo: moved > 0 ? { self.undoSort() } : nil))
             case .undoIncomplete:
                 self.manager.scan()
-                self.show(Banner(source: .sorter(status), isError: true, undo: { self.sorter.undo() }))
+                self.show(Banner(source: .sorter(status), isError: true, undo: { self.undoSort() }))
             case .failed:
                 self.show(Banner(source: .sorter(status), isError: true, undo: nil))
             case .idle, .noFormats, .willMove:
@@ -429,8 +492,7 @@ final class AppModel: ObservableObject {
     private func show(_ banner: Banner) {
         self.banner = banner
         bannerTimer?.invalidate()
-        // Results with an undo stay until closed; the rest fade on their own
-        guard banner.undo == nil else { return }
+        guard banner.fades else { return }
         bannerTimer = Timer.scheduledTimer(withTimeInterval: 6, repeats: false) { [weak self] _ in
             if self?.banner?.id == banner.id { self?.banner = nil }
         }

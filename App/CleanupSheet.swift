@@ -109,6 +109,6 @@ struct CleanupSheet: View {
         let urls = Set(targets.flatMap(\.bundles))
         let bundles = model.manager.plugins.flatMap(\.bundles).filter { urls.contains($0.url) }
         model.showCleanupSheet = false
-        model.whenFLClosed { model.manager.trash(bundles) }
+        model.whenHostsClosed { model.manager.trash(bundles) }
     }
 }

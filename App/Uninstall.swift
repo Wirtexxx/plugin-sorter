@@ -5,6 +5,8 @@ struct Receipt: Equatable {
     let id: String
     /// Paths of plugin bundles relative to the disk root, e.g. "Library/Audio/Plug-Ins/VST3/OTT.vst3".
     let files: [String]
+    /// It put an application on disk too: forgetting it would make macOS lose track of that.
+    var installsApp = false
 }
 
 /// Something a plugin leaves behind when its files are deleted.
@@ -53,7 +55,19 @@ enum Uninstall {
     /// would make macOS lose track of the plugins that stay.
     static func forgettable(_ receipts: [Receipt], removing: ManagedPlugin, others: [ManagedPlugin]) -> [Receipt] {
         let kept = others.reduce(into: Set<String>()) { $0.formUnion(bundleNames(of: $1)) }
-        return receipts.filter { bundleNames(of: $0).isDisjoint(with: kept) }
+        // Receipts are found by file name alone, and two developers can have a "Compressor.vst3". Leaving a
+        // receipt behind costs nothing, so unless it names the developer it isn't forgotten
+        let vendors = Set(removing.bundles.map(\.idVendor).filter { !$0.isEmpty })
+        return receipts.filter { receipt in
+            let id = receipt.id.lowercased().filter { $0.isLetter || $0.isNumber }
+            return bundleNames(of: receipt).isDisjoint(with: kept) && !receipt.installsApp
+                && (vendors.isEmpty || vendors.contains { id.contains($0) })
+        }
+    }
+
+    /// Whether a package's file list has an application in it.
+    static func installsApp(_ files: [String]) -> Bool {
+        files.contains { file in file.split(separator: "/").contains { $0.hasSuffix(".app") } }
     }
 
     /// Letters, digits, dots, hyphens and underscores, starting with a letter or digit, no "..": a name that
@@ -128,10 +142,11 @@ enum Uninstall {
         var loaded = [Receipt?](repeating: nil, count: ids.count)
         let lock = NSLock()
         DispatchQueue.concurrentPerform(iterations: ids.count) { index in
-            let files = bundleRoots(in: output(of: ["--files", ids[index]]).split(separator: "\n").map(String.init))
+            let all = output(of: ["--files", ids[index]]).split(separator: "\n").map(String.init)
+            let files = bundleRoots(in: all)
             guard !files.isEmpty else { return }
             lock.lock()
-            loaded[index] = Receipt(id: ids[index], files: files)
+            loaded[index] = Receipt(id: ids[index], files: files, installsApp: installsApp(all))
             lock.unlock()
         }
         let receipts = loaded.compactMap { $0 }

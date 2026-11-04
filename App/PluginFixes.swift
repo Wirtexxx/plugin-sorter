@@ -26,14 +26,14 @@ enum PluginFixes {
 
     /// Repairs for a bundle's issues, given everything that is installed.
     static func fixes(for bundle: PluginBundle, issues: [Issue], installed: [PluginBundle],
-                      root: URL = PluginInventory.root) -> [Fix] {
+                      root: URL = PluginInventory.root, userRoot: URL = PluginInventory.userRoot) -> [Fix] {
         var fixes: [Fix] = []
         for issue in issues {
             switch issue {
             case .quarantined:
                 fixes.append(.unquarantine(bundle.url))
             case .notRegistered where bundle.nested:
-                let destination = root.appendingPathComponent(PluginFormat.au.folder, isDirectory: true)
+                let destination = (bundle.isUserLevel ? userRoot : root).appendingPathComponent(PluginFormat.au.folder, isDirectory: true)
                     .appendingPathComponent(bundle.url.lastPathComponent)
                 if !FileManager.default.fileExists(atPath: destination.path) {
                     fixes.append(.relocate(from: bundle.url, to: destination))

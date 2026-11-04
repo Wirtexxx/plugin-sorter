@@ -51,6 +51,8 @@ struct PluginBundle: Identifiable {
     var isDisabled = false
     /// CFBundleIdentifier, the key of the plugin's preferences and caches.
     var bundleID = ""
+    /// In ~/Library/Audio/Plug-Ins: the user's own, changed without the administrator dialog.
+    var isUserLevel = false
 
     /// Where the file goes when it is turned on again: the same path without "Disabled/".
     var enabledURL: URL {
@@ -68,7 +70,7 @@ struct PluginBundle: Identifiable {
     var displayPath: String {
         let parts = url.pathComponents
         guard let start = parts.lastIndex(of: format.folder) else { return url.path }
-        return parts[start...].joined(separator: "/")
+        return (isUserLevel ? "~/" : "") + parts[start...].joined(separator: "/")
     }
 }
 
@@ -89,6 +91,11 @@ struct ManagedPlugin: Identifiable {
 
 enum PluginInventory {
     static let root = URL(fileURLWithPath: "/Library/Audio/Plug-Ins", isDirectory: true)
+    static let userRoot = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Audio/Plug-Ins", isDirectory: true)
+
+    /// Everything installed, for all users and for this one.
+    static func scanAll() -> [ManagedPlugin] { scan(root: root, userRoot: userRoot) }
 
     static var hostArch: String {
         #if arch(arm64)
@@ -101,19 +108,23 @@ enum PluginInventory {
     /// Where turned-off plugins live inside the plugin tree, mirroring the format folders.
     static let disabledFolder = "Disabled"
 
-    static func scan(root: URL = PluginInventory.root) -> [ManagedPlugin] {
+    static func scan(root: URL = PluginInventory.root, userRoot: URL? = nil) -> [ManagedPlugin] {
         var bundles: [PluginBundle] = []
-        let disabledRoot = root.appendingPathComponent(disabledFolder, isDirectory: true)
-        for format in PluginFormat.allCases {
-            for (base, isDisabled) in [(root, false), (disabledRoot, true)] {
-                let dir = base.appendingPathComponent(format.folder, isDirectory: true)
-                guard let walker = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil,
-                                                                   options: [.skipsHiddenFiles]) else { continue }
-                for case let url as URL in walker where url.pathExtension.lowercased() == format.fileExtension {
-                    walker.skipDescendants()
-                    var bundle = read(url, format: format, formatRoot: dir)
-                    bundle.isDisabled = isDisabled
-                    bundles.append(bundle)
+        let places = [(root, false)] + (userRoot.map { [($0, true)] } ?? [])
+        for (place, isUserLevel) in places {
+            let disabledRoot = place.appendingPathComponent(disabledFolder, isDirectory: true)
+            for format in PluginFormat.allCases {
+                for (base, isDisabled) in [(place, false), (disabledRoot, true)] {
+                    let dir = base.appendingPathComponent(format.folder, isDirectory: true)
+                    guard let walker = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil,
+                                                                       options: [.skipsHiddenFiles]) else { continue }
+                    for case let url as URL in walker where url.pathExtension.lowercased() == format.fileExtension {
+                        walker.skipDescendants()
+                        var bundle = read(url, format: format, formatRoot: dir)
+                        bundle.isDisabled = isDisabled
+                        bundle.isUserLevel = isUserLevel
+                        bundles.append(bundle)
+                    }
                 }
             }
         }

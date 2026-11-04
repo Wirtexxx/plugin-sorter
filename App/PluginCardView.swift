@@ -107,10 +107,14 @@ struct PluginCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         // One layer per card: dozens of them are on screen, and scrolling moves each of their parts
         .drawingGroup()
-        .overlay(PluginStar(row: row, model: model, t: t, size: 12)
-            .background(Circle().fill(Color.chassis.opacity(0.75)))
-            .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
-            .padding(2), alignment: .topTrailing)
+        .overlay(Group {
+            if model.usesFL {
+                PluginStar(row: row, model: model, t: t, size: 12)
+                    .background(Circle().fill(Color.chassis.opacity(0.75)))
+                    .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
+                    .padding(2)
+            }
+        }, alignment: .topTrailing)
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(isSelected ? Color.accent : .clear, lineWidth: 2))
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .help(row.vendor.isEmpty ? row.name : "\(row.name) · \(row.vendor)")
@@ -165,8 +169,10 @@ struct PluginDetailPanel: View {
                 VStack(alignment: .leading, spacing: 14) {
                     artwork
                     HStack(spacing: 8) {
-                        PluginStar(row: row, model: model, t: t)
-                        PluginCategoryMenu(row: row, model: model, t: t)
+                        if model.usesFL {
+                            PluginStar(row: row, model: model, t: t)
+                            PluginCategoryMenu(row: row, model: model, t: t)
+                        }
                         Spacer(minLength: 0)
                         Text(size).font(.system(size: 12)).foregroundColor(.label)
                     }

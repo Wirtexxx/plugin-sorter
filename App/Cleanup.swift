@@ -52,7 +52,7 @@ enum Cleanup {
             guard let family = family(of: plugin.name) else { continue }
             chains[FLFavorites.normalize(plugin.vendor) + "|" + family.base, default: []].append((plugin, family.version))
         }
-        for chain in chains.values where chain.count > 1 {
+        for (key, chain) in chains where chain.count > 1 && !separateProducts.contains(String(key.split(separator: "|").last ?? "")) {
             for run in versionRuns(chain) {
                 guard let newest = run.max(by: { $0.version < $1.version }) else { continue }
                 for item in run where item.version < newest.version {
@@ -94,6 +94,9 @@ enum Cleanup {
     }
 
     private static let maxVersionStep = 2
+
+    /// Names where the number is another product, not an update: both stay in use side by side.
+    private static let separateProducts: Set<String> = ["serum"]
 
     /// Everything but the newest copy of each format. A turned-off copy is the user's choice, so it is
     /// only compared with other turned-off copies.

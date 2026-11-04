@@ -138,6 +138,6 @@ struct UninstallSheet: View {
         let target = plugin
         let forget = forgettable
         model.uninstallTarget = nil
-        model.whenFLClosed { model.manager.uninstall(target, leftovers: chosen, receipts: forget) }
+        model.whenHostsClosed { model.manager.uninstall(target, leftovers: chosen, receipts: forget) }
     }
 }

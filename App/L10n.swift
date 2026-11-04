@@ -66,6 +66,8 @@ struct L10n {
         case .toggled(let disabled, let n):  return self(disabled ? "mgr.turnedOff" : "mgr.turnedOn", n)
         case .fixed:                         return self("mgr.fixed")
         case .notSeenByFL:                   return self("row.notSeen")
+        case .partly(let done, let failed):
+            return self("mgr.partly", done, failed.count) + (failed.isEmpty ? "" : "\n" + failed.joined(separator: "\n"))
         case .cancelled:                     return self("status.cancelled")
         case .failed(let error):             return self("status.failed", error)
         }
@@ -187,7 +189,24 @@ struct L10n {
         t["main.checking"] = [.en: "Checking %d of %d · %@", .ru: "Проверяю %d из %d · %@", .uk: "Перевіряю %d з %d · %@", .de: "Prüfe %d von %d · %@"]
         t["main.capturing"] = [.en: "Capturing %d of %d · %@", .ru: "Снимаю %d из %d · %@", .uk: "Знімаю %d з %d · %@", .de: "Aufnahme %d von %d · %@"]
         t["main.stopping"] = [.en: "Stopping…", .ru: "Останавливаю…", .uk: "Зупиняю…", .de: "Wird gestoppt…"]
-        t["main.empty"] = [.en: "Nothing here", .ru: "Здесь пусто", .uk: "Тут порожньо", .de: "Nichts hier"]
+        t["main.empty"] = [.en: "Nothing matches", .ru: "Ничего не найдено", .uk: "Нічого не знайдено", .de: "Keine Treffer"]
+        t["main.clearFilters"] = [.en: "Show all plugins", .ru: "Показать все плагины", .uk: "Показати всі плагіни", .de: "Alle Plugins zeigen"]
+        t["main.noPlugins"] = [
+            .en: "No plugins in /Library/Audio/Plug-Ins or ~/Library/Audio/Plug-Ins",
+            .ru: "В /Library/Audio/Plug-Ins и ~/Library/Audio/Plug-Ins нет плагинов",
+            .uk: "У /Library/Audio/Plug-Ins і ~/Library/Audio/Plug-Ins немає плагінів",
+            .de: "Keine Plugins in /Library/Audio/Plug-Ins oder ~/Library/Audio/Plug-Ins",
+        ]
+        t["banner.more"] = [.en: "Details", .ru: "Подробнее", .uk: "Докладніше", .de: "Details"]
+        t["banner.less"] = [.en: "Less", .ru: "Свернуть", .uk: "Згорнути", .de: "Weniger"]
+        t["mgr.partly"] = [.en: "Done: %d, failed: %d", .ru: "Готово: %d, не удалось: %d", .uk: "Готово: %d, не вдалося: %d", .de: "Erledigt: %d, fehlgeschlagen: %d"]
+        t["hosts.title"] = [.en: "%@ is open", .ru: "Открыто: %@", .uk: "Відкрито: %@", .de: "%@ ist geöffnet"]
+        t["hosts.text"] = [
+            .en: "A plugin moved while a host has it loaded can crash the host, and an open project may lose it. Better close it first.",
+            .ru: "Если переместить плагин, пока он загружен, программа может упасть, а открытый проект потеряет плагин. Лучше сначала закрыть её.",
+            .uk: "Якщо перемістити плагін, поки він завантажений, програма може впасти, а відкритий проєкт втратить плагін. Краще спершу закрити її.",
+            .de: "Wird ein geladenes Plugin verschoben, kann das Programm abstürzen und ein offenes Projekt es verlieren. Besser zuerst schließen.",
+        ]
         t["row.notSeen"] = [
             .en: "FL hasn't seen this plugin yet — refresh the plugin list in FL",
             .ru: "FL ещё не видел этот плагин — обновите список плагинов в FL",
