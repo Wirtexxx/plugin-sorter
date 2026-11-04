@@ -287,8 +287,17 @@ final class AppModel: ObservableObject {
 
     func isFavorite(_ entry: InstalledEntry) -> Bool { favorites.isFavorite(entry) }
 
+    /// A click on the star.
+    func tapStar(_ row: CatalogRow) {
+        switch StarTap(row: row, busy: favorites.busy) {
+        case .toggle: toggleFavorite(row)
+        case .notSeen: show(Banner(source: .manager(.notSeenByFL), isError: true, undo: nil))
+        case .wait: break
+        }
+    }
+
     /// The star: removes every favourite of the plugin, or adds its preferred format.
-    func toggleFavorite(_ row: CatalogRow) {
+    private func toggleFavorite(_ row: CatalogRow) {
         whenFLClosed {
             if row.isFavorite {
                 self.favorites.remove(row.favorites)

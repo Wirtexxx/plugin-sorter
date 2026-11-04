@@ -160,15 +160,15 @@ struct PluginStar: View {
     var size: CGFloat = 14
 
     var body: some View {
-        Button { model.toggleFavorite(row) } label: {
+        Button { model.tapStar(row) } label: {
             Image(systemName: row.isFavorite ? "star.fill" : "star")
                 .font(.system(size: size, weight: .semibold))
                 .foregroundColor(row.isFavorite ? .accent : row.isKnownToFL ? .label : .edge)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
-        .disabled(!row.isKnownToFL || model.favorites.busy)
+        .buttonStyle(PointerButtonStyle())
+        .opacity(model.favorites.busy ? 0.5 : 1)
         .help(row.isKnownToFL ? t(row.isFavorite ? "row.removeFavorite" : "row.addFavorite") : t("row.notSeen"))
     }
 }

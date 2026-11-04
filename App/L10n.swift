@@ -62,6 +62,7 @@ struct L10n {
         case .exported(let n):               return self("mgr.exported", n)
         case .toggled(let disabled, let n):  return self(disabled ? "mgr.turnedOff" : "mgr.turnedOn", n)
         case .fixed:                         return self("mgr.fixed")
+        case .notSeenByFL:                   return self("row.notSeen")
         case .cancelled:                     return self("status.cancelled")
         case .failed(let error):             return self("status.failed", error)
         }

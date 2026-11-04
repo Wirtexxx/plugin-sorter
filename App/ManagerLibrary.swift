@@ -9,6 +9,8 @@ enum ManagerStatus: Equatable {
     /// Plugins turned off (`disabled`) or on again.
     case toggled(disabled: Bool, count: Int)
     case fixed
+    /// The star of a plugin FL has not scanned yet.
+    case notSeenByFL
     case cancelled
     case failed(String)
 }

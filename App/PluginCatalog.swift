@@ -17,6 +17,20 @@ struct CatalogRow: Identifiable {
     let isStale: Bool
 }
 
+/// What a click on the star does. The star never turns its click down: a disabled button would pass it
+/// on to the row, which opens instead.
+enum StarTap: Equatable {
+    case toggle
+    /// FL has no scan of the plugin, and a favourite is a copy of that scan.
+    case notSeen
+    /// A change to the favourites is still running.
+    case wait
+
+    init(row: CatalogRow, busy: Bool) {
+        self = !row.isKnownToFL ? .notSeen : busy ? .wait : .toggle
+    }
+}
+
 enum PluginCatalog {
     /// Every disk plugin as a row, with FL's entries and favourites joined in. FL's own plugins are left out.
     /// FL entries with no plugin here still get a row: installed elsewhere, or favourites of a deleted plugin.
