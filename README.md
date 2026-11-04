@@ -5,7 +5,7 @@
 <h1 align="center">Plugin Sorter</h1>
 
 <p align="center">
-  <b>Sort your VST3 and VST plugins into developer folders — in one click.</b>
+  <b>A free plugin manager for macOS: sort VST3 and VST plugins into developer folders, test every plugin, remove duplicates, and bring plugin pictures to FL Studio.</b>
 </p>
 
 <p align="center">
