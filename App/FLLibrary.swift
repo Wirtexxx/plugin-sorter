@@ -30,6 +30,7 @@ final class FLLibrary: ObservableObject {
     @Published private(set) var stopRequested = false
 
     private let local = LocalPictures()
+    private let scans = ScanGate()
     private let manifest = PictureManifest.shared
     private let queue = DispatchQueue(label: "plugin-sorter.fl", qos: .userInitiated)
     private let demo: Bool
@@ -48,7 +49,9 @@ final class FLLibrary: ObservableObject {
     func scan() {
         guard !demo else { return }
         guard FLDatabase.exists else { plugins = []; scanned = true; return }
+        guard scans.request() else { return }
         queue.async {
+            self.scans.started()
             let plugins = FLDatabase.scan(self.manifest)
             DispatchQueue.main.async {
                 self.plugins = plugins

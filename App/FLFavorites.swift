@@ -56,30 +56,37 @@ final class FavoriteBackup {
         .appendingPathComponent("Plugin Sorter/Removed favorites", isDirectory: true)
 
     let directory: URL
-    private(set) var records: [Record] = []
+    /// Read by the window while the favourites' queue changes it.
+    private let lock = NSLock()
+    private var saved: [Record] = []
+    var records: [Record] { lock.lock(); defer { lock.unlock() }; return saved }
     private var journal: URL { directory.appendingPathComponent("removed.json") }
 
     init(directory: URL = FavoriteBackup.defaultDirectory) {
         self.directory = directory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         if let data = try? Data(contentsOf: journal),
-           let saved = try? JSONDecoder().decode([Record].self, from: data) {
-            records = saved
+           let records = try? JSONDecoder().decode([Record].self, from: data) {
+            saved = records
         }
     }
 
-    fileprivate func add(_ record: Record) {
-        records.append(record)
+    func add(_ record: Record) {
+        lock.lock()
+        defer { lock.unlock() }
+        saved.append(record)
         save()
     }
 
     fileprivate func remove(where shouldRemove: (Record) -> Bool) {
-        records.removeAll(where: shouldRemove)
+        lock.lock()
+        defer { lock.unlock() }
+        saved.removeAll(where: shouldRemove)
         save()
     }
 
     private func save() {
-        try? JSONEncoder().encode(records).write(to: journal, options: .atomic)
+        try? JSONEncoder().encode(saved).write(to: journal, options: .atomic)
     }
 }
 

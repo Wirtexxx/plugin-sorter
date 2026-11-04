@@ -3,7 +3,10 @@ import Foundation
 /// Favourites Plugin Sorter moved into category folders, kept so they can be put back.
 final class CategoryJournal {
     /// Where each moved .fst is now → where it was before Plugin Sorter first moved it.
-    private(set) var moves: [String: String] = [:]
+    var moves: [String: String] { lock.lock(); defer { lock.unlock() }; return saved }
+    /// Read by the window while the favourites' queue changes it.
+    private let lock = NSLock()
+    private var saved: [String: String] = [:]
     private let url: URL
 
     static let defaultURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -13,27 +16,31 @@ final class CategoryJournal {
         self.url = url
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let data = try? Data(contentsOf: url),
-           let saved = try? JSONDecoder().decode([String: String].self, from: data) {
-            moves = saved
+           let moves = try? JSONDecoder().decode([String: String].self, from: data) {
+            saved = moves
         }
     }
 
-    fileprivate func record(from: URL, to: URL) {
+    func record(from: URL, to: URL) {
+        lock.lock()
+        defer { lock.unlock() }
         // A second move keeps where the favourite was in the first place
-        let original = moves.removeValue(forKey: from.path) ?? from.path
-        if original != to.path { moves[to.path] = original }
+        let original = saved.removeValue(forKey: from.path) ?? from.path
+        if original != to.path { saved[to.path] = original }
         save()
     }
 
     fileprivate func forget(_ path: String) {
-        moves[path] = nil
+        lock.lock()
+        defer { lock.unlock() }
+        saved[path] = nil
         save()
     }
 
     private func save() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? encoder.encode(moves).write(to: url, options: .atomic)
+        try? encoder.encode(saved).write(to: url, options: .atomic)
     }
 }
 

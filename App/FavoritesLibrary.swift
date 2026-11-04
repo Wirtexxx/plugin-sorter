@@ -49,6 +49,7 @@ final class FavoritesLibrary: ObservableObject {
     private let backup = FavoriteBackup()
     private let journal = CategoryJournal()
     private let tags = TagCache()
+    private let scans = ScanGate()
     private let queue = DispatchQueue(label: "plugin-sorter.favorites", qos: .userInitiated)
 
     private var demo = false
@@ -88,8 +89,9 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     func scan() {
-        guard !demo else { return }
+        guard !demo, scans.request() else { return }
         queue.async {
+            self.scans.started()
             let entries = FLFavorites.installed()
             let favorites = FLFavorites.favorites(installed: entries)
             let plugins = PluginInventory.scan()

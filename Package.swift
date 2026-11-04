@@ -35,6 +35,7 @@ let package = Package(
                 "LicenseVault.swift",
                 "LocalPictures.swift",
                 "Helper.swift",
+                "Scheduling.swift",
             ]
         ),
         .testTarget(

@@ -54,6 +54,9 @@ final class ManagerLibrary: ObservableObject {
     private var checkRunning = false
     private var batchDone = 0
     private var batchTotal = 0
+    private var afterScan: [() -> Void] = []
+    private let afterScanLock = NSLock()
+    private let scans = ScanGate()
 
     init(demo: Bool = false, cache: CheckCache = CheckCache()) {
         self.demo = demo
@@ -163,7 +166,19 @@ final class ManagerLibrary: ObservableObject {
 
     func scan(then completion: (() -> Void)? = nil) {
         guard !demo else { return }
+        if let completion = completion {
+            afterScanLock.lock()
+            afterScan.append(completion)
+            afterScanLock.unlock()
+        }
+        guard scans.request() else { return }
         queue.async {
+            self.scans.started()
+            // Taken as this scan starts: a completion must see what its caller just changed
+            self.afterScanLock.lock()
+            let finished = self.afterScan
+            self.afterScan = []
+            self.afterScanLock.unlock()
             let plugins = PluginInventory.scan()
             let saved = self.cache.saved(for: plugins.flatMap(\.bundles))
             DispatchQueue.main.async {
@@ -182,7 +197,7 @@ final class ManagerLibrary: ObservableObject {
                 self.forgotten.subtract(plugins.flatMap { $0.bundles.map(\.id) })
                 self.computeSizes(for: plugins)
                 self.checkInBackground(saved: saved)
-                completion?()
+                finished.forEach { $0() }
             }
         }
     }

@@ -56,6 +56,7 @@ final class AppModel: ObservableObject {
     private let known: KnownPlugins
     private var bag: Set<AnyCancellable> = []
     private var bannerTimer: Timer?
+    private let refreshes = Debouncer(delay: 0.3)
     /// `allRows`, kept until a library it's made from changes.
     private var cachedRows: [CatalogRow]?
     /// `findings`, kept until the installed plugins change.
@@ -100,7 +101,7 @@ final class AppModel: ObservableObject {
         }.store(in: &bag)
         observeStatuses()
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
-            .sink { [weak self] _ in self?.refresh() }
+            .sink { [weak self] _ in self?.scheduleRefresh() }
             .store(in: &bag)
     }
 
@@ -195,7 +196,15 @@ final class AppModel: ObservableObject {
 
     // MARK: - Actions
 
-    /// Rescans everything; called at launch, after actions and when the app comes back to the front.
+    /// A refresh when things have calmed down. The window coming to the front is often a side effect of
+    /// our own work: the password dialog closing, a helper that took the focus for a screenshot going away.
+    /// What runs then reports back with a scan of its own.
+    func scheduleRefresh() {
+        guard !sorter.running, !manager.busy, !pictures.capturingAll else { return }
+        refreshes.schedule { [weak self] in self?.refresh() }
+    }
+
+    /// Rescans everything.
     func refresh() {
         guard !Helper.isHelper() else { return }
         manager.scan()
@@ -402,6 +411,7 @@ final class AppModel: ObservableObject {
             guard let self = self, status != .idle else { return }
             var isError = false
             if case .failed = status { isError = true }
+            if case .captured = status { self.scheduleRefresh() }
             self.show(Banner(source: .pictures(status), isError: isError, undo: nil))
         }.store(in: &bag)
 

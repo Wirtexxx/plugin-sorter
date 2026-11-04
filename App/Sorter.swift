@@ -50,9 +50,19 @@ final class Sorter: ObservableObject {
 
     private let logDir = NSHomeDirectory()
     private let demo: Bool
+    private let runner: Runner
+    // Owned by the main thread
+    private var inFlight = 0 { didSet { running = inFlight > 0 } }
+    /// A run that moves plugins: there is one at a time, and nothing looks at the folders meanwhile.
+    private var changing = false
+    /// Bumped by every preview and every move, so only the newest preview gets to speak.
+    private var previewGeneration = 0
 
-    init(demo: Bool = false) {
+    typealias Runner = (_ args: [String], _ admin: Bool, _ env: [String: String]) -> Shell.Result
+
+    init(demo: Bool = false, runner: @escaping Runner = { Shell.runScript($0, admin: $1, env: $2) }) {
         self.demo = demo
+        self.runner = runner
     }
 
     var formats: String {
@@ -75,8 +85,12 @@ final class Sorter: ObservableObject {
 
     func preview(keepStatus: Bool = false) {
         guard !demo else { return }
+        guard !changing else { return }
         guard !formats.isEmpty else { moves = []; notes = []; status = .noFormats; previewed = true; return }
+        previewGeneration += 1
+        let generation = previewGeneration
         run([], admin: false) { output in
+            guard generation == self.previewGeneration else { return }
             let result = Self.parse(output)
             self.applied = false
             self.previewed = true
@@ -170,12 +184,19 @@ final class Sorter: ObservableObject {
     // MARK: - Running the script
 
     private func run(_ args: [String], admin: Bool, done: @escaping (String) -> Void) {
-        running = true
+        if admin {
+            guard !changing else { return }
+            changing = true
+            previewGeneration += 1   // what a preview running now sees is about to change
+        }
+        inFlight += 1
         let env = self.env
+        let runner = self.runner
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Shell.runScript(args, admin: admin, env: env)
+            let result = runner(args, admin, env)
             DispatchQueue.main.async {
-                self.running = false
+                self.inFlight -= 1
+                if admin { self.changing = false }
                 if result.succeeded {
                     done(result.output)
                 } else if result.cancelled {

@@ -25,7 +25,7 @@ struct ContentView: View {
         .background(WindowStyler())
         .onAppear {
             Shell.prompt = t("admin.prompt")
-            model.refresh()
+            model.scheduleRefresh()
         }
         .onChange(of: language) { _ in Shell.prompt = t("admin.prompt") }
     }

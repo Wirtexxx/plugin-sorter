@@ -148,3 +148,24 @@ struct FavoritesTests {
         #expect(backup.records.count == 1)  // still restorable later
     }
 }
+
+@Suite("Undo records read from the window")
+struct UndoRecordThreadTests {
+    /// The window asks on every redraw while the favourites' queue writes.
+    @Test func recordsCanBeReadWhileTheyChange() throws {
+        let dir = try TempDir()
+        let backup = FavoriteBackup(directory: dir.path("backup"))
+        let journal = CategoryJournal(url: dir.path("journal.json"))
+        DispatchQueue.concurrentPerform(iterations: 200) { n in
+            if n % 2 == 0 {
+                backup.add(FavoriteBackup.Record(original: "/o\(n)", backup: "/b\(n)", date: Date()))
+                journal.record(from: URL(fileURLWithPath: "/a\(n)"), to: URL(fileURLWithPath: "/b\(n)"))
+            } else {
+                _ = backup.records.count
+                _ = journal.moves.count
+            }
+        }
+        #expect(backup.records.count == 100)
+        #expect(journal.moves.count == 100)
+    }
+}
