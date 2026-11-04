@@ -46,9 +46,11 @@ enum Palette {
     }
 
     private static func luminance(_ hex: UInt32) -> Double {
-        let channels = [hex >> 16, hex >> 8, hex].map { Double($0 & 0xFF) / 255 }
-        let linear = channels.map { $0 <= 0.03928 ? $0 / 12.92 : pow(($0 + 0.055) / 1.055, 2.4) }
-        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+        func linear(_ shift: UInt32) -> Double {
+            let channel: Double = Double((hex >> shift) & 0xFF) / 255
+            return channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(16) + 0.7152 * linear(8) + 0.0722 * linear(0)
     }
 }
 
