@@ -28,7 +28,8 @@ final class CheckCache {
     func issues(for bundle: PluginBundle) -> [Issue]? {
         lock.lock()
         defer { lock.unlock() }
-        guard let record = records[bundle.url.path], record.modified == Self.modified(bundle) else { return nil }
+        guard let record = records[bundle.url.path], record.modified == Self.modified(bundle),
+              record.issues.contains(.quarantined) == bundle.quarantined else { return nil }
         return record.issues
     }
 

@@ -197,6 +197,7 @@ final class AppModel: ObservableObject {
 
     /// Rescans everything; called at launch, after actions and when the app comes back to the front.
     func refresh() {
+        guard !Helper.isHelper() else { return }
         manager.scan()
         favorites.scan()
         pictures.scan()

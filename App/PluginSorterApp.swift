@@ -16,6 +16,8 @@ enum Entry {
         if CommandLine.arguments.dropFirst().first == "--tags" {
             PluginTags.runHelper(Array(CommandLine.arguments.dropFirst()))
         }
+        // Marked as a helper but no mode to run: the window must never open from here
+        if Helper.isHelper() { _exit(64) }
         PluginSorterApp.main()
     }
 }

@@ -195,3 +195,23 @@ struct CheckerTests {
         #expect(CheckState.unchecked.level == nil)
     }
 }
+
+@Suite("Plugins that aren't trusted yet")
+struct QuarantineTests {
+    @Test func aQuarantinedPluginIsNeverLoaded() throws {
+        let dir = try TempDir()
+        let url = try makeBundle(dir.path("New.vst3"), id: "com.x.new")
+        let bundle = PluginBundle(url: url, format: .vst3, vendor: "x", version: "1", executable: url.appendingPathComponent("Contents/MacOS/New"),
+                                  archs: [PluginInventory.hostArch], quarantined: true, au: nil, nested: false)
+        #expect(PluginChecker.check(bundle) == [.quarantined])
+    }
+
+    @Test func aQuarantinedAudioUnitIsNotValidated() throws {
+        let dir = try TempDir()
+        let url = try makeBundle(dir.path("New.component"), id: "com.x.new")
+        let bundle = PluginBundle(url: url, format: .au, vendor: "x", version: "1", executable: url.appendingPathComponent("Contents/MacOS/New"),
+                                  archs: [PluginInventory.hostArch], quarantined: true,
+                                  au: AUCode(type: "aufx", subtype: "abcd", manufacturer: "Xxxx"), nested: false)
+        #expect(PluginChecker.check(bundle) == [.quarantined])
+    }
+}

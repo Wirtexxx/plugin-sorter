@@ -55,6 +55,10 @@ enum PluginChecker {
             return issues + [.wrongArch(bundle.archs)]
         }
 
+        // Checking means running the plugin's code. Nobody has vouched for a download yet: that's the
+        // user's call, and clearing the flag brings the check back
+        if bundle.quarantined { return issues }
+
         if bundle.format == .au {
             // macOS only registers components that sit directly in Components
             guard !bundle.nested, let code = bundle.au else { return issues + [.notRegistered] }
@@ -85,9 +89,8 @@ enum PluginChecker {
     // MARK: - VST, VST3, CLAP
 
     private static func probe(_ bundle: PluginBundle) -> [Issue] {
-        guard let executable = Bundle.main.executableURL else { return [] }
-        guard let output = runLogged(executable, ["--probe", bundle.format.rawValue, bundle.url.path], timeout: 30,
-                                     successMarker: "PROBE OK") else { return [.timeout] }
+        guard let helper = Helper.process(["--probe", bundle.format.rawValue, bundle.url.path]),
+              let output = runLogged(helper, timeout: 30, successMarker: "PROBE OK") else { return [.timeout] }
         if output.contains("PROBE OK") { return [] }
         let reason = output.split(separator: "\n").last.map(String.init) ?? ""
         return [.loadFailed(reason.isEmpty ? "crashed" : reason)]
@@ -95,6 +98,7 @@ enum PluginChecker {
 
     /// Entry point for `--probe FORMAT PATH`. Prints "PROBE OK" or the reason it failed.
     static func runProbe(_ args: [String]) -> Never {
+        alarm(Helper.timeLimit)
         guard args.count >= 3, let format = PluginFormat(rawValue: args[1]) else { _exit(1) }
         let url = URL(fileURLWithPath: args[2])
         func fail(_ message: String) -> Never {
@@ -139,14 +143,19 @@ enum PluginChecker {
     /// Returns nil on timeout unless the output already contains `successMarker`.
     static func runLogged(_ tool: URL, _ args: [String], timeout: TimeInterval,
                                   successMarker: String? = nil) -> String? {
+        let process = Process()
+        process.executableURL = tool
+        process.arguments = args
+        return runLogged(process, timeout: timeout, successMarker: successMarker)
+    }
+
+    /// The same for a process set up by the caller.
+    static func runLogged(_ process: Process, timeout: TimeInterval, successMarker: String? = nil) -> String? {
         let log = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".log")
         FileManager.default.createFile(atPath: log.path, contents: nil)
         defer { try? FileManager.default.removeItem(at: log) }
         guard let handle = try? FileHandle(forWritingTo: log) else { return nil }
 
-        let process = Process()
-        process.executableURL = tool
-        process.arguments = args
         process.currentDirectoryURL = FileManager.default.temporaryDirectory
         process.standardOutput = handle
         process.standardError = handle

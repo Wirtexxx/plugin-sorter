@@ -47,14 +47,12 @@ enum PluginCapture {
 
     /// Returns a thumbnail PNG, or nil if the plugin couldn't be shown or captured in time.
     static func capture(_ component: AVAudioUnitComponent, timeout: TimeInterval = 25) -> Data? {
-        guard let executable = Bundle.main.executableURL else { return nil }
         let out = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".png")
         defer { try? FileManager.default.removeItem(at: out) }
 
         let d = component.audioComponentDescription
-        let helper = Process()
-        helper.executableURL = executable
-        helper.arguments = ["--capture", "\(d.componentType)", "\(d.componentSubType)", "\(d.componentManufacturer)", out.path]
+        guard let helper = Helper.process(["--capture", "\(d.componentType)", "\(d.componentSubType)",
+                                           "\(d.componentManufacturer)", out.path]) else { return nil }
         helper.standardOutput = FileHandle.nullDevice
         helper.standardError = FileHandle.nullDevice
         guard (try? helper.run()) != nil else { return nil }
@@ -75,6 +73,7 @@ enum PluginCapture {
 
     /// Entry point for `--capture type subtype manufacturer out.png`. Exit code 0 means a PNG was written.
     static func runHelper(_ args: [String]) -> Never {
+        alarm(Helper.timeLimit)
         guard args.count >= 5, let type = UInt32(args[1]), let sub = UInt32(args[2]), let man = UInt32(args[3]) else { _exit(1) }
         let out = URL(fileURLWithPath: args[4])
         let app = NSApplication.shared

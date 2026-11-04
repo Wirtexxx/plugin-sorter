@@ -6,9 +6,8 @@ import Foundation
 enum PluginTags {
     /// Lowercased tags, nil when the plugin couldn't be read.
     static func read(_ format: PluginFormat, _ url: URL) -> [String]? {
-        guard format == .vst3 || format == .clap, let executable = Bundle.main.executableURL else { return nil }
-        guard let output = PluginChecker.runLogged(executable, ["--tags", format.rawValue, url.path], timeout: 30,
-                                                   successMarker: "TAGS OK"),
+        guard format == .vst3 || format == .clap, let helper = Helper.process(["--tags", format.rawValue, url.path]),
+              let output = PluginChecker.runLogged(helper, timeout: 30, successMarker: "TAGS OK"),
               output.contains("TAGS OK") else { return nil }
         return output.split(separator: "\n")
             .filter { $0.hasPrefix("TAG ") }
@@ -17,6 +16,7 @@ enum PluginTags {
 
     /// Entry point for `--tags FORMAT PATH`. Prints "TAG …" lines, then "TAGS OK".
     static func runHelper(_ args: [String]) -> Never {
+        alarm(Helper.timeLimit)
         guard args.count >= 3, let format = PluginFormat(rawValue: args[1]) else { _exit(1) }
         let url = URL(fileURLWithPath: args[2])
         guard let bundle = Bundle(url: url), let executable = bundle.executablePath,
