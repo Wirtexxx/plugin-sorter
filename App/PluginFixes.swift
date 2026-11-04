@@ -81,11 +81,11 @@ enum PluginFixes {
     }
 
     /// Adds a bundle name to the keep list, once.
-    static func keep(_ name: String, file: URL = keepFile) {
+    static func keep(_ name: String, file: URL = keepFile) throws {
         let existing = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
         let names = existing.split(whereSeparator: \.isNewline).map(String.init)
         guard !names.contains(name) else { return }
-        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? (names + [name]).joined(separator: "\n").appending("\n").write(to: file, atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try (names + [name]).joined(separator: "\n").appending("\n").write(to: file, atomically: true, encoding: .utf8)
     }
 }

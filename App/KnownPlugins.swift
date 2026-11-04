@@ -14,16 +14,15 @@ final class KnownPlugins {
     static let defaultURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Plugin Sorter/known-plugins.json")
 
-    private let url: URL
+    private let store: JSONStore<Saved>
     /// Nil until a scan with plugins in it: that scan is the first run.
     private var known: Set<String>?
     private var new: Set<String> = []
     private var missing: Set<String> = []
 
     init(url: URL = KnownPlugins.defaultURL) {
-        self.url = url
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode(Saved.self, from: data) {
+        store = JSONStore(url: url)
+        if let saved = store.load() {
             known = Set(saved.known)
             new = Set(saved.new)
             missing = Set(saved.missing ?? [])
@@ -60,6 +59,6 @@ final class KnownPlugins {
 
     private func save() {
         let saved = Saved(known: (known ?? []).sorted(), new: new.sorted(), missing: missing.sorted())
-        try? JSONEncoder().encode(saved).write(to: url, options: .atomic)
+        try? store.save(saved)   // "new" marks only: a failed save shows them again
     }
 }

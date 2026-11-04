@@ -60,33 +60,26 @@ final class FavoriteBackup {
     private let lock = NSLock()
     private var saved: [Record] = []
     var records: [Record] { lock.lock(); defer { lock.unlock() }; return saved }
-    private var journal: URL { directory.appendingPathComponent("removed.json") }
+    private var store: JSONStore<[Record]> { JSONStore(url: directory.appendingPathComponent("removed.json")) }
 
     init(directory: URL = FavoriteBackup.defaultDirectory) {
         self.directory = directory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: journal),
-           let records = try? JSONDecoder().decode([Record].self, from: data) {
-            saved = records
-        }
+        saved = store.load() ?? []
     }
 
-    func add(_ record: Record) {
+    func add(_ record: Record) throws {
         lock.lock()
         defer { lock.unlock() }
         saved.append(record)
-        save()
+        try store.save(saved)
     }
 
-    fileprivate func remove(where shouldRemove: (Record) -> Bool) {
+    fileprivate func remove(where shouldRemove: (Record) -> Bool) throws {
         lock.lock()
         defer { lock.unlock() }
         saved.removeAll(where: shouldRemove)
-        save()
-    }
-
-    private func save() {
-        try? JSONEncoder().encode(saved).write(to: journal, options: .atomic)
+        try store.save(saved)
     }
 }
 
@@ -225,14 +218,15 @@ enum FLFavorites {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         for file in [favorite.fst, favorite.nfo, favorite.picture] where FileManager.default.fileExists(atPath: file.path) {
             let target = folder.appendingPathComponent(file.lastPathComponent)
+            // The record first: a file in the backup that nothing points to could never come back
+            try backup.add(FavoriteBackup.Record(original: file.path, backup: target.path, date: Date()))
             try FileManager.default.moveItem(at: file, to: target)
-            backup.add(FavoriteBackup.Record(original: file.path, backup: target.path, date: Date()))
         }
     }
 
     /// Puts every removed favourite back where it was, unless something new took its place. Returns how many came back.
     @discardableResult
-    static func restoreAll(backup: FavoriteBackup) -> Int {
+    static func restoreAll(backup: FavoriteBackup) throws -> Int {
         var restored = 0
         let fm = FileManager.default
         for record in backup.records {
@@ -244,7 +238,7 @@ enum FLFavorites {
                 restored += 1
             }
         }
-        backup.remove { !fm.fileExists(atPath: $0.backup) }
+        try backup.remove { !fm.fileExists(atPath: $0.backup) }
         return restored
     }
 

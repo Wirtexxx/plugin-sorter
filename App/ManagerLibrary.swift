@@ -138,13 +138,16 @@ final class ManagerLibrary: ObservableObject {
             }
             let result = Shell.runScript(args, admin: admin, env: Shell.ownerEnv)
             let moved = result.output.contains("relocated: ")
+            var keepError: Error?
             if moved, PluginFixes.isDependency(fix), case .relocate(_, let to) = fix {
                 // Another plugin needs it exactly there: never sort it away again
-                PluginFixes.keep(to.lastPathComponent)
+                do { try PluginFixes.keep(to.lastPathComponent) } catch { keepError = error }
             }
             DispatchQueue.main.async {
                 self.busy = false
-                if result.succeeded {
+                if let error = keepError {
+                    self.status = .failed(error.localizedDescription)
+                } else if result.succeeded {
                     self.status = .fixed
                 } else {
                     self.status = result.cancelled ? .cancelled : .failed(result.error)

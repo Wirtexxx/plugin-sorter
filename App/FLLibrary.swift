@@ -177,9 +177,12 @@ final class FLLibrary: ObservableObject {
 
     func remove(_ targets: [FLPlugin]) {
         queue.async {
-            targets.forEach { FLDatabase.remove($0, manifest: self.manifest) }
+            let result = Result { for target in targets { try FLDatabase.remove(target, manifest: self.manifest) } }
             DispatchQueue.main.async {
-                self.status = .removed(targets.count)
+                switch result {
+                case .success:            self.status = .removed(targets.count)
+                case .failure(let error): self.status = .failed(error.localizedDescription)
+                }
                 self.scan()
             }
         }

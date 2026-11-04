@@ -21,20 +21,13 @@ final class UserLabels: ObservableObject {
         .appendingPathComponent("Plugin Sorter/labels.json")
 
     @Published private(set) var all: [String: PluginLabels] = [:]
-    private let url: URL
+    /// The last save that failed, for the window to say so.
+    @Published private(set) var saveError: String?
+    private let store: JSONStore<[String: PluginLabels]>
 
     init(url: URL = UserLabels.defaultURL) {
-        self.url = url
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        guard let data = try? Data(contentsOf: url) else { return }
-        if let saved = try? JSONDecoder().decode([String: PluginLabels].self, from: data) {
-            all = saved
-        } else {
-            // Unreadable: kept next to the original instead of being overwritten by the next change
-            let bad = url.appendingPathExtension("bad")
-            try? FileManager.default.removeItem(at: bad)
-            try? FileManager.default.moveItem(at: url, to: bad)
-        }
+        store = JSONStore(url: url)
+        all = store.load() ?? [:]
     }
 
     /// Every tag in use with the number of plugins that have it: most used first, then by name.
@@ -78,6 +71,11 @@ final class UserLabels: ObservableObject {
         next[key] = labels.isEmpty ? nil : labels
         guard next != all else { return }
         all = next
-        try? JSONEncoder().encode(next).write(to: url, options: .atomic)
+        do {
+            try store.save(next)
+            saveError = nil
+        } catch {
+            saveError = error.localizedDescription
+        }
     }
 }

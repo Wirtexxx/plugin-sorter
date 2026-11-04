@@ -180,7 +180,7 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     func unsort() {
-        perform { .unsorted(FLCategories.restoreAll(journal: self.journal, pictures: .shared)) }
+        perform { .unsorted(try FLCategories.restoreAll(journal: self.journal, pictures: .shared)) }
     }
 
     /// The VST3 or CLAP file to ask for tags: the favourite's own format, else another format of the same plugin.
@@ -202,7 +202,7 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     func restore() {
-        perform { .restored(FLFavorites.restoreAll(backup: self.backup)) }
+        perform { .restored(try FLFavorites.restoreAll(backup: self.backup)) }
     }
 
     /// Runs a change off the main thread, then reports its status and rescans.

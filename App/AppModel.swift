@@ -99,6 +99,9 @@ final class AppModel: ObservableObject {
             let used = all.values.contains { $0.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame } }
             if !used { self.filter = .all }
         }.store(in: &bag)
+        labels.$saveError.compactMap { $0 }.sink { [weak self] error in
+            self?.show(Banner(source: .manager(.failed(error)), isError: true, undo: nil))
+        }.store(in: &bag)
         observeStatuses()
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in self?.scheduleRefresh() }

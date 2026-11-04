@@ -137,16 +137,12 @@ final class TagCache {
         .appendingPathComponent("Plugin Sorter/plugin-tags.json")
 
     private var records: [String: Record] = [:]
-    private let url: URL
+    private let store: JSONStore<[String: Record]>
     private let lock = NSLock()
 
     init(url: URL = TagCache.defaultURL) {
-        self.url = url
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: url),
-           let saved = try? JSONDecoder().decode([String: Record].self, from: data) {
-            records = saved
-        }
+        store = JSONStore(url: url)
+        records = store.load() ?? [:]
     }
 
     /// Safe to call from several threads at once; an updated plugin is read again.
@@ -161,7 +157,7 @@ final class TagCache {
         let tags = PluginTags.read(format, bundle) ?? []
         lock.lock()
         records[bundle.path] = Record(modified: modified, tags: tags)
-        try? JSONEncoder().encode(records).write(to: url, options: .atomic)
+        try? store.save(records)   // only a cache: the plugin is read again next time
         lock.unlock()
         return tags
     }

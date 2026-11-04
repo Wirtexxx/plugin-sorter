@@ -1,6 +1,6 @@
 // swift-tools-version:6.0
 // Swift package for the tests only: the app itself is built by build.sh.
-// PluginSorterCore is the UI-free part of App/ — parsers, inventory, checks and the script runner.
+// PluginSorterCore is everything in App/ but the @main entry point, which the tests must never start.
 import PackageDescription
 
 let package = Package(
@@ -10,33 +10,7 @@ let package = Package(
         .target(
             name: "PluginSorterCore",
             path: "App",
-            sources: [
-                "FLDatabase.swift",
-                "PluginInventory.swift",
-                "PluginChecker.swift",
-                "Sorter.swift",
-                "Shell.swift",
-                "PluginFixes.swift",
-                "FLFavorites.swift",
-                "DiskUsage.swift",
-                "FLCategories.swift",
-                "CheckCache.swift",
-                "PluginCatalog.swift",
-                "FLStudio.swift",
-                "ScrollGlide.swift",
-                "CardPictures.swift",
-                "DetailsTab.swift",
-                "Cleanup.swift",
-                "Uninstall.swift",
-                "CatalogExport.swift",
-                "SupportDraft.swift",
-                "KnownPlugins.swift",
-                "UserLabels.swift",
-                "LicenseVault.swift",
-                "LocalPictures.swift",
-                "Helper.swift",
-                "Scheduling.swift",
-            ]
+            exclude: ["PluginSorterApp.swift"],
         ),
         .testTarget(
             name: "PluginSorterCoreTests",
