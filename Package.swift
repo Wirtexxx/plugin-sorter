@@ -33,6 +33,7 @@ let package = Package(
                 "KnownPlugins.swift",
                 "UserLabels.swift",
                 "LicenseVault.swift",
+                "LocalPictures.swift",
             ]
         ),
         .testTarget(

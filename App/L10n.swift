@@ -49,6 +49,7 @@ struct L10n {
         switch status {
         case .idle:                         return ""
         case .done(let shots, let cards):   return self("fl.done", shots, cards)
+        case .captured(let shots, let failed): return self("fl.captured", shots, failed)
         case .removed(let n):               return self("fl.removed", n)
         case .failed(let error):            return self("status.failed", error)
         }
@@ -427,6 +428,12 @@ struct L10n {
             .ru: "Завис во время проверки",
             .uk: "Завис під час перевірки",
             .de: "Hing während der Prüfung",
+        ]
+        t["gear.allPictures"] = [.en: "Capture pictures of all plugins", .ru: "Снять картинки всех плагинов", .uk: "Зняти картинки всіх плагінів", .de: "Bilder aller Plugins aufnehmen"]
+        t["gear.stopPictures"] = [.en: "Stop capturing", .ru: "Остановить съёмку", .uk: "Зупинити зйомку", .de: "Aufnahme stoppen"]
+        t["fl.captured"] = [
+            .en: "Pictures taken: %d, couldn't open: %d", .ru: "Снято картинок: %d, не открылось: %d",
+            .uk: "Знято картинок: %d, не відкрилося: %d", .de: "Bilder aufgenommen: %d, nicht geöffnet: %d",
         ]
         t["fl.capturing"] = [.en: "Capturing", .ru: "Снимаю", .uk: "Знімаю", .de: "Aufnahme"]
         t["fl.retake"] = [.en: "Retake screenshot", .ru: "Переснять скриншот", .uk: "Перезняти скриншот", .de: "Screenshot neu aufnehmen"]

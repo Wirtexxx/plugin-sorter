@@ -81,7 +81,7 @@ struct TasksView: View {
                         detail: library.busy ? "\(t("fl.capturing")) · \(library.current)" : t("task.pictures.left", remaining),
                         remaining: remaining, total: max(model.pictureTargets.count, remaining),
                         progress: library.busy ? library.progress : nil, busy: library.busy,
-                        action: t("task.add"), run: { model.whenFLClosed { library.generate(model.missingPictures, screenshots: true) } },
+                        action: t("task.add"), run: { model.addMissingPictures() },
                         canUndo: !library.mine.isEmpty, undo: { model.whenFLClosed { library.remove(library.mine) } }, t: t)
     }
 }

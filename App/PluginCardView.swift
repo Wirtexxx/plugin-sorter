@@ -83,10 +83,11 @@ struct PluginCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            CardArtwork(title: row.name, vendor: row.vendor, url: pictureURL,
-                        hasHeader: model.picture(of: row)?.source != nil, busy: model.pictures.busy)
-                .id(pictureURL)
+        let art = model.artwork(of: row)
+        return VStack(alignment: .leading, spacing: 0) {
+            CardArtwork(title: row.name, vendor: row.vendor, url: art?.url,
+                        hasHeader: art?.hasHeader ?? false, busy: model.pictures.busy)
+                .id(art?.url)
                 .overlay(LED(level: model.level(of: row), running: isRunning)
                     .frame(width: 18, height: 18)
                     .background(Circle().fill(Color.chassis.opacity(0.75)))
@@ -120,8 +121,6 @@ struct PluginCardView: View {
             }
         }
     }
-
-    private var pictureURL: URL? { model.picture(of: row).flatMap { $0.hasPicture ? $0.picture : nil } }
 }
 
 /// One plugin's details beside the cards, like the preview pane in Finder.
@@ -191,10 +190,10 @@ struct PluginDetailPanel: View {
     /// Takes a dropped image, as the picture in the list's details does, when the plugin has a picture in FL.
     private var artwork: some View {
         let picture = model.picture(of: row)
-        let url = picture.flatMap { $0.hasPicture ? $0.picture : nil }
-        return CardArtwork(title: row.name, vendor: row.vendor, url: url,
-                           hasHeader: picture?.source != nil, busy: model.pictures.busy)
-            .id(url)
+        let art = model.artwork(of: row)
+        return CardArtwork(title: row.name, vendor: row.vendor, url: art?.url,
+                           hasHeader: art?.hasHeader ?? false, busy: model.pictures.busy)
+            .id(art?.url)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10)
                 .stroke(targeted ? Color.accent : .clear, style: StrokeStyle(lineWidth: 2, dash: [5, 3])))

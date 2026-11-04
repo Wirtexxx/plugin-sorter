@@ -21,6 +21,26 @@ enum PluginCapture {
             ?? (candidates.count == 1 ? candidates[0] : nil)
     }
 
+    /// Finds the AU of an installed plugin: by its code, or by name as with FL's favourites.
+    static func match(_ plugin: ManagedPlugin, in components: [AVAudioUnitComponent]) -> AVAudioUnitComponent? {
+        let bundles = plugin.activeBundles.filter { $0.format == .au }
+        for code in bundles.compactMap(\.au) {
+            let found = components.first {
+                let d = $0.audioComponentDescription
+                return fourCC(d.componentSubType) == code.subtype && fourCC(d.componentManufacturer) == code.manufacturer
+            }
+            if let found = found { return found }
+        }
+        let names = Set(([plugin.name] + bundles.map(\.auName)).map(normalize).filter { !$0.isEmpty })
+        let vendor = normalize(plugin.vendor)
+        let candidates = components.filter { names.contains(normalize($0.name)) }
+        return candidates.first { normalize($0.manufacturerName) == vendor } ?? (candidates.count == 1 ? candidates[0] : nil)
+    }
+
+    private static func fourCC(_ code: UInt32) -> String {
+        String(decoding: [24, 16, 8, 0].map { UInt8((code >> $0) & 0xFF) }, as: UTF8.self)
+    }
+
     private static func normalize(_ s: String) -> String {
         s.lowercased().filter { $0.isLetter || $0.isNumber }
     }

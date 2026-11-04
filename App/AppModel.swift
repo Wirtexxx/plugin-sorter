@@ -302,14 +302,51 @@ final class AppModel: ObservableObject {
             if row.isFavorite {
                 self.favorites.remove(row.favorites)
             } else if let entry = self.preferred(row) {
-                self.favorites.toggle(entry)
+                self.favorites.toggle(entry, added: self.adoptShot(of: row))
             }
         }
     }
 
     /// A format pill in the details: that one format in or out of the favourites.
     func toggle(_ entry: InstalledEntry) {
-        whenFLClosed { self.favorites.toggle(entry) }
+        let row = allRows.first { $0.entries.contains { $0.id == entry.id } }
+        whenFLClosed { self.favorites.toggle(entry, added: row.flatMap(self.adoptShot)) }
+    }
+
+    /// Hands the plugin's screenshot to its new favourite, when the app has one.
+    private func adoptShot(of row: CatalogRow) -> ((URL) -> Void)? {
+        guard let shot = row.plugin.flatMap({ pictures.localPicture(of: $0.key) }) else { return nil }
+        return { [weak self] fst in self?.pictures.adopt(shot, for: fst) }
+    }
+
+    /// What the card shows: FL's picture, or our screenshot, which beats a generated card in FL.
+    func artwork(of row: CatalogRow) -> (url: URL, hasHeader: Bool)? {
+        let shot = row.plugin.flatMap { pictures.localPicture(of: $0.key) }
+        if let picture = picture(of: row), picture.hasPicture, picture.source != .card || shot == nil {
+            return (picture.picture, picture.source != nil)
+        }
+        return shot.map { ($0, false) }
+    }
+
+    /// Plugins still without a real picture, which a capture of everything would open.
+    var shotTargets: [ManagedPlugin] {
+        let pictured = allRows.filter { row in
+            picture(of: row).map { $0.hasPicture && $0.source != .card } ?? false
+        }.compactMap { $0.plugin?.key }
+        return LocalPictures.targets(manager.plugins, skipping: pictures.localKeys.union(pictured))
+    }
+
+    func captureAllPictures() { pictures.captureAll(shotTargets) }
+
+    /// The pictures task: favourites with a screenshot of ours get it without opening the plugin.
+    func addMissingPictures() {
+        var shots: [String: URL] = [:]
+        for row in allRows {
+            guard let shot = row.plugin.flatMap({ pictures.localPicture(of: $0.key) }) else { continue }
+            for favorite in row.favorites { shots[favorite.id] = shot }
+        }
+        let targets = missingPictures
+        whenFLClosed { self.pictures.generate(targets, screenshots: true, local: shots) }
     }
 
     func setCategory(_ row: CatalogRow, to folder: String?) {

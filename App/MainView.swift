@@ -211,6 +211,12 @@ struct MainView: View {
             Button(t("gear.recheck")) { model.manager.recheckAll() }
             Button(t("fix.resetAU")) { model.manager.apply(.resetAUCache, for: nil) }
                 .disabled(model.manager.busy)
+            if model.pictures.capturingAll {
+                Button(t("gear.stopPictures")) { model.pictures.stopCapture() }
+            } else {
+                Button(t("gear.allPictures")) { model.captureAllPictures() }
+                    .disabled(model.pictures.busy || model.shotTargets.isEmpty)
+            }
             Button(t("gear.restore")) { model.whenFLClosed { model.favorites.restore() } }
                 .disabled(!model.favorites.canRestore)
             Menu(t("gear.export")) {

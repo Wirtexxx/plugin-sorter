@@ -112,12 +112,14 @@ final class FavoritesLibrary: ObservableObject {
     }
 
     /// A format chip: adds or removes just that format.
-    func toggle(_ entry: InstalledEntry) {
+    /// - Parameter added: gets the favourite's file when one was added.
+    func toggle(_ entry: InstalledEntry, added: ((URL) -> Void)? = nil) {
         if isFavorite(entry) {
             remove(favorites.filter { $0.entry?.id == entry.id })
         } else {
             perform {
-                _ = try FLFavorites.add(entry)
+                let fst = try FLFavorites.add(entry)
+                if let added = added { DispatchQueue.main.async { added(fst) } }
                 return nil
             }
         }
