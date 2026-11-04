@@ -116,7 +116,15 @@ struct MainView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 12)
             if let checking = model.manager.checking {
-                checkingLine(checking)
+                progressLine(t("main.checking", checking.done + 1, checking.total, checking.current), checking)
+            }
+            if let capture = model.pictures.capture {
+                progressLine(t("main.capturing", capture.done + 1, capture.total, capture.current), capture) {
+                    let stopping = model.pictures.stopRequested
+                    Button(t(stopping ? "main.stopping" : "gear.stopPictures")) { model.pictures.stopCapture() }
+                        .buttonStyle(PillButtonStyle(compact: true))
+                        .disabled(stopping)
+                }
             }
         }
         .card()
@@ -252,21 +260,23 @@ struct MainView: View {
         menu.performActionForItem(at: item)
     }
 
-    private func checkingLine(_ checking: CheckProgress) -> some View {
+    private func progressLine<Accessory: View>(_ text: String, _ progress: CheckProgress,
+                                               @ViewBuilder accessory: () -> Accessory = { EmptyView() }) -> some View {
         VStack(spacing: 6) {
             HStack {
-                Text(t("main.checking", checking.done + 1, checking.total, checking.current))
+                Text(text)
                     .font(.system(size: 12))
                     .foregroundColor(.label)
                     .lineLimit(1)
                 Spacer()
+                accessory()
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.inset)
                     Capsule()
                         .fill(accentGradient)
-                        .frame(width: max(4, geo.size.width * CGFloat(checking.done) / CGFloat(max(checking.total, 1))))
+                        .frame(width: max(4, geo.size.width * CGFloat(progress.done) / CGFloat(max(progress.total, 1))))
                 }
             }
             .frame(height: 3)

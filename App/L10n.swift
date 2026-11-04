@@ -182,6 +182,8 @@ struct L10n {
         t["col.category"] = [.en: "FL category", .ru: "Категория FL", .uk: "Категорія FL", .de: "FL-Kategorie"]
         t["col.size"] = [.en: "Size", .ru: "Размер", .uk: "Розмір", .de: "Größe"]
         t["main.checking"] = [.en: "Checking %d of %d · %@", .ru: "Проверяю %d из %d · %@", .uk: "Перевіряю %d з %d · %@", .de: "Prüfe %d von %d · %@"]
+        t["main.capturing"] = [.en: "Capturing %d of %d · %@", .ru: "Снимаю %d из %d · %@", .uk: "Знімаю %d з %d · %@", .de: "Aufnahme %d von %d · %@"]
+        t["main.stopping"] = [.en: "Stopping…", .ru: "Останавливаю…", .uk: "Зупиняю…", .de: "Wird gestoppt…"]
         t["main.empty"] = [.en: "Nothing here", .ru: "Здесь пусто", .uk: "Тут порожньо", .de: "Nichts hier"]
         t["row.notSeen"] = [
             .en: "FL hasn't seen this plugin yet — refresh the plugin list in FL",
