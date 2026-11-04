@@ -88,7 +88,7 @@ struct PluginCardView: View {
             CardArtwork(title: row.name, vendor: row.vendor, url: art?.url,
                         hasHeader: art?.hasHeader ?? false, busy: model.pictures.busy)
                 .id(art?.url)
-                .overlay(LED(level: model.level(of: row), running: isRunning)
+                .overlay(LED(level: model.level(of: row), running: isRunning, label: t.level(model.level(of: row)))
                     .frame(width: 18, height: 18)
                     .background(Circle().fill(Color.chassis.opacity(0.75)))
                     .padding(4), alignment: .topLeading)
@@ -119,10 +119,17 @@ struct PluginCardView: View {
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .help(row.vendor.isEmpty ? row.name : "\(row.name) · \(row.vendor)")
         .onHover { hovered = $0 && !SmoothScrollView.isScrolling }
-        .onTapGesture {
-            withAnimation(Motion.reduced ? nil : .easeOut(duration: 0.2)) {
-                model.expanded = isSelected ? nil : row.id
-            }
+        .onTapGesture(perform: toggle)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(row.vendor.isEmpty ? row.name : "\(row.name), \(row.vendor)")
+        .accessibilityValue(t.level(model.level(of: row)))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(.default, toggle)
+    }
+
+    private func toggle() {
+        withAnimation(Motion.reduced ? nil : .easeOut(duration: 0.2)) {
+            model.expanded = isSelected ? nil : row.id
         }
     }
 }
@@ -160,6 +167,7 @@ struct PluginDetailPanel: View {
                 .buttonStyle(PointerButtonStyle())
                 .keyboardShortcut(.cancelAction)
                 .help(t("banner.close"))
+                .accessibilityLabel(t("banner.close"))
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)

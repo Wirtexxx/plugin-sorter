@@ -84,6 +84,7 @@ struct CleanupSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PointerButtonStyle())
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func isFavorite(_ finding: CleanupFinding) -> Bool {

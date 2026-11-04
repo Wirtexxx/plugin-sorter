@@ -32,6 +32,16 @@ struct L10n {
         return args.isEmpty ? format : String(format: format, arguments: args)
     }
 
+    /// A check result in words: what the lamp says in colour.
+    func level(_ level: CheckState.Level?) -> String {
+        switch level {
+        case .ok?:      return self("level.ok")
+        case .warning?: return self("level.warning")
+        case .failed?:  return self("level.failed")
+        case nil:       return self("level.unchecked")
+        }
+    }
+
     func status(_ status: Status) -> String {
         switch status {
         case .idle:              return ""
@@ -197,6 +207,13 @@ struct L10n {
             .uk: "У /Library/Audio/Plug-Ins і ~/Library/Audio/Plug-Ins немає плагінів",
             .de: "Keine Plugins in /Library/Audio/Plug-Ins oder ~/Library/Audio/Plug-Ins",
         ]
+        t["level.ok"] = [.en: "Works", .ru: "Работает", .uk: "Працює", .de: "Funktioniert"]
+        t["level.warning"] = [.en: "Warning", .ru: "Есть предупреждение", .uk: "Є попередження", .de: "Warnung"]
+        t["level.failed"] = [.en: "Problem", .ru: "Есть проблема", .uk: "Є проблема", .de: "Problem"]
+        t["level.unchecked"] = [.en: "Not checked yet", .ru: "Ещё не проверен", .uk: "Ще не перевірено", .de: "Noch nicht geprüft"]
+        t["gear.menu"] = [.en: "More actions", .ru: "Другие действия", .uk: "Інші дії", .de: "Weitere Aktionen"]
+        t["row.open"] = [.en: "Show details", .ru: "Показать подробности", .uk: "Показати подробиці", .de: "Details anzeigen"]
+        t["row.close"] = [.en: "Hide details", .ru: "Скрыть подробности", .uk: "Сховати подробиці", .de: "Details ausblenden"]
         t["banner.more"] = [.en: "Details", .ru: "Подробнее", .uk: "Докладніше", .de: "Details"]
         t["banner.less"] = [.en: "Less", .ru: "Свернуть", .uk: "Згорнути", .de: "Weniger"]
         t["mgr.partly"] = [.en: "Done: %d, failed: %d", .ru: "Готово: %d, не удалось: %d", .uk: "Готово: %d, не вдалося: %d", .de: "Erledigt: %d, fehlgeschlagen: %d"]

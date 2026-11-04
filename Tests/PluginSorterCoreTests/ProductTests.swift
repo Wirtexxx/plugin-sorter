@@ -281,3 +281,30 @@ private func plugin(_ bundles: [PluginBundle]) -> ManagedPlugin {
         #expect(model().tasksAllDone)
     }
 }
+
+@Suite("Colours people can read")
+struct ContrastTests {
+    @Test func secondaryTextIsReadableOnEverySurface() {
+        for surface in [Palette.chassis, Palette.inset, Palette.panel, Palette.raised] {
+            #expect(Palette.contrast(Palette.label, surface) >= 4.5)
+            #expect(Palette.contrast(Palette.text, surface) >= 4.5)
+        }
+    }
+
+    @Test func controlsThatStillWorkCanBeSeen() {
+        for surface in [Palette.chassis, Palette.inset, Palette.panel, Palette.raised] {
+            #expect(Palette.contrast(Palette.dim, surface) >= 3)
+        }
+    }
+}
+
+@Suite("Words for what colours say")
+struct StateWordsTests {
+    @Test func everyStateHasAWordInEveryLanguage() {
+        for lang in Lang.allCases {
+            let t = L10n(lang: lang)
+            for level in [CheckState.Level.ok, .warning, .failed] { #expect(!t.level(level).hasPrefix("level.")) }
+            #expect(!t.level(nil).hasPrefix("level."))
+        }
+    }
+}

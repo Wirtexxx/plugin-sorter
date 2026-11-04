@@ -83,6 +83,7 @@ struct MainView: View {
             }
             .buttonStyle(PointerButtonStyle())
             .help(t("banner.close"))
+            .accessibilityLabel(t("banner.close"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -171,6 +172,25 @@ struct MainView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 32)
         .background(Capsule().fill(Color.inset))
+        .background(findShortcut)
+    }
+
+    /// ⌘F. SwiftUI's focus API starts at macOS 12, so the field is found in the window.
+    private var findShortcut: some View {
+        Button("") { Self.focusSearch(in: NSApp.keyWindow?.contentView) }
+            .keyboardShortcut("f", modifiers: .command)
+            .opacity(0)
+            .accessibilityHidden(true)
+    }
+
+    /// The first text field from the top of the window is the search.
+    @discardableResult
+    private static func focusSearch(in view: NSView?) -> Bool {
+        guard let view = view else { return false }
+        if let field = view as? NSTextField, field.isEditable {
+            return field.window?.makeFirstResponder(field) ?? false
+        }
+        return view.subviews.contains { focusSearch(in: $0) }
     }
 
     private var viewToggle: some View {
@@ -195,6 +215,8 @@ struct MainView: View {
         }
         .buttonStyle(PointerButtonStyle())
         .help(t(help))
+        .accessibilityLabel(t(help))
+        .accessibilityAddTraits(viewMode == mode ? .isSelected : [])
     }
 
     private var filters: some View {
@@ -279,6 +301,7 @@ struct MainView: View {
         })
         .contentShape(Circle())
         .onHover { gearHovered = $0 }
+        .accessibilityLabel(t("gear.menu"))
     }
 
     private func openSettings() {

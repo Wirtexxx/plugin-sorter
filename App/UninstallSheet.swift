@@ -99,6 +99,7 @@ struct UninstallSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PointerButtonStyle())
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func label(_ kind: Leftover.Kind) -> String {

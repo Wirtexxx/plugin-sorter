@@ -10,13 +10,16 @@ extension Color {
                   opacity: opacity)
     }
 
-    static let chassis = Color(hex: 0x17171A)
-    static let panel = Color(hex: 0x27272C)
-    static let inset = Color(hex: 0x1E1E22)
-    static let raised = Color(hex: 0x323238)
+    static let chassis = Color(hex: Palette.chassis)
+    static let panel = Color(hex: Palette.panel)
+    static let inset = Color(hex: Palette.inset)
+    static let raised = Color(hex: Palette.raised)
+    /// Lines and shapes only: too dark for anything that has to be read or clicked.
     static let edge = Color(hex: 0x3A3A41)
-    static let label = Color(hex: 0x8C8C97)
-    static let text = Color(hex: 0xDCDCE2)
+    /// Something that works but has nothing to say yet: 3:1 on every surface.
+    static let dim = Color(hex: Palette.dim)
+    static let label = Color(hex: Palette.label)
+    static let text = Color(hex: Palette.text)
     // Accent colours follow the skin chosen in Settings
     static var accent: Color { Color(hex: Skin.current.accent) }
     static var accentHot: Color { Color(hex: Skin.current.accentHot) }
@@ -24,6 +27,29 @@ extension Color {
     static let mint = Color(hex: 0x3EE28A)
     static let amber = Color(hex: 0xFFB547)
     static let danger = Color(hex: 0xFF5C6C)
+}
+
+/// The neutral colours as numbers, so a test can hold them to WCAG's contrast ratios.
+enum Palette {
+    static let chassis: UInt32 = 0x17171A
+    static let panel: UInt32 = 0x27272C
+    static let inset: UInt32 = 0x1E1E22
+    static let raised: UInt32 = 0x323238
+    static let dim: UInt32 = 0x7C7C85
+    static let label: UInt32 = 0x9C9CA7
+    static let text: UInt32 = 0xDCDCE2
+
+    /// WCAG contrast ratio, 1 to 21.
+    static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+        let lighter = max(luminance(a), luminance(b)), darker = min(luminance(a), luminance(b))
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private static func luminance(_ hex: UInt32) -> Double {
+        let channels = [hex >> 16, hex >> 8, hex].map { Double($0 & 0xFF) / 255 }
+        let linear = channels.map { $0 <= 0.03928 ? $0 / 12.92 : pow(($0 + 0.055) / 1.055, 2.4) }
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+    }
 }
 
 /// Colour skins, like the ones many plugins offer. Stored under "skin" in UserDefaults.
@@ -291,10 +317,13 @@ struct TaskRing: View {
     }
 }
 
-/// A plugin's state: green works, amber warning, red problem, grey not checked yet.
+/// A plugin's state: green works, amber warning, red problem, grey not checked yet. Warnings and problems
+/// also differ in shape, for those who can't tell the colours apart.
 struct LED: View {
     let level: CheckState.Level?
     var running = false
+    /// The state in words, for VoiceOver and the tooltip.
+    var label = ""
 
     var body: some View {
         let color: Color = {
@@ -302,12 +331,16 @@ struct LED: View {
             case .ok?:      return .mint
             case .warning?: return .amber
             case .failed?:  return .danger
-            case nil:       return .edge
+            case nil:       return .dim
             }
         }()
         return Group {
             if running {
                 PulseDot()
+            } else if level == .warning || level == .failed {
+                Image(systemName: level == .warning ? "exclamationmark.triangle.fill" : "xmark.octagon.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(color)
             } else {
                 Circle()
                     .fill(color)
@@ -317,6 +350,8 @@ struct LED: View {
             }
         }
         .frame(width: 10, height: 10)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 

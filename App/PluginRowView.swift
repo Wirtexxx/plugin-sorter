@@ -40,7 +40,7 @@ struct PluginRowView: View {
 
     private var summary: some View {
         HStack(spacing: Self.spacing) {
-            LED(level: model.level(of: row), running: isRunning).frame(width: Self.ledWidth)
+            LED(level: model.level(of: row), running: isRunning, label: t.level(model.level(of: row))).frame(width: Self.ledWidth)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
                     Text(row.name)
@@ -48,6 +48,16 @@ struct PluginRowView: View {
                         .foregroundColor(row.isStale ? .label : .text)
                         .lineLimit(1)
                     if model.isNew(row) { NewBadge(t: t) }
+                    // The row opens with a click anywhere; this is the way in for the keyboard and VoiceOver
+                    Button(action: toggle) {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.label)
+                            .frame(width: 16, height: 16)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PointerButtonStyle())
+                    .accessibilityLabel(t(isExpanded ? "row.close" : "row.open"))
                 }
                 Text(row.vendor)
                     .font(.system(size: 12))
@@ -69,10 +79,12 @@ struct PluginRowView: View {
         .padding(.vertical, 10)
         .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
         .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(Motion.reduced ? nil : .easeOut(duration: 0.2)) {
-                model.expanded = isExpanded ? nil : row.id
-            }
+        .onTapGesture(perform: toggle)
+    }
+
+    private func toggle() {
+        withAnimation(Motion.reduced ? nil : .easeOut(duration: 0.2)) {
+            model.expanded = isExpanded ? nil : row.id
         }
     }
 
@@ -165,13 +177,20 @@ struct PluginStar: View {
         Button { model.tapStar(row) } label: {
             Image(systemName: row.isFavorite ? "star.fill" : "star")
                 .font(.system(size: size, weight: .semibold))
-                .foregroundColor(row.isFavorite ? .accent : row.isKnownToFL ? .label : .edge)
+                .foregroundColor(row.isFavorite ? .accent : row.isKnownToFL ? .label : .dim)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }
         .buttonStyle(PointerButtonStyle())
         .opacity(model.favorites.busy ? 0.5 : 1)
-        .help(row.isKnownToFL ? t(row.isFavorite ? "row.removeFavorite" : "row.addFavorite") : t("row.notSeen"))
+        .help(hint)
+        .accessibilityLabel(hint)
+    }
+}
+
+extension PluginStar {
+    private var hint: String {
+        row.isKnownToFL ? t(row.isFavorite ? "row.removeFavorite" : "row.addFavorite") : t("row.notSeen")
     }
 }
 
@@ -199,7 +218,7 @@ struct PluginCategoryMenu: View {
             .fixedSize()
             .disabled(model.favorites.busy)
         } else {
-            Text("—").font(.system(size: 13)).foregroundColor(.edge)
+            Text("—").font(.system(size: 13)).foregroundColor(.dim).accessibilityHidden(true)
         }
     }
 }
@@ -390,6 +409,7 @@ struct PluginDetailsView: View {
         .contentShape(Capsule())
         .disabled(manager.busy)
         .help(t("row.more"))
+        .accessibilityLabel(t("row.more"))
     }
 
     /// A draft for the developer's support: written in a mail, or copied for where mail isn't set up.
@@ -435,6 +455,7 @@ struct PluginDetailsView: View {
                             }
                             .buttonStyle(PointerButtonStyle())
                             .help(t("tags.remove"))
+                            .accessibilityLabel(t("tags.remove") + ": " + tag)
                         }
                         .padding(.horizontal, 9)
                         .frame(height: 22)
@@ -466,6 +487,8 @@ struct PluginDetailsView: View {
                     }
                     .buttonStyle(PointerButtonStyle())
                     .help(current.color == color ? t("tags.noColor") : "")
+                    .accessibilityLabel(color.rawValue)
+                    .accessibilityAddTraits(current.color == color ? .isSelected : [])
                 }
             }
         }
