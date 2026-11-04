@@ -141,7 +141,7 @@ struct PluginDetailPanel: View {
                         .frame(width: 24, height: 24)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(PlainButtonStyle())
+                .buttonStyle(PointerButtonStyle())
                 .keyboardShortcut(.cancelAction)
                 .help(t("banner.close"))
             }

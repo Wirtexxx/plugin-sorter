@@ -46,7 +46,7 @@ struct TasksView: View {
             .frame(height: 34)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
         .card()
         .help(t(expanded ? "task.collapse" : "task.expand"))
     }

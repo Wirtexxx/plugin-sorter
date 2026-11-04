@@ -194,6 +194,7 @@ struct PluginCategoryMenu: View {
                     .foregroundColor(model.category(of: row) == nil ? .label : .text)
             }
             .menuStyle(BorderlessButtonMenuStyle())
+            .pointerCursor()
             .fixedSize()
             .disabled(model.favorites.busy)
         } else {
@@ -260,7 +261,7 @@ struct PluginDetailsView: View {
         HStack(spacing: compact ? 12 : 18) {
             ForEach(DetailsTab.available(for: row)) { tab in
                 Button { model.detailsTab = tab } label: { tabLabel(tab) }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(PointerButtonStyle())
             }
             Spacer(minLength: 0)
         }
@@ -379,6 +380,7 @@ struct PluginDetailsView: View {
             Image(nsImage: NSImage(size: NSSize(width: 36, height: 26)))
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
+        .pointerCursor()
         .frame(width: 36, height: 26)
         .background(ZStack {
             Capsule().fill(Color.raised)
@@ -430,7 +432,7 @@ struct PluginDetailsView: View {
                             Button { model.labels.removeTag(tag, from: plugin.key) } label: {
                                 Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundColor(.label)
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .buttonStyle(PointerButtonStyle())
                             .help(t("tags.remove"))
                         }
                         .padding(.horizontal, 9)
@@ -449,6 +451,7 @@ struct PluginDetailsView: View {
                         }
                     }
                     .menuStyle(BorderlessButtonMenuStyle())
+                    .pointerCursor()
                     .fixedSize()
                 }
             }
@@ -460,7 +463,7 @@ struct PluginDetailsView: View {
                             .frame(width: 24, height: 24)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(PointerButtonStyle())
                     .help(current.color == color ? t("tags.noColor") : "")
                 }
             }
@@ -547,7 +550,7 @@ struct PluginDetailsView: View {
                     Button { model.toggle(entry) } label: {
                         FormatPill(text: entry.shortFormat, level: nil, filled: on)
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(PointerButtonStyle())
                     .disabled(model.favorites.busy)
                 }
             }

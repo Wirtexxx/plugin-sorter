@@ -98,7 +98,7 @@ struct UninstallSheet: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
     }
 
     private func label(_ kind: Leftover.Kind) -> String {

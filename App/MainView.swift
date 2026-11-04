@@ -71,7 +71,7 @@ struct MainView: View {
             Button { model.banner = nil } label: {
                 Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.label)
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(PointerButtonStyle())
             .help(t("banner.close"))
         }
         .padding(.horizontal, 16)
@@ -148,7 +148,7 @@ struct MainView: View {
                 .background(Circle().fill(viewMode == mode ? Color.raised : .clear))
                 .contentShape(Circle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
         .help(t(help))
     }
 
@@ -180,6 +180,7 @@ struct MainView: View {
                 .foregroundColor(active == nil ? .text : .white)
         }
         .menuStyle(BorderlessButtonMenuStyle())
+        .pointerCursor()
         .fixedSize()
         .padding(.horizontal, 10)
         .frame(height: 32)
@@ -214,6 +215,7 @@ struct MainView: View {
             Image(nsImage: NSImage(size: NSSize(width: 32, height: 32)))
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
+        .pointerCursor()
         .frame(width: 32, height: 32)
         .background(ZStack {
             Circle().fill(gearHovered ? Color.inset : Color.raised)
@@ -374,6 +376,6 @@ struct MainView: View {
                 }
             }
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
     }
 }

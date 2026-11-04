@@ -147,6 +147,48 @@ extension View {
     func card() -> some View { panel(.panel, radius: 16) }
 }
 
+/// The pointing hand while the mouse is over an enabled control. Each view undoes its own push, also
+/// when it goes away under the mouse, so the hand can't stick.
+private struct PointerCursor: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var pushed = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { set($0 && isEnabled && !SmoothScrollView.isScrolling) }
+            .onChange(of: isEnabled) { if !$0 { set(false) } }
+            .onDisappear { set(false) }
+    }
+
+    private func set(_ on: Bool) {
+        guard on != pushed else { return }
+        pushed = on
+        if on { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+    }
+}
+
+extension View {
+    func pointerCursor() -> some View { modifier(PointerCursor()) }
+}
+
+/// A button drawn by its label alone, with the pointing hand over it.
+struct PointerButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Face(configuration: configuration)
+    }
+
+    private struct Face: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .opacity(!isEnabled ? 0.5 : configuration.isPressed ? 0.7 : 1)
+                .pointerCursor()
+        }
+    }
+}
+
 /// Capsule button. The primary one carries the accent gradient and glows; destructive text is red.
 struct PillButtonStyle: ButtonStyle {
     var primary = false
@@ -181,6 +223,7 @@ struct PillButtonStyle: ButtonStyle {
                 .shadow(color: primary && isEnabled ? Color.accent.opacity(lit ? 0.55 : 0.35) : .clear, radius: 10)
                 .opacity(isEnabled ? 1 : 0.4)
                 .onHover { hovered = $0 }
+                .pointerCursor()
                 .animation(.easeOut(duration: 0.15), value: lit)
         }
 
@@ -216,7 +259,7 @@ struct FilterPill: View {
             .contentShape(Capsule())
             .fixedSize()
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
         .animation(.easeOut(duration: 0.15), value: isOn)
     }
 }

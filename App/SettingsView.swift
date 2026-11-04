@@ -77,7 +77,7 @@ private struct Choice<Label: View>: View {
                     .stroke(selected ? Color.accent : Color.edge, lineWidth: selected ? 1.5 : 1))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
     }
 }
 

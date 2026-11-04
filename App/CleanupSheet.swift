@@ -83,7 +83,7 @@ struct CleanupSheet: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PointerButtonStyle())
     }
 
     private func isFavorite(_ finding: CleanupFinding) -> Bool {
