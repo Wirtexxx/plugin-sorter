@@ -14,7 +14,7 @@ struct VendorGroup: Identifiable {
 }
 
 struct Note: Identifiable {
-    enum Kind { case waves, kept, unknown, exists, restored, skipped, other }
+    enum Kind { case waves, kept, unknown, exists, restored, skipped, failed, other }
     let id = UUID()
     let kind: Kind
     let text: String
@@ -24,6 +24,10 @@ enum Status: Equatable {
     case idle, noFormats, undone, cancelled
     case willMove(Int)
     case moved(Int)
+    /// Some of the plugins stayed where they were.
+    case partlyMoved(moved: Int, failed: Int)
+    /// Some moves couldn't be taken back; the log is kept, so undoing again finishes the job.
+    case undoIncomplete(failed: Int)
     case auRestored(Int)
     case failed(String)
 }
@@ -91,15 +95,16 @@ final class Sorter: ObservableObject {
             self.applied = true
             self.moves = result.moves
             self.notes = result.notes
-            self.status = .moved(result.count)
+            self.status = result.failed > 0 ? .partlyMoved(moved: result.count, failed: result.failed) : .moved(result.count)
         }
     }
 
     func undo() {
         guard let log = latestLog else { return }
         run(["--undo", log], admin: true) { output in
-            self.notes = Self.parse(output).notes
-            self.status = .undone
+            let result = Self.parse(output)
+            self.notes = result.notes
+            self.status = result.failed > 0 ? .undoIncomplete(failed: result.failed) : .undone
             self.preview(keepStatus: true)
         }
     }
@@ -123,7 +128,7 @@ final class Sorter: ObservableObject {
 
     // MARK: - Output parsing
 
-    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, nestedAU: Int) {
+    static func parse(_ output: String) -> (moves: [Move], notes: [Note], count: Int, nestedAU: Int, failed: Int) {
         var format = ""
         var moves: [Move] = []
         var notes: [Note] = []
@@ -132,7 +137,7 @@ final class Sorter: ObservableObject {
         let number = { (line: String) in Int(String(line.drop { !$0.isNumber }.prefix { $0.isNumber })) ?? 0 }
         let prefixes: [(String, Note.Kind)] = [
             ("skip (Waves): ", .waves), ("keep: ", .kept), ("unknown vendor: ", .unknown), ("exists: ", .exists),
-            ("restored: ", .restored), ("skip: ", .skipped),
+            ("restored: ", .restored), ("skip: ", .skipped), ("failed: ", .failed),
         ]
 
         lines: for raw in output.split(separator: "\n") {
@@ -159,7 +164,7 @@ final class Sorter: ObservableObject {
                 notes.append(Note(kind: .other, text: line))
             }
         }
-        return (moves, notes, count, nestedAU)
+        return (moves, notes, count, nestedAU, notes.filter { $0.kind == .failed }.count)
     }
 
     // MARK: - Running the script
@@ -175,6 +180,9 @@ final class Sorter: ObservableObject {
                     done(result.output)
                 } else if result.cancelled {
                     self.status = .cancelled
+                } else if Self.parse(result.output).failed > 0 {
+                    // Part of it went through: the caller says how much
+                    done(result.output)
                 } else {
                     self.status = .failed(result.error)
                 }

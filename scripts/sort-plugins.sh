@@ -111,12 +111,19 @@ pretty_name() {
 # com.fabfilter.X -> fabfilter, co.uk.gvst.X -> gvst, app.cradle.X -> cradle, audio.output.X -> output
 vendor_from_id() {
   local IFS=. part
+  set -f   # the id comes from the plugin: a "*" in it must stay a "*"
   for part in $1; do
     case "$(lower "$part")" in
       com|co|uk|net|org|io|app|audio|de|fr|nl|se|dk|ch|at|it|jp|au|ca|us) continue ;;
-      *) echo "$part"; return ;;
+      *) echo "$part"; break ;;
     esac
   done
+  set +f
+}
+
+# A vendor from a bundle id becomes a folder name, so only plain names are taken
+plain_vendor() {
+  case "$1" in ""|*[!A-Za-z0-9._-]*) return 1 ;; esac
 }
 
 # Reuse an existing vendor folder even if its case differs (Kilohearts vs kiloHearts)
@@ -132,16 +139,27 @@ existing_dir() {
   echo "$name"
 }
 
+# The log lives in the user's home, so what it says is not trusted: only moves inside the plugin tree
+# are carried out. A log that didn't go through in full is kept, and undoing it again does the rest.
 undo() {
   [ -f "$1" ] || { echo "No such log: $1"; exit 1; }
-  tail -r "$1" | while IFS=$'\t' read -r src dst; do
+  local src dst failed=0
+  while IFS=$'\t' read -r src dst; do
+    if ! is_plugin_path "$src" || ! is_plugin_path "$dst"; then
+      echo "failed: $dst"; failed=1; continue
+    fi
     if [ -e "$dst" ] && [ ! -e "$src" ]; then
-      mv "$dst" "$src" && echo "restored: ${dst#$ROOT/} -> ${src#$ROOT/}"
+      if mv "$dst" "$src"; then
+        echo "restored: ${dst#$ROOT/} -> ${src#$ROOT/}"
+      else
+        echo "failed: ${dst#$ROOT/}"; failed=1
+      fi
     else
       echo "skip: ${dst#$ROOT/}"
     fi
-  done
+  done < <(tail -r "$1")
   drop_empty_vendor_dirs
+  [ "$failed" -eq 0 ] || return 1
   mv "$1" "$1.undone"
 }
 
@@ -166,6 +184,7 @@ restore_au() {
     [ -f "$log" ] || continue
     while IFS=$'\t' read -r src dst; do
       case "$src" in "$COMPONENTS"/*) ;; *) continue ;; esac
+      { is_plugin_path "$src" && is_plugin_path "$dst"; } || continue
       if [ -e "$dst" ] && [ ! -e "$src" ]; then
         mv "$dst" "$src" && echo "restored: ${dst#$ROOT/} -> ${src#$ROOT/}" && restored=$((restored + 1))
       fi
@@ -410,7 +429,8 @@ fi
 MODE="dry"
 case "$1" in
   --apply)      MODE="apply" ;;
-  --undo)       undo "$2"; exit ;;
+  --undo)       needs_root && { echo "Root required: sudo $0 --undo LOG"; exit 1; }
+                undo "$2"; exit ;;
   --restore-au) needs_root && { echo "Root required: sudo $0 --restore-au"; exit 1; }
                 restore_au; exit ;;
   --trash|--trash-data|--forget-receipt)
@@ -433,8 +453,21 @@ if [ "$MODE" = "apply" ] && needs_root; then
   echo "Root required: sudo $0 --apply"; exit 1
 fi
 
-LOG="$LOG_DIR/plugin-sort-$(date +%Y%m%d-%H%M%S).log"
 moved=0
+failed=0
+
+# The log's folder belongs to the user: noclobber refuses a link planted under the log's name, and the
+# open descriptor keeps writing to this file whatever happens to its name later
+if [ "$MODE" = "apply" ]; then
+  created=""
+  for attempt in 1 2 3; do
+    LOG="$LOG_DIR/plugin-sort-$(date +%Y%m%d-%H%M%S).log"
+    if ( set -C; : > "$LOG" ) 2>/dev/null; then created=1; break; fi
+    sleep 1   # a run earlier in this second, the names go by the second
+  done
+  [ -n "$created" ] || { echo "Can't create the log: $LOG"; exit 1; }
+  exec 3>>"$LOG"
+fi
 
 for fmt in $FORMATS; do
   dir="$ROOT/$fmt"
@@ -445,6 +478,9 @@ for fmt in $FORMATS; do
     [ -e "$plug" ] || continue
     name="${plug##*/}"
 
+    # The format folders are often writable by everyone: a link is nothing we put there
+    if [ -L "$plug" ]; then echo "  skip: $name"; continue; fi
+
     # Waves plugins are managed by Waves Central — leave them alone
     case "$name" in WaveShell*) echo "  skip (Waves): $name"; continue ;; esac
 
@@ -453,20 +489,27 @@ for fmt in $FORMATS; do
 
     id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plug/Contents/Info.plist" 2>/dev/null)
     vendor=$(vendor_from_id "$id")
-    if [ -z "$vendor" ]; then
+    if ! plain_vendor "$vendor"; then
       echo "  unknown vendor: $name"; continue
     fi
     folder=$(existing_dir "$dir" "$(pretty_name "$vendor")")
     dest="$dir/$folder/$name"
 
+    # A link in place of a vendor folder would lead the move out of the plugin tree
+    if ! no_symlinks_below_root "$dir/$folder"; then echo "  skip: $name"; continue; fi
+
     if [ -e "$dest" ]; then
       echo "  exists: $folder/$name"; continue
     fi
 
-    echo "  $name -> $folder/"
     if [ "$MODE" = "apply" ]; then
-      mkdir -p "$dir/$folder" && mv "$plug" "$dest" && printf '%s\t%s\n' "$plug" "$dest" >> "$LOG"
+      if mkdir -p "$dir/$folder" && mv "$plug" "$dest"; then
+        printf '%s\t%s\n' "$plug" "$dest" >&3
+      else
+        echo "  failed: $name"; failed=$((failed + 1)); continue
+      fi
     fi
+    echo "  $name -> $folder/"
     moved=$((moved + 1))
   done
 done
@@ -475,10 +518,12 @@ echo
 nested=$(nested_au)
 [ "$nested" -gt 0 ] && echo "nested AU: $nested (run --restore-au)"
 if [ "$MODE" = "apply" ]; then
-  [ -n "$OWNER" ] && [ -f "$LOG" ] && chown "$OWNER" "$LOG"
+  exec 3>&-
+  [ -s "$LOG" ] || rm -f "$LOG"
+  [ -n "$OWNER" ] && [ -f "$LOG" ] && chown -h "$OWNER" "$LOG"
   echo "Moved: $moved"
   [ -f "$LOG" ] && echo "Log: $LOG (undo: sudo $0 --undo \"$LOG\")"
 else
   echo "Would move: $moved (dry run, use --apply to move)"
 fi
-exit 0
+[ "$failed" -eq 0 ]

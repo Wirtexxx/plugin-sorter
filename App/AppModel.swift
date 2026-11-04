@@ -372,6 +372,13 @@ final class AppModel: ObservableObject {
             case .cancelled:
                 let undo: (() -> Void)? = { if case .moved = status { return { self.sorter.undo() } }; return nil }()
                 self.show(Banner(source: .sorter(status), isError: false, undo: undo))
+            case .partlyMoved(let moved, _):
+                self.manager.scan()
+                self.sorter.preview(keepStatus: true)
+                self.show(Banner(source: .sorter(status), isError: true, undo: moved > 0 ? { self.sorter.undo() } : nil))
+            case .undoIncomplete:
+                self.manager.scan()
+                self.show(Banner(source: .sorter(status), isError: true, undo: { self.sorter.undo() }))
             case .failed:
                 self.show(Banner(source: .sorter(status), isError: true, undo: nil))
             case .idle, .noFormats, .willMove:

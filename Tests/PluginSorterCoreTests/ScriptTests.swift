@@ -40,6 +40,14 @@ struct SorterParseTests {
         #expect(undone.notes.map(\.kind) == [.restored, .skipped])
     }
 
+    @Test func countsWhatFailed() {
+        let result = Sorter.parse("== VST3\n  OTT.vst3 -> Xfer Records/\n  failed: Z.vst3\n\nMoved: 1\n")
+        #expect(result.count == 1)
+        #expect(result.failed == 1)
+        #expect(result.notes.map(\.kind) == [.failed])
+        #expect(result.notes.map(\.text) == ["Z.vst3"])
+    }
+
     @Test func componentsAreShownAsAU() {
         let result = Sorter.parse("== Components\n  OTT.component -> Xfer Records/\nWould move: 1\n")
         #expect(result.moves.first?.format == "AU")
@@ -537,6 +545,116 @@ struct ScriptTests {
         }
         #expect(passed.isSuperset(of: ["PLUGIN_SORT_FORMATS", "PLUGIN_SORT_LOG_DIR", "PLUGIN_SORT_OWNER", "PLUGIN_SORT_KEEP_FILE"]))
         #expect(passed.isDisjoint(with: dropped))
+    }
+
+    // MARK: - Refusing what a planted file or log asks for
+
+    @Test func applyWontFollowAVendorFolderThatIsALink() throws {
+        let outside = dir.path("outside")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("VST3/Evil"), withDestinationURL: outside)
+        try makeBundle(root.appendingPathComponent("VST3/X.vst3"), id: "com.evil.x")
+        let (status, output) = try run(["--apply"])
+        #expect(status == 0)
+        #expect(output.contains("skip: X.vst3"))
+        #expect(exists("VST3/X.vst3"))
+        #expect(!dir.exists("outside/X.vst3"))
+    }
+
+    @Test func applyLeavesABundleThatIsALink() throws {
+        let real = try makeBundle(dir.path("elsewhere/L.vst3"), id: "com.linked.l")
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("VST3/L.vst3"), withDestinationURL: real)
+        let (_, output) = try run(["--apply"])
+        #expect(output.contains("skip: L.vst3"))
+        #expect(!exists("VST3/linked/L.vst3"))
+    }
+
+    @Test func aBundleIdCannotShapeTheFolder() throws {
+        try makeBundle(root.appendingPathComponent("VST3/Y.vst3"), id: "com.a/b/c.y")
+        try makeBundle(root.appendingPathComponent("VST3/G.vst3"), id: "com.*.g")
+        let (_, output) = try run(["--apply"])
+        #expect(output.contains("unknown vendor: Y.vst3"))
+        #expect(output.contains("unknown vendor: G.vst3"))
+        #expect(exists("VST3/Y.vst3"))
+        #expect(exists("VST3/G.vst3"))
+    }
+
+    @Test func undoRefusesPathsOutsideThePluginTree() throws {
+        try Data("secret".utf8).write(to: dir.path("victim"))
+        let log = dir.path("logs/plugin-sort-1.log")
+        try "\(dir.path("stolen").path)\t\(dir.path("victim").path)\n".write(to: log, atomically: true, encoding: .utf8)
+        let (status, output) = try run(["--undo", log.path])
+        #expect(status != 0)
+        #expect(output.contains("failed: "))
+        #expect(dir.exists("victim"))
+        #expect(!dir.exists("stolen"))
+        #expect(FileManager.default.fileExists(atPath: log.path))
+    }
+
+    @Test func undoRefusesAnEscapeWrittenWithDots() throws {
+        try makeBundle(dir.path("victim.vst3"))
+        let log = dir.path("logs/plugin-sort-1.log")
+        let escape = root.path + "/VST3/../../stolen.vst3"
+        try "\(escape)\t\(dir.path("victim.vst3").path)\n".write(to: log, atomically: true, encoding: .utf8)
+        try run(["--undo", log.path])
+        #expect(dir.exists("victim.vst3"))
+        #expect(!dir.exists("stolen.vst3"))
+    }
+
+    @Test func restoreAURefusesPathsOutsideThePluginTree() throws {
+        try makeBundle(dir.path("victim.component"))
+        let source = root.path + "/Components/../../stolen.component"
+        try "\(source)\t\(dir.path("victim.component").path)\n"
+            .write(to: dir.path("logs/plugin-sort-1.log"), atomically: true, encoding: .utf8)
+        try run(["--restore-au"])
+        #expect(dir.exists("victim.component"))
+        #expect(!dir.exists("stolen.component"))
+    }
+
+    @Test func aFailedMoveIsReportedAndNotCounted() throws {
+        let locked = root.appendingPathComponent("VST3/zed")
+        try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
+        try makeBundle(root.appendingPathComponent("VST3/Z.vst3"), id: "com.zed.z")
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: locked.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
+        let (status, output) = try run(["--apply"])
+        #expect(status != 0)
+        #expect(output.contains("failed: Z.vst3"))
+        #expect(output.contains("Moved: 4"))
+        #expect(exists("VST3/Z.vst3"))
+    }
+
+    @Test func aFailedUndoKeepsTheLog() throws {
+        try run(["--apply"])
+        let log = try #require(try logs().first)
+        let vst3 = root.appendingPathComponent("VST3")
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: vst3.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: vst3.path) }
+        let (status, output) = try run(["--undo", log.path])
+        #expect(status != 0)
+        #expect(output.contains("failed: "))
+        #expect(FileManager.default.fileExists(atPath: log.path))
+        #expect(!FileManager.default.fileExists(atPath: log.path + ".undone"))
+    }
+
+    @Test func undoCanBeRepeatedAfterAFailure() throws {
+        try run(["--apply"])
+        let log = try #require(try logs().first)
+        let vst3 = root.appendingPathComponent("VST3")
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: vst3.path)
+        try run(["--undo", log.path])
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: vst3.path)
+        let (status, _) = try run(["--undo", log.path])
+        #expect(status == 0)
+        #expect(exists("VST3/OTT.vst3"))
+        #expect(FileManager.default.fileExists(atPath: log.path + ".undone"))
+    }
+
+    @Test func nothingToMoveLeavesNoLog() throws {
+        try run(["--apply"])
+        let before = try logs().count
+        try run(["--apply"])
+        #expect(try logs().count == before)
     }
 
     @Test func forgetReceiptRefusesOptionsAndAppleIds() throws {

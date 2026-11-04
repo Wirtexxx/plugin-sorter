@@ -40,6 +40,8 @@ struct L10n {
         case .cancelled:         return self("status.cancelled")
         case .willMove(let n):   return self("status.willMove", n)
         case .moved(let n):      return self("status.moved", n)
+        case .partlyMoved(let moved, let failed): return self("status.partlyMoved", moved, failed)
+        case .undoIncomplete(let failed): return self("status.undoIncomplete", failed)
         case .auRestored(let n): return self("status.auRestored", n)
         case .failed(let error): return self("status.failed", error)
         }
@@ -114,6 +116,7 @@ struct L10n {
         case .exists:   return self("note.exists", note.text)
         case .restored: return self("note.restored", note.text)
         case .skipped:  return self("note.skipped", note.text)
+        case .failed:   return self("note.failed", note.text)
         case .other:    return note.text
         }
     }
@@ -468,6 +471,21 @@ struct L10n {
             .ru: "К перемещению: %d",
             .uk: "До переміщення: %d",
             .de: "Zu verschieben: %d",
+        ]
+        t["status.partlyMoved"] = [
+            .en: "Moved: %d, stayed in place: %d", .ru: "Перемещено: %d, осталось на месте: %d",
+            .uk: "Переміщено: %d, залишилося на місці: %d", .de: "Verschoben: %d, an Ort und Stelle geblieben: %d",
+        ]
+        t["status.undoIncomplete"] = [
+            .en: "Not moved back: %d. Undo again to finish", .ru: "Не удалось вернуть: %d. Отмените ещё раз, чтобы закончить",
+            .uk: "Не вдалося повернути: %d. Скасуйте ще раз, щоб завершити", .de: "Nicht zurückverschoben: %d. Erneut rückgängig machen, um abzuschließen",
+        ]
+        t["note.failed"] = [.en: "Failed: %@", .ru: "Не удалось: %@", .uk: "Не вдалося: %@", .de: "Fehlgeschlagen: %@"]
+        t["admin.prompt"] = [
+            .en: "Plugin Sorter wants to change your plugin folders.",
+            .ru: "Plugin Sorter хочет изменить папки плагинов.",
+            .uk: "Plugin Sorter хоче змінити теки плагінів.",
+            .de: "Plugin Sorter möchte deine Plugin-Ordner ändern.",
         ]
         t["status.moved"] = [.en: "Moved: %d", .ru: "Перемещено: %d", .uk: "Переміщено: %d", .de: "Verschoben: %d"]
         t["status.auRestored"] = [
