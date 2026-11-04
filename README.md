@@ -71,7 +71,8 @@ VST3/                                VST3/
 1. Download **[PluginSorter.dmg](https://github.com/Wirtexxx/plugin-sorter/releases/latest/download/PluginSorter.dmg)**
    from the latest release.
 2. Open it and drag **Plugin Sorter** onto the **Applications** folder.
-3. The app is not notarized, so on first launch right-click it → **Open**, or run:
+3. The app is not notarized, so macOS refuses the first launch. On macOS 15 and later open
+   **System Settings → Privacy & Security** and click **Open Anyway** (on older versions: right-click the app → **Open**), or run:
 
    ```bash
    xattr -dr com.apple.quarantine "/Applications/Plugin Sorter.app"
