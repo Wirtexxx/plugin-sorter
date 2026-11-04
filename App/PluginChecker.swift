@@ -159,11 +159,11 @@ enum PluginChecker {
         process.currentDirectoryURL = FileManager.default.temporaryDirectory
         process.standardOutput = handle
         process.standardError = handle
+        let ended = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in ended.signal() }
         guard (try? process.run()) != nil else { return nil }
 
-        let deadline = Date().addingTimeInterval(timeout)
-        while process.isRunning && Date() < deadline { usleep(100_000) }
-        let timedOut = process.isRunning
+        let timedOut = ended.wait(timeout: .now() + timeout) == .timedOut
         if timedOut { kill(process.processIdentifier, SIGKILL) }
         process.waitUntilExit()
         try? handle.close()

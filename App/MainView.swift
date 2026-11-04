@@ -273,6 +273,10 @@ struct MainView: View {
             } else {
                 Button(t("gear.allPictures")) { model.captureAllPictures() }
                     .disabled(model.pictures.busy || model.shotTargets.isEmpty)
+                if model.failedShots > 0 {
+                    Button(t("gear.retryPictures", model.failedShots)) { model.retryFailedPictures() }
+                        .disabled(model.pictures.busy)
+                }
             }
             if model.usesFL {
                 Button(t("gear.restore")) { model.whenFLClosed { model.favorites.restore() } }
@@ -291,7 +295,7 @@ struct MainView: View {
             Image(nsImage: NSImage(size: NSSize(width: 32, height: 32)))
         }
         .menuStyle(BorderlessButtonMenuStyle(showsMenuIndicator: false))
-        .pointerCursor()
+        .pointerCursor { gearHovered = $0 }
         .frame(width: 32, height: 32)
         .background(ZStack {
             Circle().fill(gearHovered ? Color.inset : Color.raised)
@@ -300,7 +304,6 @@ struct MainView: View {
                 .foregroundColor(gearHovered ? .text : .label)
         })
         .contentShape(Circle())
-        .onHover { gearHovered = $0 }
         .accessibilityLabel(t("gear.menu"))
     }
 

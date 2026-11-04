@@ -17,8 +17,8 @@ struct CardArtwork: View {
     @State private var image: NSImage?
     @State private var loaded = false
 
-    /// One at a time: cards come and go by the dozen while scrolling, and each would take a thread.
-    private static let queue = DispatchQueue(label: "plugin-sorter.pictures", qos: .userInitiated)
+    /// The read waiting for this card, dropped if the card scrolls away first.
+    @State private var request: Int?
 
     var body: some View {
         Color.chassis
@@ -55,17 +55,17 @@ struct CardArtwork: View {
                 }
                 load()
             }
+            .onDisappear {
+                if let request = request { PictureLoader.shared.cancel(request) }
+            }
             .onChange(of: busy) { if !$0 { load() } }
     }
 
     private func load() {
         guard let url = url else { loaded = true; return }
-        Self.queue.async {
-            let image = CardPictures.shared.image(at: url)
-            DispatchQueue.main.async {
-                self.image = image
-                self.loaded = true
-            }
+        request = PictureLoader.shared.load(url) { image in
+            self.image = image
+            self.loaded = true
         }
     }
 }

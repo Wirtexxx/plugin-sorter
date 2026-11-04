@@ -176,12 +176,17 @@ extension View {
 /// The pointing hand while the mouse is over an enabled control. Each view undoes its own push, also
 /// when it goes away under the mouse, so the hand can't stick.
 private struct PointerCursor: ViewModifier {
+    /// Also told about the hover, so a control that wants to light up needs no tracking area of its own.
+    var hover: ((Bool) -> Void)?
     @Environment(\.isEnabled) private var isEnabled
     @State private var pushed = false
 
     func body(content: Content) -> some View {
         content
-            .onHover { set($0 && isEnabled && !SmoothScrollView.isScrolling) }
+            .onHover {
+                hover?($0)
+                set($0 && isEnabled && !SmoothScrollView.isScrolling)
+            }
             .onChange(of: isEnabled) { if !$0 { set(false) } }
             .onDisappear { set(false) }
     }
@@ -194,7 +199,7 @@ private struct PointerCursor: ViewModifier {
 }
 
 extension View {
-    func pointerCursor() -> some View { modifier(PointerCursor()) }
+    func pointerCursor(hover: ((Bool) -> Void)? = nil) -> some View { modifier(PointerCursor(hover: hover)) }
 }
 
 /// A button drawn by its label alone, with the pointing hand over it.
@@ -248,8 +253,7 @@ struct PillButtonStyle: ButtonStyle {
                 .clipShape(Capsule())
                 .shadow(color: primary && isEnabled ? Color.accent.opacity(lit ? 0.55 : 0.35) : .clear, radius: 10)
                 .opacity(isEnabled ? 1 : 0.4)
-                .onHover { hovered = $0 }
-                .pointerCursor()
+                .pointerCursor { hovered = $0 }
                 .animation(.easeOut(duration: 0.15), value: lit)
         }
 

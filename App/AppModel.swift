@@ -85,6 +85,8 @@ final class AppModel: ObservableObject {
     private let known: KnownPlugins
     private var bag: Set<AnyCancellable> = []
     private var bannerTimer: Timer?
+    /// The plugin of the uninstall running now.
+    private var uninstalling: String?
     private let refreshes = Debouncer(delay: 0.3)
     /// `allRows`, kept until a library it's made from changes.
     private var cachedRows: [CatalogRow]?
@@ -409,10 +411,37 @@ final class AppModel: ObservableObject {
         let pictured = allRows.filter { row in
             picture(of: row).map { $0.hasPicture && $0.source != .card } ?? false
         }.compactMap { $0.plugin?.key }
-        return LocalPictures.targets(manager.plugins, skipping: pictures.localKeys.union(pictured))
+        let failed = pictures.failedKeys(among: manager.plugins)
+        return LocalPictures.targets(manager.plugins, skipping: pictures.localKeys.union(pictured).union(failed))
     }
 
-    func captureAllPictures() { pictures.captureAll(shotTargets) }
+    /// Plugins that wouldn't open last time and are left out of a capture until asked for.
+    var failedShots: Int { pictures.failedKeys(among: manager.plugins).count }
+
+    /// Asks first: the plugins' windows take over the screen for a while.
+    func captureAllPictures() {
+        let targets = shotTargets
+        guard !targets.isEmpty else { return }
+        let t = L10n(lang: Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? Lang.system.rawValue) ?? .en)
+        let alert = NSAlert()
+        alert.messageText = t("capture.confirm", targets.count)
+        alert.informativeText = t("capture.confirmInfo")
+        alert.addButton(withTitle: t("capture.start"))
+        alert.addButton(withTitle: t("mgr.cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        pictures.captureAll(targets)
+    }
+
+    func retryFailedPictures() {
+        pictures.forgetFailedShots()
+        captureAllPictures()
+    }
+
+    /// Removes a plugin for good, and with it the screenshot only it could use.
+    func uninstall(_ plugin: ManagedPlugin, leftovers: [Leftover], receipts: [Receipt]) {
+        uninstalling = plugin.key
+        manager.uninstall(plugin, leftovers: leftovers, receipts: receipts)
+    }
 
     /// The pictures task: favourites with a screenshot of ours get it without opening the plugin.
     func addMissingPictures() {
@@ -477,14 +506,23 @@ final class AppModel: ObservableObject {
             guard let self = self, status != .idle else { return }
             var isError = false
             if case .failed = status { isError = true }
-            if case .captured = status { self.scheduleRefresh() }
+            if case .captured(_, let failed) = status {
+                isError = !failed.isEmpty   // stays up: it names the plugins
+                self.scheduleRefresh()
+            }
             self.show(Banner(source: .pictures(status), isError: isError, undo: nil))
         }.store(in: &bag)
 
         manager.$status.dropFirst().sink { [weak self] status in
             guard let self = self, status != .idle else { return }
             var isError = false
-            if case .failed = status { isError = true }
+            switch status {
+            case .failed, .partly: isError = true
+            case .trashed:
+                if let key = self.uninstalling { self.pictures.removeLocalPicture(of: key) }
+            default: break
+            }
+            self.uninstalling = nil
             self.show(Banner(source: .manager(status), isError: isError, undo: nil))
         }.store(in: &bag)
     }

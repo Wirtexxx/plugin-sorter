@@ -394,7 +394,7 @@ struct PluginDetailsView: View {
     private func moreMenu(_ plugin: ManagedPlugin) -> some View {
         Menu {
             Button(t("mgr.uninstall")) { model.uninstallTarget = plugin }
-            Button(t("mgr.trash")) { confirmTrash(plugin) }
+            Button(t("mgr.trashFiles")) { confirmTrash(plugin) }
         } label: {
             // Invisible, like the gear's: the system menu ignores the label's colour
             Image(nsImage: NSImage(size: NSSize(width: 36, height: 26)))
@@ -686,6 +686,7 @@ struct PictureWell: View {
     /// Only the buttons: the panel shows the picture above them and takes the drop there.
     var compact = false
     @State private var targeted = false
+    @State private var image: NSImage?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -698,10 +699,15 @@ struct PictureWell: View {
         }
     }
 
+    private func loadImage() {
+        guard plugin.hasPicture else { return }
+        _ = PictureLoader.shared.load(plugin.picture) { image = $0 }
+    }
+
     private var well: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10).fill(Color.chassis)
-            if plugin.hasPicture, let image = NSImage(contentsOf: plugin.picture) {
+            if plugin.hasPicture, let image = image {
                 Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).padding(4)
             } else {
                 Text(t("row.dropHint")).font(.system(size: 11)).foregroundColor(.label).multilineTextAlignment(.center)
@@ -711,6 +717,9 @@ struct PictureWell: View {
         .frame(width: 150, height: 76)
         .overlay(RoundedRectangle(cornerRadius: 10)
             .stroke(targeted ? Color.accent : .clear, style: StrokeStyle(lineWidth: 2, dash: [5, 3])))
+        // Read off the main thread, and again when a job may have rewritten it
+        .onAppear(perform: loadImage)
+        .onChange(of: model.pictures.busy) { if !$0 { loadImage() } }
         .onDrop(of: [UTType.fileURL], isTargeted: $targeted) { providers in
             guard let provider = providers.first else { return false }
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in

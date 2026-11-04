@@ -37,8 +37,9 @@ enum PluginCapture {
         return candidates.first { normalize($0.manufacturerName) == vendor } ?? (candidates.count == 1 ? candidates[0] : nil)
     }
 
-    private static func fourCC(_ code: UInt32) -> String {
-        String(decoding: [24, 16, 8, 0].map { UInt8((code >> $0) & 0xFF) }, as: UTF8.self)
+    /// Audio Unit codes are Mac Roman, not UTF-8: "©abc" is a real manufacturer code.
+    static func fourCC(_ code: UInt32) -> String {
+        String(bytes: [24, 16, 8, 0].map { UInt8((code >> $0) & 0xFF) }, encoding: .macOSRoman) ?? ""
     }
 
     private static func normalize(_ s: String) -> String {
@@ -55,11 +56,10 @@ enum PluginCapture {
                                            "\(d.componentManufacturer)", out.path]) else { return nil }
         helper.standardOutput = FileHandle.nullDevice
         helper.standardError = FileHandle.nullDevice
+        let ended = DispatchSemaphore(value: 0)
+        helper.terminationHandler = { _ in ended.signal() }
         guard (try? helper.run()) != nil else { return nil }
-
-        let deadline = Date().addingTimeInterval(timeout)
-        while helper.isRunning && Date() < deadline { usleep(100_000) }
-        if helper.isRunning { kill(helper.processIdentifier, SIGKILL) }
+        if ended.wait(timeout: .now() + timeout) == .timedOut { kill(helper.processIdentifier, SIGKILL) }
         helper.waitUntilExit()
         // The helper only writes the file after a successful capture, so its presence is the result
         guard let png = try? Data(contentsOf: out), !png.isEmpty else { return nil }

@@ -4,9 +4,10 @@ import AVFoundation
 
 enum FLStatus: Equatable {
     case idle
-    case done(shots: Int, cards: Int)
-    /// Screenshots for the app's own collection: taken, and plugins that wouldn't open.
-    case captured(shots: Int, failed: Int)
+    /// `failed`: favourites that ended up with no picture at all.
+    case done(shots: Int, cards: Int, failed: Int)
+    /// Screenshots for the app's own collection: taken, and the names of the plugins that wouldn't open.
+    case captured(shots: Int, failed: [String])
     case removed(Int)
     case failed(String)
 }
@@ -23,21 +24,41 @@ final class FLLibrary: ObservableObject {
     @Published var status: FLStatus = .idle
     /// Plugins with a screenshot of the app's own, kept here because the window asks on every redraw.
     @Published private(set) var localKeys: Set<String> = []
-    /// How far `captureAll` has got, the one job that can be stopped.
+    /// How far a job that opens plugins one by one has got. These can be stopped.
     @Published private(set) var capture: CheckProgress?
     var capturingAll: Bool { capture != nil }
     /// Asked to stop; the plugin open now still finishes. Only touched on the main thread.
     @Published private(set) var stopRequested = false
 
-    private let local = LocalPictures()
+    private let local: LocalPictures
+    /// A screenshot of a plugin; the real one opens it in a helper.
+    private let shooter: ((ManagedPlugin) -> Data?)?
+    /// Pictures of single plugins don't wait behind a capture of everything.
+    private let writes = DispatchQueue(label: "plugin-sorter.fl-writes", qos: .userInitiated)
     private let scans = ScanGate()
     private let manifest = PictureManifest.shared
     private let queue = DispatchQueue(label: "plugin-sorter.fl", qos: .userInitiated)
     private let demo: Bool
 
-    init(demo: Bool = false) {
+    init(demo: Bool = false, local: LocalPictures = LocalPictures(), shooter: ((ManagedPlugin) -> Data?)? = nil) {
         self.demo = demo
+        self.local = local
+        self.shooter = shooter
         if !demo { localKeys = local.keys }
+    }
+
+    func failedKeys(among plugins: [ManagedPlugin]) -> Set<String> { local.failedKeys(among: plugins) }
+
+    /// Gives every plugin that wouldn't open another try.
+    func forgetFailedShots() {
+        local.forgetFailures()
+        objectWillChange.send()
+    }
+
+    /// The plugin is gone, so its screenshot has no use.
+    func removeLocalPicture(of key: String) {
+        local.remove(key)
+        localKeys.remove(key)
     }
 
     func localPicture(of key: String) -> URL? { localKeys.contains(key) ? local.url(for: key) : nil }
@@ -74,8 +95,9 @@ final class FLLibrary: ObservableObject {
         stopRequested = false
         progress = 0
         queue.async {
-            let components = PluginCapture.components()
-            var shots = 0, failed = 0
+            let shoot = self.shooter ?? Self.realShooter()
+            var shots = 0
+            var failed: [ManagedPlugin] = []
             for (n, plugin) in targets.enumerated() {
                 if DispatchQueue.main.sync(execute: { self.stopRequested }) { break }
                 DispatchQueue.main.async {
@@ -83,37 +105,44 @@ final class FLLibrary: ObservableObject {
                     self.progress = Double(n) / Double(targets.count)
                     self.capture = CheckProgress(done: n, total: targets.count, current: plugin.name)
                 }
-                if let component = PluginCapture.match(plugin, in: components),
-                   let png = PluginCapture.capture(component),
-                   (try? self.local.save(png, for: plugin.key)) != nil {
+                if let png = shoot(plugin), (try? self.local.save(png, for: plugin.key)) != nil {
                     shots += 1
                     DispatchQueue.main.async { self.localKeys.insert(plugin.key) }
                 } else {
-                    failed += 1
+                    failed.append(plugin)
                 }
             }
+            self.local.noteFailures(failed)
             DispatchQueue.main.async {
                 self.busy = false
                 self.capture = nil
                 self.current = ""
-                self.status = .captured(shots: shots, failed: failed)
+                self.status = .captured(shots: shots, failed: failed.map(\.name))
             }
         }
     }
 
-    /// Stops after the plugin being captured now.
+    private static func realShooter() -> (ManagedPlugin) -> Data? {
+        let components = PluginCapture.components()
+        return { plugin in PluginCapture.match(plugin, in: components).flatMap { PluginCapture.capture($0) } }
+    }
+
+    /// Stops after the plugin being opened now.
     func stopCapture() { stopRequested = true }
 
     /// A plugin just became a favourite: its screenshot goes into FL, unless a picture is already there.
     func adopt(_ shot: URL, for fst: URL) {
-        queue.async {
+        writes.async {
             let plugin = FLPlugin(fst: fst, title: fst.deletingPathExtension().lastPathComponent,
                                   info: FST.read(fst) ?? FSTInfo(), hasPicture: false, source: nil)
-            guard !FileManager.default.fileExists(atPath: plugin.picture.path),
-                  let image = NSImage(contentsOf: shot),
+            guard !FileManager.default.fileExists(atPath: plugin.picture.path) else { return }
+            guard let image = NSImage(contentsOf: shot),
                   let png = DispatchQueue.main.sync(execute: {
                       FLCard.png(title: plugin.title, vendor: plugin.info.vendor, shot: image)
-                  }) else { return }
+                  }) else {
+                DispatchQueue.main.async { self.status = .failed(shot.lastPathComponent) }
+                return
+            }
             let result = Result { try FLDatabase.install(png, for: plugin, source: .screenshot, manifest: self.manifest) }
             DispatchQueue.main.async {
                 if case .failure(let error) = result { self.status = .failed(error.localizedDescription) }
@@ -127,13 +156,19 @@ final class FLLibrary: ObservableObject {
         guard !busy, !targets.isEmpty else { return }
         busy = true
         progress = 0
+        // Only a run that opens plugins takes long enough to need stopping
+        let stoppable = screenshots && targets.count > 1
+        if stoppable { capture = CheckProgress(done: 0, total: targets.count, current: "") }
+        stopRequested = false
         queue.async {
             let components = screenshots ? PluginCapture.components() : []
-            var shots = 0, cards = 0
+            var shots = 0, cards = 0, failed = 0
             for (n, plugin) in targets.enumerated() {
+                if DispatchQueue.main.sync(execute: { self.stopRequested }) { break }
                 DispatchQueue.main.async {
                     self.current = plugin.title
                     self.progress = Double(n) / Double(targets.count)
+                    if stoppable { self.capture = CheckProgress(done: n, total: targets.count, current: plugin.title) }
                 }
                 var shot = local[plugin.id].flatMap { NSImage(contentsOf: $0) }
                 if shot == nil, screenshots, let component = PluginCapture.match(plugin, in: components),
@@ -144,20 +179,24 @@ final class FLLibrary: ObservableObject {
                 let png = DispatchQueue.main.sync {
                     FLCard.png(title: plugin.title, vendor: plugin.info.vendor, shot: shot)
                 }
-                guard let data = png, (try? FLDatabase.install(data, for: plugin, source: source, manifest: self.manifest)) != nil else { continue }
+                guard let data = png, (try? FLDatabase.install(data, for: plugin, source: source, manifest: self.manifest)) != nil else {
+                    failed += 1
+                    continue
+                }
                 if source == .screenshot { shots += 1 } else { cards += 1 }
             }
             DispatchQueue.main.async {
                 self.busy = false
+                self.capture = nil
                 self.current = ""
-                self.status = .done(shots: shots, cards: cards)
+                self.status = .done(shots: shots, cards: cards, failed: failed)
                 self.scan()
             }
         }
     }
 
     func setCustom(_ plugin: FLPlugin, image url: URL) {
-        queue.async {
+        writes.async {
             // Custom images go into the same template as screenshots
             let image = NSImage(contentsOf: url)
             let png = image.flatMap { image in
@@ -176,7 +215,7 @@ final class FLLibrary: ObservableObject {
     }
 
     func remove(_ targets: [FLPlugin]) {
-        queue.async {
+        writes.async {
             let result = Result { for target in targets { try FLDatabase.remove(target, manifest: self.manifest) } }
             DispatchQueue.main.async {
                 switch result {

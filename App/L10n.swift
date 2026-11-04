@@ -60,8 +60,10 @@ struct L10n {
     func flStatus(_ status: FLStatus) -> String {
         switch status {
         case .idle:                         return ""
-        case .done(let shots, let cards):   return self("fl.done", shots, cards)
-        case .captured(let shots, let failed): return self("fl.captured", shots, failed)
+        case .done(let shots, let cards, let failed):
+            return self("fl.done", shots, cards) + (failed > 0 ? " · " + self("fl.noPicture", failed) : "")
+        case .captured(let shots, let failed):
+            return self("fl.captured", shots, failed.count) + (failed.isEmpty ? "" : "\n" + failed.joined(separator: ", "))
         case .removed(let n):               return self("fl.removed", n)
         case .failed(let error):            return self("status.failed", error)
         }
@@ -472,6 +474,26 @@ struct L10n {
         ]
         t["gear.allPictures"] = [.en: "Capture pictures of all plugins", .ru: "Снять картинки всех плагинов", .uk: "Зняти картинки всіх плагінів", .de: "Bilder aller Plugins aufnehmen"]
         t["gear.stopPictures"] = [.en: "Stop capturing", .ru: "Остановить съёмку", .uk: "Зупинити зйомку", .de: "Aufnahme stoppen"]
+        t["fl.noPicture"] = [.en: "no picture: %d", .ru: "без картинки: %d", .uk: "без картинки: %d", .de: "ohne Bild: %d"]
+        t["gear.retryPictures"] = [
+            .en: "Try plugins that didn't open again (%d)", .ru: "Снова попробовать неоткрывшиеся (%d)",
+            .uk: "Знову спробувати ті, що не відкрилися (%d)", .de: "Nicht geöffnete erneut versuchen (%d)",
+        ]
+        t["capture.confirm"] = [
+            .en: "Open %d plugins one by one?", .ru: "Открыть плагины по очереди: %d?",
+            .uk: "Відкрити плагіни по черзі: %d?", .de: "%d Plugins nacheinander öffnen?",
+        ]
+        t["capture.confirmInfo"] = [
+            .en: "Each plugin's window comes to the front for a few seconds and takes the keyboard focus, so it's best to leave the Mac alone meanwhile. You can stop at any time.",
+            .ru: "Окно каждого плагина на несколько секунд выйдет вперёд и заберёт фокус клавиатуры, поэтому лучше пока не работать за компьютером. Остановить можно в любой момент.",
+            .uk: "Вікно кожного плагіна на кілька секунд вийде наперед і забере фокус клавіатури, тож краще поки не працювати за комп'ютером. Зупинити можна будь-коли.",
+            .de: "Jedes Plugin-Fenster kommt für einige Sekunden nach vorn und übernimmt den Tastaturfokus, also den Mac währenddessen am besten nicht benutzen. Du kannst jederzeit stoppen.",
+        ]
+        t["capture.start"] = [.en: "Start", .ru: "Начать", .uk: "Почати", .de: "Starten"]
+        t["mgr.trashFiles"] = [
+            .en: "Only the plugin files to the Trash…", .ru: "Только файлы плагина в Корзину…",
+            .uk: "Лише файли плагіна у Кошик…", .de: "Nur die Plugin-Dateien in den Papierkorb…",
+        ]
         t["fl.captured"] = [
             .en: "Pictures taken: %d, couldn't open: %d", .ru: "Снято картинок: %d, не открылось: %d",
             .uk: "Знято картинок: %d, не відкрилося: %d", .de: "Bilder aufgenommen: %d, nicht geöffnet: %d",

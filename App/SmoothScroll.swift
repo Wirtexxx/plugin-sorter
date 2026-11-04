@@ -78,10 +78,16 @@ final class SmoothScrollView: NSView {
         lastFrame = CACurrentMediaTime()
         lastOrigin = scroll.contentView.bounds.origin.y
         Self.isScrolling = true
-        let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] _ in self?.tick() }
+        let timer = Timer(timeInterval: 1.0 / frameRate, repeats: true) { [weak self] _ in self?.tick() }
         // .common: keep moving while a menu or other tracking loop is up
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+    }
+
+    /// The screen's own rate: faster would lay the list out for frames nobody sees.
+    private var frameRate: Double {
+        if #available(macOS 12.0, *), let rate = window?.screen?.maximumFramesPerSecond, rate > 0 { return Double(rate) }
+        return 60
     }
 
     private func tick() {
