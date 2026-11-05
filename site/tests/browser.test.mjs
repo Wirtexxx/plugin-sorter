@@ -247,8 +247,210 @@ test("the donation dialog is styled when Ko-fi is set", async (t) => {
   t.after(() => context.close());
   const page = await context.newPage();
   await page.goto(withKoFi.url, { waitUntil: "load" });
-  await page.evaluate(() => document.querySelector("dialog").showModal());
+  await page.evaluate(() => document.querySelector("#support-dialog").showModal());
   const box = await page.locator("dialog").boundingBox();
   assert.ok(box.x >= 0 && box.x + box.width <= 390);
   assert.notEqual(await page.locator("dialog").evaluate((d) => getComputedStyle(d).backgroundColor), "rgb(255, 255, 255)");
+});
+
+// ---- Support dialog and floating button ----
+const CFG = JSON.parse(await readFile(join(here, "../site.config.json"), "utf8"));
+const KOFI_STUB = "<!doctype html><title>stub</title><body style='font-family:sans-serif;background:#f9f9f9;color:#222'><h1>Ko-fi form (stub)</h1>";
+
+/** Opens a page of `s` with the file and Ko-fi routes stubbed, so no test touches the network. */
+async function openStubbed(s, path = "/", options = {}) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...options });
+  const page = await context.newPage();
+  page.setDefaultTimeout(5000);
+  const requests = [];
+  page.on("request", (r) => requests.push(r.url()));
+  await context.route(/^https:\/\/ko-fi\.com\//, (r) =>
+    r.fulfill({ status: 200, contentType: "text/html", body: KOFI_STUB }));
+  await context.route(CFG.downloadUrl, (r) =>
+    r.fulfill({ status: 200, headers: { "content-disposition": 'attachment; filename="PluginSorter.dmg"' }, body: "dmg" }));
+  await page.goto(s.url + path, { waitUntil: "load" });
+  const kofiRequests = () => requests.filter((u) => u.startsWith("https://ko-fi.com/"));
+  return { page, requests, kofiRequests, done: () => context.close() };
+}
+
+const dialogOpen = (page) => page.locator("#support-dialog").evaluate((d) => d.open);
+const scrollPastHero = (page) =>
+  page.evaluate(() => window.scrollTo(0, document.querySelector("#hero").getBoundingClientRect().bottom + scrollY + 400));
+
+for (const path of ["/", "/ru/"]) {
+  test(`${path} download starts and dialog opens`, async () => {
+    const { page, requests, done } = await openStubbed(site, path);
+    const download = page.waitForEvent("download");
+    await page.locator("#hero a[data-download]").click();
+    await download;
+    assert.ok(requests.includes(CFG.downloadUrl));
+    assert.equal(await dialogOpen(page), true);
+    assert.equal(await page.locator("#support-dialog").getAttribute("aria-modal"), null);
+    await done();
+  });
+}
+
+test("every download button opens the dialog", async () => {
+  const { page, done } = await openStubbed(site);
+  const count = await page.locator("a[data-download]").count();
+  assert.ok(count >= 3);
+  for (let i = 0; i < count; i++) {
+    await page.locator("a[data-download]").nth(i).scrollIntoViewIfNeeded();
+    await page.locator("a[data-download]").nth(i).click();
+    assert.equal(await dialogOpen(page), true, `button ${i}`);
+    await page.keyboard.press("Escape");
+    assert.equal(await dialogOpen(page), false);
+  }
+  await done();
+});
+
+test("the dialog closes with the cross, Esc and a click on the backdrop", async () => {
+  const { page, done } = await openStubbed(site);
+  const open = () => page.locator("#hero a[data-download]").click();
+  await open();
+  await page.locator("#support-dialog [data-close]").click();
+  assert.equal(await dialogOpen(page), false);
+  await open();
+  await page.keyboard.press("Escape");
+  assert.equal(await dialogOpen(page), false);
+  await open();
+  await page.mouse.click(4, 4);
+  assert.equal(await dialogOpen(page), false);
+  await open();
+  await page.locator("#support-dialog h2:visible").click();
+  assert.equal(await dialogOpen(page), true, "a click inside must not close it");
+  await done();
+});
+
+test("keyboard focus goes into the dialog and back to the button", async () => {
+  const { page, done } = await openStubbed(site);
+  const button = page.locator("#hero a[data-download]");
+  await button.focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await page.evaluate(() => !!document.activeElement.closest("#support-dialog")), true);
+  await page.keyboard.press("Escape");
+  assert.equal(await button.evaluate((b) => b === document.activeElement), true);
+  await done();
+});
+
+for (const [path, copyFile] of [["/", "en"], ["/ru/", "ru"]]) {
+  test(`${path} dialog shows the Mac note and Ko-fi attribution`, async () => {
+    const copy = JSON.parse(await readFile(join(here, `../src/copy/${copyFile}.json`), "utf8"));
+    const { page, done } = await openStubbed(site, path);
+    await page.locator("#hero a[data-download]").click();
+    assert.ok(await page.getByText(copy.dialog.macNote).isVisible());
+    assert.ok(await page.getByText(copy.dialog.title).isVisible());
+    assert.ok(await page.getByText(copy.dialog.embedNote).isVisible());
+    assert.equal(await page.getByText(copy.dialog.supportTitle).isVisible(), false);
+    await done();
+  });
+}
+
+test("download links work without JavaScript", async () => {
+  const { page, done } = await openStubbed(site, "/", { javaScriptEnabled: false });
+  const hrefs = await page.$$eval("a[data-download]", (as) => as.map((a) => a.getAttribute("href")));
+  assert.ok(hrefs.length >= 3);
+  for (const h of hrefs) assert.equal(h, CFG.downloadUrl);
+  assert.equal(await page.locator("#support-fab").isVisible(), false);
+  await done();
+});
+
+test("without a Ko-fi link there is no dialog, no button and no script", async (t) => {
+  const bare = await serveBuild({ config: { koFiUrl: "" } });
+  t.after(bare.close);
+  const { page, requests, done } = await openStubbed(bare);
+  assert.equal(await page.locator("#support-dialog, #support-fab").count(), 0);
+  assert.equal(await page.locator("script[src]").count(), 0);
+  const download = page.waitForEvent("download");
+  await page.locator("#hero a[data-download]").click();
+  await download;
+  assert.ok(requests.includes(CFG.downloadUrl));
+  await done();
+});
+
+test("Ko-fi is only requested when the dialog opens and the form stays after closing", async () => {
+  const { page, kofiRequests, requests, done } = await openStubbed(site);
+  assert.equal(kofiRequests().length, 0);
+  assert.equal(await page.locator("iframe").count(), 0);
+  await page.locator("#hero a[data-download]").click();
+  const frame = page.locator("iframe#kofiframe");
+  await frame.waitFor();
+  assert.equal(await page.locator("iframe").count(), 1);
+  assert.equal(await frame.getAttribute("src"), CFG.koFiEmbedUrl);
+  assert.equal(await frame.getAttribute("title"), "wirtex");
+  await page.frameLocator("#kofiframe").getByText("Ko-fi form (stub)").waitFor();
+  assert.equal(kofiRequests().length, 1);
+  await page.keyboard.press("Escape");
+  await page.locator("#hero a[data-download]").click();
+  assert.equal(await page.locator("iframe").count(), 1);
+  assert.equal(kofiRequests().length, 1, "reopening must not reload the form");
+  assert.ok(!requests.some((u) => /overlay-widget|storage\.ko-fi/.test(u)));
+  await done();
+});
+
+test("the plain Ko-fi link is a fallback below the form", async () => {
+  const { page, done } = await openStubbed(site);
+  await page.locator("#hero a[data-download]").click();
+  const link = page.locator(`#support-dialog a[href="${CFG.koFiUrl}"]`);
+  assert.equal(await link.getAttribute("target"), "_blank");
+  assert.match(await link.getAttribute("rel"), /noopener/);
+  const [l, f] = await Promise.all([link.boundingBox(), page.locator("#kofiframe").boundingBox()]);
+  assert.ok(l.y >= f.y + f.height - 1);
+  await done();
+});
+
+test("the floating button appears after the hero and opens the dialog without a download", async () => {
+  for (const [path, copyFile] of [["/", "en"], ["/ru/", "ru"]]) {
+    const copy = JSON.parse(await readFile(join(here, `../src/copy/${copyFile}.json`), "utf8"));
+    const { page, requests, done } = await openStubbed(site, path);
+    const fab = page.locator("#support-fab");
+    assert.equal(await fab.evaluate((b) => b.tagName), "BUTTON");
+    assert.equal(await fab.isVisible(), false);
+    await scrollPastHero(page);
+    await fab.waitFor({ state: "visible" });
+    assert.equal((await fab.innerText()).trim(), copy.dialog.fab);
+    await fab.click();
+    assert.equal(await dialogOpen(page), true);
+    assert.ok(await page.getByText(copy.dialog.supportTitle).isVisible());
+    assert.equal(await page.getByText(copy.dialog.title).isVisible(), false);
+    assert.equal(await page.getByText(copy.dialog.macNote).isVisible(), false);
+    assert.ok(!requests.includes(CFG.downloadUrl));
+    await page.keyboard.press("Escape");
+    assert.equal(await fab.evaluate((b) => b === document.activeElement), true);
+    await page.evaluate(() => scrollTo(0, 0));
+    await fab.waitFor({ state: "hidden" });
+    await done();
+  }
+});
+
+test("the floating button stays on screen and out of the way at 320", async () => {
+  const { page, done } = await openStubbed(site, "/", { viewport: { width: 320, height: 640 } });
+  await scrollPastHero(page);
+  const fab = page.locator("#support-fab");
+  await fab.waitFor({ state: "visible" });
+  const box = await fab.boundingBox();
+  assert.ok(box.x >= 0 && box.x + box.width <= 320 && box.y + box.height <= 640);
+  assert.ok(box.width <= 170 && box.height <= 56, `${box.width}x${box.height}`);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await done();
+});
+
+test("the floating button has no motion when reduced motion is asked for", async () => {
+  const { page, done } = await openStubbed(site, "/", { reducedMotion: "reduce" });
+  await scrollPastHero(page);
+  const fab = page.locator("#support-fab");
+  await fab.waitFor({ state: "visible" });
+  const m = await fab.evaluate((b) => { const s = getComputedStyle(b); return [s.transitionDuration, s.animationName]; });
+  assert.deepEqual(m, ["0s", "none"]);
+  await done();
+});
+
+test("the dialog fits a small screen and scrolls", async () => {
+  const { page, done } = await openStubbed(site, "/", { viewport: { width: 320, height: 568 } });
+  await page.locator("#hero a[data-download]").click();
+  const box = await page.locator("#support-dialog").boundingBox();
+  assert.ok(box.x >= 0 && box.x + box.width <= 320 && box.y >= 0 && box.y + box.height <= 568);
+  assert.ok(await page.locator("#support-dialog").evaluate((d) => d.scrollHeight > d.clientHeight));
+  assert.equal(await page.locator("#kofiframe").evaluate((f) => f.getBoundingClientRect().width <= 320), true);
+  await done();
 });

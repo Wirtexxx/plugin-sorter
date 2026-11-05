@@ -318,19 +318,42 @@ footer { padding-block: 34px 44px; border-top: 1px solid var(--line); color: var
 .foot-links a:not(.brand):hover { color: var(--text); text-decoration: underline; }
 .legal { margin-top: 14px; }
 
-/* Donation dialog: Task 3 wires it up */
+/* Support dialog and floating button */
 dialog {
-  width: min(460px, 100vw - 32px); padding: 30px; border-radius: var(--radius);
+  width: min(520px, 100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 30px; border-radius: var(--radius);
   background: var(--panel-hi); color: var(--text); border: 1px solid var(--line-hi);
   box-shadow: 0 0 90px rgba(150, 84, 255, 0.4);
 }
 dialog::backdrop { background: rgba(8, 8, 12, 0.72); }
-dialog h2 { font-size: 26px; }
+dialog h2 { font-size: 26px; padding-right: 36px; }
 dialog p { margin-top: 14px; color: var(--soft); }
 dialog .muted { color: var(--muted); font-size: 14.5px; }
-dialog [data-close] {
-  margin-top: 18px; padding: 8px 16px; border-radius: 999px; background: none; border: 1px solid var(--line);
-  color: var(--soft); font: inherit; font-size: 15px; cursor: pointer;
+dialog [hidden] { display: none; }
+.dlg-x {
+  position: absolute; top: 14px; right: 14px; width: 40px; height: 40px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--panel); border: 1px solid var(--line); color: var(--soft); cursor: pointer;
+}
+.dlg-x:hover { color: var(--text); border-color: var(--line-hi); }
+.dlg-x svg { width: 20px; height: 20px; }
+.kofi { margin-top: 20px; }
+.kofi:empty { display: none; }
+#kofiframe { display: block; width: 100%; height: 712px; border: 0; border-radius: 14px; background: #f9f9f9; }
+.dlg-fallback { text-align: center; }
+.dlg-fallback .btn-ghost { font-size: 15px; padding: 11px 20px; }
+.dlg-note { text-align: center; }
+.fab {
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 20;
+  display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border: 0; border-radius: 999px;
+  background: var(--grad-btn); color: #fff; font: inherit; font-weight: 800; font-size: 15px; line-height: 1.2; cursor: pointer;
+  box-shadow: 0 8px 28px rgba(140, 70, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.fab[hidden] { display: none; }
+.fab:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(160, 80, 255, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28); }
+.fab svg { width: 18px; height: 18px; flex: none; }
+@media (prefers-reduced-motion: reduce) {
+  .fab, .fab:hover { transition: none; transform: none; animation: none; }
 }
 
 /* Motion: slow, and only when it's welcome */

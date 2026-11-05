@@ -122,14 +122,23 @@ ${(s.paths ?? []).map((p) => `<div class="path" data-macos><b>${esc(p.label)}</b
 </li>`).join("\n");
 
   const koFi = config.koFiUrl;
+  const embed = config.koFiEmbedUrl;
   const dialog = koFi
-    ? `<dialog id="donate" aria-labelledby="donate-title">
-<h2 id="donate-title">${esc(copy.dialog.title)}</h2>
+    ? `<dialog id="support-dialog" aria-labelledby="support-title">
+<button type="button" class="dlg-x" data-close aria-label="${esc(copy.dialog.close)}">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button>
+<div data-variant="download">
+<h2 id="support-title">${esc(copy.dialog.title)}</h2>
 <p>${esc(copy.dialog.text)}</p>
-<p><a class="btn" href="${esc(koFi)}" rel="noopener">${esc(copy.dialog.kofi)}</a></p>
 <p class="muted">${esc(copy.dialog.macNote)}</p>
-<button type="button" data-close>${esc(copy.dialog.close)}</button>
-</dialog>`
+</div>
+<div data-variant="support" hidden>
+<h2>${esc(copy.dialog.supportTitle)}</h2>
+<p>${esc(copy.dialog.supportText)}</p>
+</div>
+${embed ? `<div class="kofi" data-embed-src="${esc(embed)}"></div>\n` : ""}<p class="dlg-fallback"><a class="btn-ghost" href="${esc(koFi)}" target="_blank" rel="noopener">${ICONS.heart}${esc(copy.dialog.fallback)}</a></p>
+<p class="muted dlg-note">${esc(copy.dialog.embedNote)}</p>
+</dialog>
+<button type="button" id="support-fab" class="fab" data-support-open hidden>${ICONS.heart}<span>${esc(copy.dialog.fab)}</span></button>`
     : "";
   const koFiLink = koFi ? `<a class="btn" href="${esc(koFi)}" rel="noopener">${ICONS.heart}${esc(copy.support.kofi)}</a>` : "";
 
@@ -155,7 +164,7 @@ ${(s.paths ?? []).map((p) => `<div class="path" data-macos><b>${esc(p.label)}</b
 <link rel="apple-touch-icon" href="/assets/icon.png">
 <link rel="preload" href="/assets/fonts/manrope-${lang === "ru" ? "cyrillic" : "latin"}.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/styles.css">
-<meta property="og:type" content="website">
+${koFi ? '<script src="/assets/site.js" defer></script>\n' : ""}<meta property="og:type" content="website">
 <meta property="og:title" content="${esc(copy.meta.title)}">
 <meta property="og:description" content="${esc(copy.meta.description)}">
 <meta property="og:url" content="${esc(url)}">

@@ -83,6 +83,27 @@ test("shows donations with a Ko-fi link", async () => {
   const html = await read("index.html");
   assert.ok(html.includes("<dialog"));
   assert.ok(html.includes('href="https://ko-fi.com/example"'));
+  assert.ok(html.includes('id="support-dialog"'));
+  assert.ok(html.includes('id="support-fab"'));
+});
+
+test("without a Ko-fi link there is no floating button or script", async () => {
+  const { read, outDir } = await build({ koFiUrl: "" });
+  const html = await read("index.html");
+  assert.ok(!html.includes("support-fab"));
+  assert.ok(!html.includes("site.js"));
+});
+
+test("the page loads nothing from Ko-fi by itself", async () => {
+  const { read, outDir } = await build();
+  for (const f of ["index.html", "ru/index.html"]) {
+    const html = await read(f);
+    assert.ok(!/<iframe/.test(html), "no iframe in the markup");
+    assert.ok(!/(src|srcset|data)="https?:\/\/[^"]*ko-fi/.test(html.replace(/data-embed-src="[^"]*"/g, "")));
+    assert.ok(html.includes('src="/assets/site.js"'));
+    assert.ok(/<script[^>]*src="\/assets\/site\.js"[^>]*defer/.test(html));
+  }
+  assert.match(await readFile(join(outDir, "assets/site.js"), "utf8"), /showModal/);
 });
 
 test("release build needs the before screenshot", async () => {

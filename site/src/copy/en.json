@@ -260,8 +260,12 @@
   "dialog": {
     "title": "Your download has started",
     "text": "Plugin Sorter is free. If it saves you time, you can support it, but you don't have to.",
-    "kofi": "Support on Ko-fi",
+    "fallback": "Form not loading? Open Ko-fi",
     "macNote": "The file is for Mac. If macOS warns you on launch, allow the app in System Settings, Privacy & Security.",
+    "supportTitle": "Support Plugin Sorter",
+    "supportText": "Plugin Sorter is free and its code is open. If it saves you time, you can support its development, but you don't have to.",
+    "embedNote": "The form above is loaded from Ko-fi and run by Ko-fi, not by this site.",
+    "fab": "Support",
     "close": "Close"
   }
 }

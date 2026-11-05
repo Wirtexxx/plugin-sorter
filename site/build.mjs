@@ -38,6 +38,7 @@ export async function buildSite({
   if (await exists(assetsDir)) await cp(assetsDir, join(outDir, "assets"), { recursive: true });
   await mkdir(join(outDir, "assets"), { recursive: true });
   await cp(join(here, "src/styles.css"), join(outDir, "assets/styles.css"));
+  await cp(join(here, "src/site.js"), join(outDir, "assets/site.js"));
 
   const urls = pages.map((p) => `  <url><loc>${p.url}</loc></url>`).join("\n");
   await writeFile(join(outDir, "sitemap.xml"),
