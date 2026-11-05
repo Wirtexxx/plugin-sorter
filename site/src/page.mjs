@@ -244,9 +244,10 @@ ${text(item.sort)}
 <article class="card card-check rise">
 <div class="lamps" role="img" aria-label="${esc(copy.features.checkAlt)}">
 <div class="lamp-row"><span class="lamp" style="--c:var(--mint)"></span><span><b>FabFilter Pro-Q 4</b><small>FabFilter</small></span></div>
-<div class="lamp-row"><span class="lamp" style="--c:var(--amber)"></span><span><b>kHs Chorus</b><small>Kilohearts</small></span></div>
-<div class="lamp-row"><span class="lamp" style="--c:var(--danger)"></span><span><b>OldReverb</b><small>Legacy Audio</small></span></div>
+<div class="lamp-row"><span class="lamp" style="--c:var(--amber)"></span><span><b>Sample Chorus</b><small>Demo Audio</small></span></div>
+<div class="lamp-row"><span class="lamp" style="--c:var(--danger)"></span><span><b>Sample Reverb</b><small>Demo Audio</small></span></div>
 </div>
+<p class="lamps-note">${esc(copy.features.checkDemo)}</p>
 ${text(item.check)}
 </article>
 ${small("uninstall")}

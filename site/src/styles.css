@@ -229,11 +229,12 @@ h1 .grad { display: block; white-space: nowrap; }
 .tree-arrow { display: grid; place-items: center; color: var(--pink); }
 .tree-arrow svg { width: 26px; height: 26px; }
 
-.lamps { display: grid; gap: 4px; margin-bottom: 26px; padding: 8px; border-radius: 14px; background: var(--inset); }
+.lamps { display: grid; gap: 4px; padding: 8px; border-radius: 14px; background: var(--inset); }
 .lamps .lamp-row { display: flex; align-items: center; gap: 13px; padding: 9px 12px; border-radius: 10px; }
 .lamps .lamp-row:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
 .lamps b { display: block; font-size: 15px; font-weight: 700; line-height: 1.25; }
 .lamps small { display: block; color: var(--muted); font-size: 13px; line-height: 1.3; }
+.lamps-note { margin: 8px 0 22px; color: var(--muted); font-size: 13px; line-height: 1.3; }
 .lamp { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 20%, transparent), 0 0 12px var(--c); }
 
 .card .skins-label { margin-top: 26px; color: var(--muted); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }

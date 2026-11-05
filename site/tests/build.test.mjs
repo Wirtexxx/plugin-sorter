@@ -153,6 +153,67 @@ test("copies the stylesheet", async () => {
   assert.ok((await read("index.html")).includes('href="/assets/styles.css"'));
 });
 
+const shape = (v) => Array.isArray(v) ? v.map(shape)
+  : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).map((k) => [k, shape(v[k])]))
+  : typeof v;
+
+const readCopy = async (lang) => JSON.parse(await readFile(join(here, `../src/copy/${lang}.json`), "utf8"));
+
+test("both languages have the same keys, in the same shape", async () => {
+  assert.deepEqual(shape(await readCopy("ru")), shape(await readCopy("en")));
+});
+
+test("the copy does not promise a screenshot of every plugin", async () => {
+  for (const lang of ["en", "ru"]) {
+    const { hero, picker } = await readCopy(lang);
+    assert.ok(!/every plugin|каждого плагина/i.test(hero.subtitle + picker.points[0]), lang);
+    assert.ok(!/real interface of every|настоящий интерфейс каждого/i.test(picker.lead), lang);
+    assert.match(picker.lead, /Audio Unit/, lang);
+    assert.match(picker.points[1], /Audio Unit/, lang);
+  }
+});
+
+test("the safety answer names the rescan and the password, in the search markup too", async () => {
+  const { read } = await build();
+  for (const [file, words] of [
+    ["index.html", [/rescan/, /administrator password/, /normally/]],
+    ["ru/index.html", [/просканировать/, /пароль администратора/, /обычно/]],
+  ]) {
+    const html = await read(file);
+    const faq = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+      .map((m) => JSON.parse(m[1])).find((b) => b["@type"] === "FAQPage");
+    const answer = faq.mainEntity[2].acceptedAnswer.text;
+    for (const word of words) assert.match(answer, word);
+  }
+});
+
+test("flat No cells stay narrow enough to be true whatever FL Studio has", async () => {
+  for (const lang of ["en", "ru"]) {
+    const rows = (await readCopy(lang)).compare.rows.filter((r) => r.fl[0] === "no");
+    assert.ok(rows.length >= 5, lang);
+    for (const r of rows) assert.ok(!/^[^,]+, [^,]+, /.test(r.label) || /CSV/.test(r.label), r.label);
+  }
+});
+
+test("the rows the author has to check are named in LAUNCH.md", async () => {
+  const launch = await readFile(join(here, "../LAUNCH.md"), "utf8");
+  const rows = (await readCopy("ru")).compare.rows.slice(-5);
+  for (const r of rows) assert.ok(launch.includes(`«${r.label}»`), r.label);
+});
+
+test("the status lamps name no real plugin on a warning", async () => {
+  const { read } = await build();
+  for (const f of ["index.html", "ru/index.html"]) {
+    const lamps = (await read(f)).match(/<div class="lamps"[\s\S]*?<p class="lamps-note">/)[0];
+    assert.ok(!/kHs|Kilohearts|OldReverb|Legacy Audio/.test(lamps));
+  }
+});
+
+test("the dialog tells older macOS how to open the app", async () => {
+  assert.match((await readCopy("en")).dialog.macNote, /right-click the app and choose Open/);
+  assert.match((await readCopy("ru")).dialog.macNote, /правой кнопкой и выберите «Открыть»/);
+});
+
 test("escapes copy", () => {
   const copy = JSON.parse(JSON.stringify({ ...en() }));
   copy.hero.title = "<script>alert(1)</script>";

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Plugin Sorter: free FL Studio plugin manager for Mac",
-    "description": "A free, open-source plugin manager for Mac. Put a picture on every plugin in FL Studio's picker and organize your VST plugins by developer."
+    "description": "A free, open-source plugin manager for Mac. Put plugin pictures in FL Studio's picker and organize your VST plugins by developer."
   },
   "nav": {
     "skip": "Skip to content",
@@ -19,7 +19,7 @@
     "title": "The plugin manager",
     "titleAccent": "FL Studio on Mac",
     "titleEnd": "was missing",
-    "subtitle": "Put a real picture on every plugin in FL Studio's picker. Sort your VST3 and VST plugins by developer. Check, turn off and remove them, all in one window.",
+    "subtitle": "Fill FL Studio's picker with pictures of your plugins. Sort your VST3 and VST plugins by developer. Check, turn off and remove them, all in one window.",
     "download": "Download for Mac",
     "note": "Free and open source. For Mac with Apple Silicon or Intel, macOS 11 or later.",
     "imageAlt": "Plugin Sorter window: a list of plugins with status lamps, formats, FL Studio favourites and categories, and three jobs at the bottom"
@@ -27,15 +27,15 @@
   "picker": {
     "eyebrow": "In FL Studio",
     "title": "FL Studio plugin pictures, all at once",
-    "lead": "In FL Studio a thumbnail is a manual job, one plugin at a time, so the picker tends to stay a wall of plain text. Plugin Sorter fills the whole plugin picker with thumbnails of the real interfaces. Your third-party plugins finally look like FL's own.",
+    "lead": "In FL Studio a thumbnail is a manual job, one plugin at a time, so the picker tends to stay a wall of plain text. Plugin Sorter fills the plugin picker in one go, with a shot of the real interface wherever a plugin has an Audio Unit version. Your third-party plugins finally look like FL's own.",
     "beforeLabel": "Before",
     "afterLabel": "After",
     "beforeAlt": "FL Studio plugin picker where third-party plugins are plain text",
     "afterAlt": "FL Studio plugin picker with a picture of every plugin, sorted into category tabs",
     "placeholder": "Local placeholder: the real screenshot goes here",
     "points": [
-      "One button takes a picture of every plugin. Their windows pop up in the corner for a moment while it works.",
-      "A plugin that won't open gets a neat card instead. You can also drop your own image on any plugin.",
+      "One button takes the pictures. Plugins with an Audio Unit version pop up in the corner for a moment while it works.",
+      "A plugin with no Audio Unit version, or one that won't open, gets a neat card instead. You can also drop your own image on any plugin.",
       "Favourites go under the picker's tabs: Dynamics, Filter, Delay reverb and the rest. Every job can be undone."
     ]
   },
@@ -45,6 +45,7 @@
     "lead": "After a few years of production the plugin folder turns into a flat wall of hundreds of files. Plugin Sorter is a VST plugin manager for Mac that works out who made each plugin and puts things in order.",
     "sortAlt": "A flat VST3 folder on the left, and the same plugins sorted into developer folders on the right",
     "checkAlt": "Three plugins with a green, an amber and a red status lamp",
+    "checkDemo": "Illustration. The plugins with warnings are made up.",
     "cardsAlt": "Plugin Sorter in card view, with one plugin open in a panel on the right",
     "skinsLabel": "Colour skins",
     "skins": [
@@ -157,7 +158,18 @@
         ]
       },
       {
-        "label": "Turn off, clean uninstall, duplicates",
+        "label": "Hide a plugin from every DAW",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes, and bring it back any time"
+        ]
+      },
+      {
+        "label": "Uninstall with preferences, caches and installer receipts",
         "fl": [
           "no",
           "No"
@@ -168,7 +180,29 @@
         ]
       },
       {
-        "label": "Tags, colours, licenses, export",
+        "label": "Send old versions and extra copies to the Trash",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes"
+        ]
+      },
+      {
+        "label": "Keep licenses in the macOS Keychain",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes"
+        ]
+      },
+      {
+        "label": "Export the plugin list to Markdown, CSV or JSON",
         "fl": [
           "no",
           "No"
@@ -221,7 +255,7 @@
     },
     {
       "q": "Is it safe to move my plugins?",
-      "a": "You see every move before it happens, each run writes a log, and Undo puts everything back. DAWs identify plugins by their IDs, not their paths, so your existing projects keep loading them."
+      "a": "You see every move before it happens, each run writes a log, and Undo puts everything back. DAWs identify plugins by their IDs, not their paths, so existing projects normally keep loading them, and if another plugin loads a moved bundle, a one-click fix puts it back. Sorting asks for an administrator password, and FL Studio needs a rescan afterwards."
     },
     {
       "q": "Why does macOS warn me when I open it?",
@@ -261,7 +295,7 @@
     "title": "Your download has started",
     "text": "Plugin Sorter is free. If it saves you time, you can support it, but you don't have to.",
     "fallback": "Form not loading? Open Ko-fi",
-    "macNote": "The file is for Mac. If macOS warns you on launch, allow the app in System Settings, Privacy & Security.",
+    "macNote": "The file is for Mac. If macOS warns you on launch, allow the app in System Settings, Privacy & Security. On older macOS, right-click the app and choose Open.",
     "supportTitle": "Support Plugin Sorter",
     "supportText": "Plugin Sorter is free and its code is open. If it saves you time, you can support its development, but you don't have to.",
     "embedNote": "The form above is loaded from Ko-fi and run by Ko-fi, not by this site.",
