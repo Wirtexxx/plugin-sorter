@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,13 +36,39 @@ test("sets canonical and hreflang", async () => {
   }
 });
 
-test("writes sitemap robots and CNAME", async () => {
+test("writes sitemap and robots", async () => {
   const { read } = await build();
   const sitemap = await read("sitemap.xml");
   assert.ok(sitemap.includes("<loc>https://pluginsorter.com/</loc>"));
   assert.ok(sitemap.includes("<loc>https://pluginsorter.com/ru/</loc>"));
   assert.ok((await read("robots.txt")).includes("Sitemap: https://pluginsorter.com/sitemap.xml"));
-  assert.equal((await read("CNAME")).trim(), "pluginsorter.com");
+});
+
+test("is ready for Cloudflare Pages", async () => {
+  const { read, outDir } = await build();
+  const headers = await read("_headers");
+  assert.match(headers, /\/assets\/\*\n  Cache-Control: public, max-age=2592000/);
+  assert.match(headers, /https:\/\/:project\.pages\.dev\/\*\n  X-Robots-Tag: noindex/);
+  assert.match(headers, /https:\/\/:version\.:project\.pages\.dev\/\*\n  X-Robots-Tag: noindex/);
+  await assert.rejects(access(join(outDir, "CNAME")));
+});
+
+test("has a real 404 page in each language", async () => {
+  const { read } = await build();
+  for (const [file, lang, home] of [["404.html", "en", 'href="/"'], ["ru/404.html", "ru", 'href="/ru/"']]) {
+    const html = await read(file);
+    assert.ok(html.includes(`<html lang="${lang}">`));
+    assert.ok(html.includes('name="robots" content="noindex"'));
+    assert.ok(html.includes(home));
+    assert.equal((html.match(/<h1/g) ?? []).length, 1);
+  }
+});
+
+test("names stylesheet and script by content, so long caching stays safe", async () => {
+  const { read } = await build({ koFiUrl: "https://ko-fi.com/example" });
+  const html = await read("index.html");
+  assert.match(html, /\/assets\/styles\.css\?v=[0-9a-f]{8}"/);
+  assert.match(html, /\/assets\/site\.js\?v=[0-9a-f]{8}"/);
 });
 
 test("has valid structured data", async () => {
@@ -100,8 +126,7 @@ test("the page loads nothing from Ko-fi by itself", async () => {
     const html = await read(f);
     assert.ok(!/<iframe/.test(html), "no iframe in the markup");
     assert.ok(!/(src|srcset|data)="https?:\/\/[^"]*ko-fi/.test(html.replace(/data-embed-src="[^"]*"/g, "")));
-    assert.ok(html.includes('src="/assets/site.js"'));
-    assert.ok(/<script[^>]*src="\/assets\/site\.js"[^>]*defer/.test(html));
+    assert.ok(/<script[^>]*src="\/assets\/site\.js\?v=[0-9a-f]{8}"[^>]*defer/.test(html));
   }
   assert.match(await readFile(join(outDir, "assets/site.js"), "utf8"), /showModal/);
 });
@@ -150,7 +175,7 @@ test("the guard covers every image the pages reference", async () => {
 test("copies the stylesheet", async () => {
   const { read } = await build();
   assert.match(await read("assets/styles.css"), /@font-face/);
-  assert.ok((await read("index.html")).includes('href="/assets/styles.css"'));
+  assert.match(await read("index.html"), /href="\/assets\/styles\.css\?v=[0-9a-f]{8}"/);
 });
 
 const shape = (v) => Array.isArray(v) ? v.map(shape)

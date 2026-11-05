@@ -300,5 +300,10 @@
     "embedNote": "The form is run by Ko-fi.",
     "fab": "Support",
     "close": "Close"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "This address doesn't exist. The plugins are still in order.",
+    "home": "Back to Plugin Sorter"
   }
 }
