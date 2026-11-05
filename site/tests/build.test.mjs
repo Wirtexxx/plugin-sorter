@@ -234,6 +234,25 @@ test("the before shot is described as the mixed picker it is", async () => {
   }
 });
 
+test("titles and descriptions fit a search result, main topic first", async () => {
+  const { read } = await build();
+  for (const [file, free] of [["index.html", /free/i], ["ru/index.html", /бесплат/i]]) {
+    const html = await read(file);
+    const title = html.match(/<title>(.*?)<\/title>/)[1].replace(/&#39;/g, "'");
+    const description = html.match(/<meta name="description" content="(.*?)">/)[1].replace(/&#39;/g, "'");
+    assert.ok(title.length >= 50 && title.length <= 60, `${title.length}: ${title}`);
+    assert.ok(title.endsWith("| Plugin Sorter"), title);
+    assert.ok(description.length <= 135, `${description.length}: ${description}`);
+    assert.match(description.slice(0, 40), free);
+  }
+});
+
+test("the pages add no analytics", async () => {
+  const { read } = await build();
+  const html = (await read("index.html")) + (await read("ru/index.html"));
+  assert.ok(!/googletagmanager|google-analytics|gtag\(/.test(html));
+});
+
 test("escapes copy", () => {
   const copy = JSON.parse(JSON.stringify({ ...en() }));
   copy.hero.title = "<script>alert(1)</script>";

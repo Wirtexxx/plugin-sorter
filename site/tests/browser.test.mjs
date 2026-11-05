@@ -9,9 +9,9 @@ import { serveBuild } from "./helpers.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const PAGES = [
   { path: "/", lang: "en", h1: "The plugin manager FL Studio on Mac was missing",
-    title: "Plugin Sorter: free FL Studio plugin manager for Mac" },
-  { path: "/ru/", lang: "ru", h1: "Менеджер плагинов, которого не хватало FL Studio на Mac",
-    title: "Plugin Sorter: бесплатный менеджер плагинов FL Studio для Mac" },
+    title: "Free FL Studio plugin manager for Mac | Plugin Sorter" },
+  { path: "/ru/", lang: "ru", h1: "Менеджер плагинов, которого не хватало в FL Studio на Mac",
+    title: "Менеджер плагинов FL Studio для Mac | Plugin Sorter" },
 ];
 
 let browser, site;
@@ -551,4 +551,174 @@ for (const path of ["/", "/ru/"]) {
     assert.ok(await page.locator(".card-check .lamps-note").isVisible());
     await done();
   });
+}
+
+for (const path of ["/", "/ru/"]) {
+  for (const width of [390, 1440]) {
+    test(`${path} lines up the real before and after shots at ${width}`, async () => {
+      const { page, done } = await open(path, { viewport: { width, height: 900 } });
+      assert.equal(await page.locator("#picker .placeholder").count(), 0);
+      const shots = page.locator("#picker .pair img");
+      assert.equal(await shots.count(), 2);
+      await shots.evaluateAll((imgs) => Promise.all(imgs.map((i) => { i.loading = "eager"; return i.decode(); })));
+      assert.match(await shots.nth(0).getAttribute("src"), /picker-before\.webp$/);
+      // On a phone the picture is zoomed inside its frame, so the frames are what must line up.
+      const frames = page.locator("#picker .pair .shot");
+      const [before, after] = [await frames.nth(0).boundingBox(), await frames.nth(1).boundingBox()];
+      assert.ok(Math.abs(before.width - after.width) <= 1 && Math.abs(before.height - after.height) <= 1);
+      assert.ok(before.x >= 0 && before.x + before.width <= width);
+      const sizes = await shots.evaluateAll((imgs) => imgs.map((i) => `${i.naturalWidth}x${i.naturalHeight}`));
+      assert.equal(sizes[0], sizes[1]);
+      await done();
+    });
+  }
+}
+
+for (const [path, copyFile, labels] of [
+  ["/", "en", ["Support", "Star on GitHub", "Found a bug?"]],
+  ["/ru/", "ru", ["Поддержать", "Звезда на GitHub", "Нашли ошибку?"]],
+]) {
+  const supportLinks = async (page) => {
+    const links = page.locator("#support .support-links a");
+    assert.equal(await links.count(), 3);
+    await page.locator("#support").scrollIntoViewIfNeeded();
+    return Promise.all([0, 1, 2].map((i) => links.nth(i).boundingBox()));
+  };
+
+  test(`${path} shows the support buttons as one even row at 1440`, async () => {
+    const { page, done } = await open(path, { viewport: { width: 1440, height: 900 } });
+    const links = page.locator("#support .support-links a");
+    assert.deepEqual((await links.allInnerTexts()).map((t) => t.trim()), labels);
+    const boxes = await supportLinks(page);
+    for (const b of boxes) {
+      assert.ok(Math.abs(b.y - boxes[0].y) <= 0.5, `top ${b.y} vs ${boxes[0].y}`);
+      assert.ok(Math.abs(b.height - boxes[0].height) <= 0.5, `height ${b.height} vs ${boxes[0].height}`);
+      assert.ok(Math.abs(b.width - boxes[0].width) <= 0.5, `width ${b.width} vs ${boxes[0].width}`);
+    }
+    assert.equal(await links.locator("svg").count(), 3);
+    assert.match(await links.first().evaluate((a) => getComputedStyle(a).backgroundImage), /gradient/);
+    await done();
+  });
+
+  for (const width of [320, 390]) {
+    test(`${path} keeps the support buttons equally wide at ${width}`, async () => {
+      const { page, done } = await open(path, { viewport: { width, height: 800 } });
+      const boxes = await supportLinks(page);
+      for (const b of boxes) {
+        assert.ok(Math.abs(b.width - boxes[0].width) <= 0.5, `width ${b.width} vs ${boxes[0].width}`);
+        assert.ok(b.x >= 0 && b.x + b.width <= width);
+      }
+      await done();
+    });
+  }
+}
+
+const near = (a, b, label) => assert.ok(Math.abs(a - b) <= 0.5, `${label}: ${a} vs ${b}`);
+const boxesOf = async (locator) => {
+  const n = await locator.count();
+  return Promise.all(Array.from({ length: n }, (_, i) => locator.nth(i).boundingBox()));
+};
+
+for (const [path, copyFile] of [["/", "en"], ["/ru/", "ru"]]) {
+  test(`${path} sets the install steps as three even cards over one panel at 1440`, async () => {
+    const copy = JSON.parse(await readFile(join(here, `../src/copy/${copyFile}.json`), "utf8"));
+    const { page, done } = await open(path, { viewport: { width: 1440, height: 900 } });
+    await page.addStyleTag({ content: ".rise { animation: none !important; }" });
+    const cards = await boxesOf(page.locator("#install .step"));
+    assert.equal(cards.length, 3);
+    for (const c of cards) {
+      near(c.y, cards[0].y, "top");
+      near(c.height, cards[0].height, "height");
+      near(c.width, cards[0].width, "width");
+    }
+    assert.equal(await page.locator("#install .step [data-macos]").count(), 0, "paths live in the panel");
+    const panel = await page.locator("#install .paths").boundingBox();
+    assert.ok(panel.y >= cards[0].y + cards[0].height, "the panel sits below the cards");
+    near(panel.x, cards[0].x, "panel left");
+    near(panel.x + panel.width, cards[2].x + cards[2].width, "panel right");
+    const paths = await boxesOf(page.locator("#install .paths [data-macos]"));
+    assert.equal(paths.length, 2);
+    near(paths[0].y, paths[1].y, "path top");
+    near(paths[0].height, paths[1].height, "path height");
+    near(paths[0].width, paths[1].width, "path width");
+    const why = await page.locator("#install .why").boundingBox();
+    assert.ok(why.y >= paths[0].y + paths[0].height, "the note follows the paths");
+    const text = await page.locator("#install").innerText();
+    for (const p of copy.install.steps.flatMap((s) => s.paths ?? [])) {
+      assert.ok(text.includes(p.label) && text.includes(p.text), p.label);
+    }
+    assert.ok(text.includes(copy.install.why));
+    await done();
+  });
+
+  test(`${path} stacks the install block at full width on a phone`, async () => {
+    const { page, done } = await open(path, { viewport: { width: 390, height: 800 } });
+    await page.addStyleTag({ content: ".rise { animation: none !important; }" });
+    const cards = await boxesOf(page.locator("#install .step"));
+    const paths = await boxesOf(page.locator("#install .paths [data-macos]"));
+    const panel = await page.locator("#install .paths").boundingBox();
+    for (const c of cards) near(c.width, cards[0].width, "card width");
+    near(panel.width, cards[0].width, "panel width");
+    near(paths[0].width, paths[1].width, "path width");
+    assert.ok(cards[1].y > cards[0].y && cards[2].y > cards[1].y && paths[1].y > paths[0].y);
+    await done();
+  });
+
+  test(`${path} lets the footer text use the footer's width at 1440`, async () => {
+    const { page, done } = await open(path, { viewport: { width: 1440, height: 900 } });
+    const legal = page.locator("footer .legal");
+    const [text, links] = [await legal.boundingBox(), await page.locator("footer .foot-links").boundingBox()];
+    near(text.x, links.x, "left");
+    near(text.width, links.width, "width");
+    const lines = await legal.evaluate((p) => {
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+    });
+    assert.ok(lines <= 2, `${lines} lines`);
+    await done();
+  });
+}
+
+test("the Russian headline keeps the accent on the product and the preposition off a line end", async () => {
+  for (const width of [320, 390, 1440]) {
+    const { page, done } = await open("/ru/", { viewport: { width, height: 800 } });
+    const accent = page.locator("h1 [data-gradient]");
+    assert.equal((await accent.innerText()).replace(/\s+/g, " ").trim(), "FL Studio на Mac");
+    const lines = await page.locator("h1").evaluate((h) => {
+      const walker = document.createTreeWalker(h, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      const found = new Map();
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        for (let i = 0; i < node.length; i++) {
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const rect = range.getClientRects()[0];
+          if (!rect) continue;
+          const top = Math.round(rect.top);
+          found.set(top, (found.get(top) ?? "") + node.data[i]);
+        }
+      }
+      return [...found.values()].map((l) => l.replace(/\s+/g, " ").trim());
+    });
+    for (const line of lines) assert.ok(!/ в$/.test(line) && line !== "в", `${width}: ${line}`);
+    await done();
+  }
+});
+
+for (const width of [320, 393, 768]) {
+  for (const path of ["/", "/ru/"]) {
+    test(`${path} shows the whole hero image inside the gutters at ${width}`, async () => {
+      const { page, done } = await open(path, { viewport: { width, height: 800 } });
+      const image = page.locator(".hero-media img");
+      const box = await image.boundingBox();
+      assert.ok(box.x >= 15.5, `left ${box.x}`);
+      assert.ok(box.x + box.width <= width - 15.5, `right ${box.x + box.width}`);
+      assert.ok(Math.abs(box.x - (width - box.x - box.width)) <= 1, "centred");
+      const ratio = await image.evaluate((i) => i.naturalWidth / i.naturalHeight);
+      assert.ok(Math.abs(box.width / box.height - ratio) <= 0.02, "not cropped");
+      await done();
+    });
+  }
 }

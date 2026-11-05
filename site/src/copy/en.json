@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Plugin Sorter: free FL Studio plugin manager for Mac",
-    "description": "A free, open-source plugin manager for Mac. Put plugin pictures in FL Studio's picker and organize your VST plugins by developer."
+    "title": "Free FL Studio plugin manager for Mac | Plugin Sorter",
+    "description": "Free plugin manager for Mac: pictures in FL Studio's picker, VST plugins sorted by developer, checks and clean uninstall."
   },
   "nav": {
     "skip": "Skip to content",
@@ -278,9 +278,9 @@
     "eyebrow": "From the author",
     "title": "Support the project",
     "text": "I made Plugin Sorter because my plugin folder was a mess and many plugins in my picker were plain text. If it helps you too, that's the best thanks. A star on GitHub helps other musicians find it.",
-    "kofi": "Say thanks on Ko-fi",
-    "star": "Star it on GitHub",
-    "issues": "Report a problem"
+    "kofi": "Support",
+    "star": "Star on GitHub",
+    "issues": "Found a bug?"
   },
   "cta": {
     "title": "Your plugins, finally in order",

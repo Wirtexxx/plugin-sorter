@@ -117,9 +117,17 @@ export function page(copy, ctx) {
   const steps = copy.install.steps.map((s, i) => `<li class="step rise">
 <div class="knob" aria-hidden="true"><svg viewBox="0 0 60 60">${arc((i + 1) / copy.install.steps.length, "knob-arc")}</svg>${i + 1}</div>
 <div><h3>${esc(s.title)}</h3>
-<p>${esc(s.text)}</p>
-${(s.paths ?? []).map((p) => `<div class="path" data-macos><b>${esc(p.label)}</b>${esc(p.text)}</div>`).join("\n")}</div>
+<p>${esc(s.text)}</p></div>
 </li>`).join("\n");
+  const paths = copy.install.steps.flatMap((s) => s.paths ?? [])
+    .map((p) => `<div class="path" data-macos><b>${esc(p.label)}</b>${esc(p.text)}</div>`).join("\n");
+
+  // The accent sits on its own line, so a short preposition before it moves down with it.
+  const accent = `<span class="grad" data-gradient>${nb(copy.hero.titleAccent)}</span>`;
+  const [, lead, preposition] = copy.hero.title.match(/^(.*?)(?:\s(\S{1,2}))?$/);
+  const headline = preposition
+    ? `${esc(lead)} <span class="h1-end">${esc(preposition)}&nbsp;${accent}</span>`
+    : `${esc(lead)} ${accent}`;
 
   const koFi = config.koFiUrl;
   const embed = config.koFiEmbedUrl;
@@ -201,7 +209,7 @@ ${dl(copy.nav.download, "btn btn-sm", "")}
 <section id="hero">
 <div class="wrap">
 <p class="badge"><span class="led"></span>${esc(copy.hero.badge)}</p>
-<h1>${esc(copy.hero.title)} <span class="grad" data-gradient>${nb(copy.hero.titleAccent)}</span>${copy.hero.titleEnd ? ` ${esc(copy.hero.titleEnd)}` : ""}</h1>
+<h1>${headline}${copy.hero.titleEnd ? ` ${esc(copy.hero.titleEnd)}` : ""}</h1>
 <p class="hero-sub">${nb(copy.hero.subtitle)}</p>
 <p class="hero-cta">${dl()}</p>
 <p class="hero-note">${esc(copy.hero.note)}</p>
@@ -288,7 +296,10 @@ ${rows}
 <ol class="steps">
 ${steps}
 </ol>
+<div class="paths rise">
+${paths}
 <p class="why">${esc(copy.install.why)}</p>
+</div>
 <div class="cta-row">${dl()}<p class="small-note">${esc(copy.cta.note)}</p></div>
 </div>
 </section>

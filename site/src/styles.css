@@ -136,6 +136,8 @@ h1 {
   text-wrap: balance;
 }
 h1 .grad { display: block; white-space: nowrap; }
+h1 .h1-end { display: block; white-space: nowrap; }
+h1 .h1-end .grad { display: inline; }
 .hero-sub { max-width: 720px; margin: 20px auto 0; color: var(--soft); font-size: clamp(17px, 1.7vw, 20px); text-wrap: pretty; }
 .hero-cta { margin-top: 26px; }
 .hero-note { margin-top: 14px; color: var(--soft); font-size: 14.5px; }
@@ -234,7 +236,7 @@ h1 .grad { display: block; white-space: nowrap; }
 .lamps .lamp-row:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
 .lamps b { display: block; font-size: 15px; font-weight: 700; line-height: 1.25; }
 .lamps small { display: block; color: var(--muted); font-size: 13px; line-height: 1.3; }
-.lamps-note { margin: 8px 0 22px; color: var(--muted); font-size: 13px; line-height: 1.3; }
+.card .lamps-note { margin: 8px 0 22px; color: var(--muted); font-size: 13px; line-height: 1.3; }
 .lamp { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 20%, transparent), 0 0 12px var(--c); }
 
 .card .skins-label { margin-top: 26px; color: var(--muted); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -262,17 +264,18 @@ tbody tr:last-child td:last-child { border-radius: 0 0 14px 14px; }
 .mark-no { color: #7c7c85; }
 
 /* Install */
-.steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 52px; }
-.step:last-child { grid-column: 2; grid-row: 1 / span 2; }
-.step { position: relative; display: flex; gap: 20px; padding: 28px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 52px; }
+.step { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 18px; align-content: start; padding: 28px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
 .knob { position: relative; display: grid; place-items: center; flex: none; width: 56px; height: 56px; font-size: 18px; font-weight: 800; }
 .knob svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .knob-arc { stroke: var(--violet); filter: drop-shadow(0 0 5px rgba(199, 155, 255, 0.7)); }
 .step h3 { font-size: 21px; font-weight: 800; line-height: 1.25; letter-spacing: -0.012em; }
-.step p { margin-top: 10px; color: var(--soft); font-size: 16px; line-height: 1.55; }
-.path { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--inset); font-size: 15px; line-height: 1.5; color: var(--soft); }
+.step > div:last-child { display: contents; }
+.step p { grid-column: 1 / -1; margin-top: 14px; color: var(--soft); font-size: 16px; line-height: 1.55; }
+.paths { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; padding: 20px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
+.path { padding: 12px 14px; border-radius: 12px; background: var(--inset); font-size: 15px; line-height: 1.5; color: var(--soft); }
 .path b { display: block; margin-bottom: 2px; color: var(--text); font-size: 14px; font-weight: 800; }
-.why { max-width: 760px; margin: 32px auto 0; color: var(--soft); font-size: 16px; text-align: center; text-wrap: pretty; }
+.why { grid-column: 1 / -1; max-width: 760px; margin: 8px auto 0; color: var(--soft); font-size: 16px; text-align: center; text-wrap: pretty; }
 .cta-row { display: grid; justify-items: center; gap: 14px; margin-top: 32px; text-align: center; }
 .small-note { color: var(--muted); font-size: 14.5px; }
 
@@ -295,7 +298,8 @@ tbody tr:last-child td:last-child { border-radius: 0 0 14px 14px; }
 
 /* Support and the last call */
 .support { max-width: 760px; margin-inline: auto; text-align: center; }
-.support-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 30px; }
+.support-links { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; margin-top: 30px; }
+.support-links a { justify-content: center; padding: 15px 18px; font-size: 16px; font-weight: 800; white-space: nowrap; }
 #download { padding-block: var(--section); text-align: center; }
 .finale {
   position: relative; overflow: hidden; padding: clamp(52px, 7vw, 92px) 24px; border-radius: 32px;
@@ -385,7 +389,6 @@ dialog [hidden] { display: none; }
   .card-cards { grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 30px 30px 0; }
   .cards-shot { border-radius: 16px 16px 0 0; }
   .steps { grid-template-columns: minmax(0, 1fr); }
-  .step:last-child { grid-column: auto; grid-row: auto; }
 }
 
 /* Phone */
@@ -396,8 +399,6 @@ dialog [hidden] { display: none; }
   .pair { grid-template-columns: minmax(0, 1fr); gap: 30px; margin-top: 40px; }
   /* The picker is too dense for a phone, so both shots zoom into the same corner. */
   .shot img { width: 185%; max-width: none; margin: -38% 0 0 -24%; }
-  /* The window runs off the right edge, big enough to read. */
-  .hero-media img { width: 150%; max-width: none; }
   .points { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 32px; }
   .bento { margin-top: 40px; gap: 14px; }
   .card { padding: 24px; }
@@ -428,6 +429,8 @@ dialog [hidden] { display: none; }
   .btn { width: 100%; max-width: 340px; }
   .btn-sm { width: auto; }
   .btn-ghost { width: 100%; max-width: 340px; justify-content: center; }
+  .support-links { grid-auto-flow: row; justify-items: center; }
+  .paths { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   .foot-links .brand { flex-basis: 100%; }
 }
 
