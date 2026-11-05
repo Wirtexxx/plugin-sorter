@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, cp, rm, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { page } from "./src/page.mjs";
+import { page, RELEASE_IMAGES } from "./src/page.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const exists = (p) => access(p).then(() => true, () => false);
@@ -14,7 +14,11 @@ export async function buildSite({
 } = {}) {
   config ??= JSON.parse(await readFile(join(here, "site.config.json"), "utf8"));
   const hasBefore = await exists(join(assetsDir, "picker-before.webp"));
-  if (release && !hasBefore) throw new Error("Missing picker-before.webp");
+  if (release) {
+    for (const name of RELEASE_IMAGES) {
+      if (!(await exists(join(assetsDir, name)))) throw new Error(`Missing ${name}`);
+    }
+  }
 
   const origin = `https://${config.domain}`;
   const pages = [
@@ -32,6 +36,8 @@ export async function buildSite({
   }
 
   if (await exists(assetsDir)) await cp(assetsDir, join(outDir, "assets"), { recursive: true });
+  await mkdir(join(outDir, "assets"), { recursive: true });
+  await cp(join(here, "src/styles.css"), join(outDir, "assets/styles.css"));
 
   const urls = pages.map((p) => `  <url><loc>${p.url}</loc></url>`).join("\n");
   await writeFile(join(outDir, "sitemap.xml"),

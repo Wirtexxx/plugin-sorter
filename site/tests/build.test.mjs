@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, mkdir } from "node:fs/promises";
+import { mkdtemp, readFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSite } from "../build.mjs";
-import { page } from "../src/page.mjs";
+import { page, RELEASE_IMAGES } from "../src/page.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const baseConfig = JSON.parse(await readFile(join(here, "../site.config.json"), "utf8"));
@@ -92,6 +92,44 @@ test("release build needs the before screenshot", async () => {
     buildSite({ release: true, outDir, assetsDir, config: baseConfig }),
     /Missing picker-before\.webp/,
   );
+});
+
+test("release build needs every other referenced image", async () => {
+  const assetsDir = await mkdtemp(join(tmpdir(), "ps-assets-"));
+  const files = ["picker-before.webp", ...RELEASE_IMAGES.filter((f) => f !== "picker-before.webp")];
+  for (const missing of files.slice(1)) {
+    const outDir = await mkdtemp(join(tmpdir(), "ps-site-"));
+    await rm(assetsDir, { recursive: true, force: true });
+    await mkdir(assetsDir);
+    for (const f of files) if (f !== missing) await writeFile(join(assetsDir, f), "x");
+    await assert.rejects(
+      buildSite({ release: true, outDir, assetsDir, config: baseConfig }),
+      new RegExp(`Missing ${missing.replace(".", "\\.")}`),
+    );
+  }
+});
+
+test("release build passes with every image", async () => {
+  const assetsDir = await mkdtemp(join(tmpdir(), "ps-assets-"));
+  const outDir = await mkdtemp(join(tmpdir(), "ps-site-"));
+  for (const f of RELEASE_IMAGES) await writeFile(join(assetsDir, f), "x");
+  await buildSite({ release: true, outDir, assetsDir, config: baseConfig });
+  const html = await readFile(join(outDir, "index.html"), "utf8");
+  assert.ok(html.includes("/assets/picker-before.webp"));
+  assert.ok(!html.includes("placeholder"));
+});
+
+test("the guard covers every image the pages reference", async () => {
+  const { read } = await build();
+  const html = (await read("index.html")) + (await read("ru/index.html"));
+  const used = [...html.matchAll(/\/assets\/([\w-]+\.(?:webp|png))/g)].map((m) => m[1]);
+  for (const f of new Set(used)) assert.ok(RELEASE_IMAGES.includes(f), f);
+});
+
+test("copies the stylesheet", async () => {
+  const { read } = await build();
+  assert.match(await read("assets/styles.css"), /@font-face/);
+  assert.ok((await read("index.html")).includes('href="/assets/styles.css"'));
 });
 
 test("escapes copy", () => {
