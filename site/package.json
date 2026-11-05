@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test tests/build.test.mjs",
-    "test:browser": "node --test tests/browser.test.mjs",
+    "test:browser": "node --test tests/browser.test.mjs tests/download.test.mjs",
     "assets": "node scripts/assets.mjs",
     "preview": "node scripts/preview.mjs",
     "audit": "node tests/audit.mjs"

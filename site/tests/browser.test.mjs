@@ -387,7 +387,8 @@ test("Ko-fi is only requested when the dialog opens and the form stays after clo
   await frame.waitFor();
   assert.equal(await page.locator("iframe").count(), 1);
   assert.equal(await frame.getAttribute("src"), CFG.koFiEmbedUrl);
-  assert.equal(await frame.getAttribute("title"), "wirtex");
+  const en = JSON.parse(await readFile(join(here, "../src/copy/en.json"), "utf8"));
+  assert.equal(await frame.getAttribute("title"), en.dialog.supportTitle);
   assert.equal(await frame.getAttribute("referrerpolicy"), "strict-origin-when-cross-origin");
   await page.frameLocator("#kofiframe").getByText("Ko-fi form (stub)").waitFor();
   assert.equal(kofiRequests().length, 1);
@@ -399,14 +400,45 @@ test("Ko-fi is only requested when the dialog opens and the form stays after clo
   await done();
 });
 
-test("the plain Ko-fi link is a fallback below the form", async () => {
+for (const [path, copyFile] of [["/", "en"], ["/ru/", "ru"]]) {
+  test(`${path} names the form frame in its own language`, async () => {
+    const copy = JSON.parse(await readFile(join(here, `../src/copy/${copyFile}.json`), "utf8"));
+    const { page, done } = await openStubbed(site, path);
+    await page.locator("#hero a[data-download]").click();
+    assert.equal(await page.locator("#kofiframe").getAttribute("title"), copy.dialog.supportTitle);
+    await done();
+  });
+
+  test(`${path} shows the plain Ko-fi link above the form, inside an 800px viewport`, async () => {
+    const { page, done } = await openStubbed(site, path, { viewport: { width: 1280, height: 800 } });
+    await page.locator("#hero a[data-download]").click();
+    const link = page.locator(`#support-dialog a[href="${CFG.koFiUrl}"]`);
+    assert.equal(await link.getAttribute("target"), "_blank");
+    assert.match(await link.getAttribute("rel"), /noopener/);
+    const [l, f] = await Promise.all([link.boundingBox(), page.locator("#kofiframe").boundingBox()]);
+    assert.ok(l.y + l.height <= f.y + 1, "the link must come before the form");
+    assert.ok(l.y >= 0 && l.y + l.height <= 800, `link ends at ${l.y + l.height}`);
+    await done();
+  });
+}
+
+test("the form does not push the dialog around when it arrives", async () => {
   const { page, done } = await openStubbed(site);
   await page.locator("#hero a[data-download]").click();
-  const link = page.locator(`#support-dialog a[href="${CFG.koFiUrl}"]`);
-  assert.equal(await link.getAttribute("target"), "_blank");
-  assert.match(await link.getAttribute("rel"), /noopener/);
-  const [l, f] = await Promise.all([link.boundingBox(), page.locator("#kofiframe").boundingBox()]);
-  assert.ok(l.y >= f.y + f.height - 1);
+  const height = () => page.locator("#support-dialog").evaluate((d) => d.scrollHeight);
+  const before = await height();
+  await page.locator("#kofiframe").waitFor();
+  assert.ok(Math.abs((await height()) - before) <= 1);
+  await done();
+});
+
+test("a dialog closed at once does not ask Ko-fi for the form", async () => {
+  const { page, kofiRequests, done } = await openStubbed(site);
+  await page.locator("#hero a[data-download]").click();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(700);
+  assert.equal(await page.locator("iframe").count(), 0);
+  assert.equal(kofiRequests().length, 0);
   await done();
 });
 
@@ -476,3 +508,47 @@ test("the dialog fits a small screen and scrolls", async () => {
   assert.equal(await page.locator("#kofiframe").evaluate((f) => f.getBoundingClientRect().width <= 320), true);
   await done();
 });
+
+for (const [path, viewport] of [["/", { width: 1280, height: 800 }], ["/ru/", { width: 320, height: 568 }]]) {
+  test(`${path} keeps the close button in reach at ${viewport.width}`, async () => {
+    const { page, done } = await openStubbed(site, path, { viewport });
+    await page.locator("#hero a[data-download]").click();
+    await page.locator("#kofiframe").waitFor();
+    const dialog = page.locator("#support-dialog");
+    const close = page.locator("#support-dialog [data-close]");
+    const start = await close.boundingBox();
+    await dialog.evaluate((d) => { d.scrollTop = d.scrollHeight; });
+    assert.ok(await dialog.evaluate((d) => d.scrollTop > 0));
+    const box = await close.boundingBox();
+    const frame = await dialog.boundingBox();
+    assert.ok(Math.abs(box.y - start.y) <= 1, `${start.y} then ${box.y}`);
+    assert.ok(box.y >= frame.y && box.x + box.width <= frame.x + frame.width);
+    await close.click();
+    assert.equal(await dialogOpen(page), false);
+    await done();
+  });
+
+  test(`${path} does not let the close button cover the dialog's title at ${viewport.width}`, async () => {
+    const { page, done } = await openStubbed(site, path, { viewport });
+    await page.locator("#hero a[data-download]").click();
+    const close = await page.locator("#support-dialog [data-close]").boundingBox();
+    const lines = await page.locator('#support-dialog [data-variant="download"] h2').evaluate((h) => {
+      const range = document.createRange();
+      range.selectNodeContents(h);
+      return [...range.getClientRects()].map(({ top, bottom, right }) => ({ top, bottom, right }));
+    });
+    for (const line of lines) {
+      const beside = line.top < close.y + close.height && line.bottom > close.y;
+      assert.ok(!beside || line.right <= close.x, `title ends at ${line.right}, button starts at ${close.x}`);
+    }
+    await done();
+  });
+}
+
+for (const path of ["/", "/ru/"]) {
+  test(`${path} marks the status lamps as an illustration`, async () => {
+    const { page, done } = await openStubbed(site, path);
+    assert.ok(await page.locator(".card-check .lamps-note").isVisible());
+    await done();
+  });
+}

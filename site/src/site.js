@@ -4,18 +4,22 @@
   if (!dialog || typeof dialog.showModal !== "function") return;
   const fab = document.getElementById("support-fab");
   const variants = dialog.querySelectorAll("[data-variant]");
+  const NAVIGATION_START_MS = 400;
   let opener = null;
+  let formTimer = 0;
 
   // The Ko-fi form is added on the first open, so the page itself never talks to Ko-fi.
+  // A frame that never finished loading is replaced, so reopening the dialog can bring it back.
   const loadForm = () => {
     const box = dialog.querySelector("[data-embed-src]");
-    if (!box || box.firstChild) return;
+    if (!box || box.querySelector("iframe")?.dataset.loaded) return;
     const frame = document.createElement("iframe");
     frame.id = "kofiframe";
-    frame.title = "wirtex";
+    frame.title = box.dataset.embedTitle;
     frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+    frame.addEventListener("load", () => { frame.dataset.loaded = "true"; });
     frame.src = box.dataset.embedSrc;
-    box.append(frame);
+    box.replaceChildren(frame);
   };
 
   const open = (variant, from) => {
@@ -23,7 +27,11 @@
     for (const v of variants) v.hidden = v.dataset.variant !== variant;
     dialog.setAttribute("aria-labelledby", dialog.querySelector(`[data-variant="${variant}"] h2`).id ||= `support-title-${variant}`);
     if (!dialog.open) dialog.showModal();
-    loadForm();
+    // Firefox and WebKit stop every load in the page, child frames included, when the link's
+    // navigation starts, and that happens after this click handler. So the form has to wait.
+    clearTimeout(formTimer);
+    if (variant === "download") formTimer = setTimeout(loadForm, NAVIGATION_START_MS);
+    else loadForm();
   };
 
   // No preventDefault: the download link keeps working as a plain link.
@@ -40,6 +48,7 @@
     if (!inside) dialog.close();
   });
   dialog.addEventListener("close", () => {
+    clearTimeout(formTimer);
     if (opener?.isConnected) opener.focus({ preventScroll: true });
     opener = null;
   });

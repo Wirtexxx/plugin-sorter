@@ -135,8 +135,8 @@ ${(s.paths ?? []).map((p) => `<div class="path" data-macos><b>${esc(p.label)}</b
 <h2>${esc(copy.dialog.supportTitle)}</h2>
 <p>${esc(copy.dialog.supportText)}</p>
 </div>
-${embed ? `<div class="kofi" data-embed-src="${esc(embed)}"></div>\n` : ""}<p class="dlg-fallback"><a class="btn-ghost" href="${esc(koFi)}" target="_blank" rel="noopener">${ICONS.heart}${esc(copy.dialog.fallback)}</a></p>
-<p class="muted dlg-note">${esc(copy.dialog.embedNote)}</p>
+<p class="dlg-fallback"><a class="btn-ghost" href="${esc(koFi)}" target="_blank" rel="noopener">${ICONS.heart}${esc(copy.dialog.fallback)}</a></p>
+${embed ? `<div class="kofi" data-embed-src="${esc(embed)}" data-embed-title="${esc(copy.dialog.supportTitle)}"></div>\n` : ""}<p class="muted dlg-note">${esc(copy.dialog.embedNote)}</p>
 </dialog>
 <button type="button" id="support-fab" class="fab" data-support-open hidden>${ICONS.heart}<span>${esc(copy.dialog.fab)}</span></button>`
     : "";
