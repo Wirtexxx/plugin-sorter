@@ -27,10 +27,10 @@
   "picker": {
     "eyebrow": "In FL Studio",
     "title": "FL Studio plugin pictures, all at once",
-    "lead": "In FL Studio a thumbnail is a manual job, one plugin at a time, so the picker tends to stay a wall of plain text. Plugin Sorter fills the plugin picker in one go, with a shot of the real interface wherever a plugin has an Audio Unit version. Your third-party plugins finally look like FL's own.",
+    "lead": "In FL Studio a thumbnail is a manual job, one plugin at a time, so many third-party plugins stay plain text in the picker. Plugin Sorter fills the plugin picker in one go, with a shot of the real interface wherever a plugin has an Audio Unit version. Your third-party plugins finally look like FL's own.",
     "beforeLabel": "Before",
     "afterLabel": "After",
-    "beforeAlt": "FL Studio plugin picker where third-party plugins are plain text",
+    "beforeAlt": "FL Studio plugin picker where some plugins have pictures and many third-party plugins are still plain text",
     "afterAlt": "FL Studio plugin picker with a picture of every plugin, sorted into category tabs",
     "placeholder": "Local placeholder: the real screenshot goes here",
     "points": [
@@ -277,7 +277,7 @@
   "support": {
     "eyebrow": "From the author",
     "title": "Support the project",
-    "text": "I made Plugin Sorter because my plugin folder was a mess and every plugin in my picker was plain text. If it helps you too, that's the best thanks. A star on GitHub helps other musicians find it.",
+    "text": "I made Plugin Sorter because my plugin folder was a mess and many plugins in my picker were plain text. If it helps you too, that's the best thanks. A star on GitHub helps other musicians find it.",
     "kofi": "Say thanks on Ko-fi",
     "star": "Star it on GitHub",
     "issues": "Report a problem"

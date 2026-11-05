@@ -214,6 +214,26 @@ test("the dialog tells older macOS how to open the app", async () => {
   assert.match((await readCopy("ru")).dialog.macNote, /правой кнопкой и выберите «Открыть»/);
 });
 
+test("the repo's own assets pass a release build, with the real before shot", async () => {
+  const outDir = await mkdtemp(join(tmpdir(), "ps-site-"));
+  await buildSite({ release: true, outDir });
+  for (const f of ["index.html", "ru/index.html"]) {
+    const html = await readFile(join(outDir, f), "utf8");
+    assert.ok(html.includes('src="/assets/picker-before.webp"'));
+    assert.ok(!html.includes('class="placeholder"'));
+  }
+});
+
+test("the before shot is described as the mixed picker it is", async () => {
+  for (const [lang, many] of [["en", /many third-party plugins/], ["ru", /многие сторонние плагины/]]) {
+    const { picker, support } = await readCopy(lang);
+    assert.match(picker.lead, many, lang);
+    assert.match(picker.beforeAlt, many, lang);
+    const said = [picker.lead, picker.beforeAlt, support.text].join(" ");
+    assert.ok(!/wall of plain text|every plugin in my picker|стеной из названий|все плагины были/i.test(said), lang);
+  }
+});
+
 test("escapes copy", () => {
   const copy = JSON.parse(JSON.stringify({ ...en() }));
   copy.hero.title = "<script>alert(1)</script>";
