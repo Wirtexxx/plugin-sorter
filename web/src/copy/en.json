@@ -15,7 +15,6 @@
     "language": "Language"
   },
   "hero": {
-    "badge": "For FL Studio users on Mac",
     "title": "The plugin manager",
     "titleAccent": "FL Studio on Mac",
     "titleEnd": "was missing",
@@ -31,7 +30,7 @@
     "beforeLabel": "Before",
     "afterLabel": "After",
     "beforeAlt": "FL Studio plugin picker where some plugins have pictures and many third-party plugins are still plain text",
-    "afterAlt": "FL Studio plugin picker with a picture of every plugin, sorted into category tabs",
+    "afterAlt": "FL Studio plugin picker with plugin pictures, sorted into category tabs",
     "placeholder": "Local placeholder: the real screenshot goes here",
     "points": [
       "One button takes the pictures. Plugins with an Audio Unit version pop up in the corner for a moment while it works.",
@@ -294,11 +293,11 @@
   "dialog": {
     "title": "Your download has started",
     "text": "Plugin Sorter is free. If it saves you time, you can support it, but you don't have to.",
-    "fallback": "Form not loading? Open Ko-fi",
-    "macNote": "The file is for Mac. If macOS warns you on launch, allow the app in System Settings, Privacy & Security. On older macOS, right-click the app and choose Open.",
+    "fallback": "Open Ko-fi in a new tab",
+    "macNote": "The file is for Mac. If macOS warns you on launch, allow the app in Privacy & Security. On older macOS, right-click the app and choose Open.",
     "supportTitle": "Support Plugin Sorter",
     "supportText": "Plugin Sorter is free and its code is open. If it saves you time, you can support its development, but you don't have to.",
-    "embedNote": "The form above is loaded from Ko-fi and run by Ko-fi, not by this site.",
+    "embedNote": "The form is run by Ko-fi.",
     "fab": "Support",
     "close": "Close"
   }

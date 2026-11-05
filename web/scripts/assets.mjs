@@ -1,4 +1,4 @@
-// Turns the repo's screenshots, icon and font into site/assets. Run with `npm run assets`.
+// Turns the repo's screenshots, icon and font into web/assets. Run with `npm run assets`.
 import { copyFile, mkdir, readFile, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,6 +29,12 @@ async function images() {
   // Same size as "after", so the two pictures line up on the page.
   if (await exists(join(docs, "screenshot-fl-picker-before.png"))) {
     await webp("screenshot-fl-picker-before.png", "picker-before.webp", after.width, after.height);
+    for (const w of [800, 1200]) {
+      await webp("screenshot-fl-picker-before.png", `picker-before-${w}.webp`, w, Math.round(w * after.height / after.width));
+    }
+  }
+  for (const w of [800, 1200]) {
+    await webp("screenshot-fl-picker.png", `picker-after-${w}.webp`, w, Math.round(w * after.height / after.width));
   }
   await sharp(join(docs, "icon.png")).resize(256).png({ compressionLevel: 9, palette: true, quality: 90 })
     .toFile(join(out, "icon.png"));

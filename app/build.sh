@@ -3,7 +3,7 @@
 #
 #   ./build.sh               build into build/
 #   ./build.sh --install     build and copy to /Applications
-#   ./build.sh --screenshot  also render docs/screenshot.png
+#   ./build.sh --screenshot  also render ../docs/screenshot.png
 #   ./build.sh --dmg         also package build/PluginSorter.dmg for releases
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -14,8 +14,8 @@ NEW="build/staging/Plugin Sorter.app"
 TARGET_MACOS=11
 # Loads plugins so the app doesn't have to: its own program, without a window of its own or the app's Keychain access
 HELPER="$NEW/Contents/Helpers/PluginSorterHelper.app"
-HELPER_SOURCES=(Helper/HelperMain.swift App/Helper.swift App/HelperModes.swift App/PluginFormat.swift
-                App/ProbeHelper.swift App/TagsHelper.swift App/CaptureHelper.swift App/Thumbnail.swift)
+HELPER_SOURCES=(Helper/HelperMain.swift Sources/Helper.swift Sources/HelperModes.swift Sources/PluginFormat.swift
+                Sources/ProbeHelper.swift Sources/TagsHelper.swift Sources/CaptureHelper.swift Sources/Thumbnail.swift)
 
 rm -rf build/staging build/AppIcon.iconset
 mkdir -p "$NEW/Contents/MacOS" "$NEW/Contents/Resources" "$HELPER/Contents/MacOS" build/AppIcon.iconset
@@ -25,7 +25,7 @@ for arch in arm64 x86_64; do
   # Warn about slow type-checking locally: CI runs an older compiler that turns it into a hard error
   swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" \
     -Xfrontend -warn-long-expression-type-checking=200 \
-    App/*.swift -o "build/PluginSorter-$arch"
+    Sources/*.swift -o "build/PluginSorter-$arch"
   swiftc -O -parse-as-library -target "$arch-apple-macos$TARGET_MACOS" \
     "${HELPER_SOURCES[@]}" -o "build/PluginSorterHelper-$arch"
 done
@@ -42,7 +42,8 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns build/AppIcon.iconset -o "$NEW/Contents/Resources/AppIcon.icns"
 
-VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)
+# Newest version tag anywhere: tags sit on main, so a build from develop can't reach them through its history
+VERSION=$(git tag --list 'v*' --sort=-v:refname 2>/dev/null | sed -n '1s/^v//p')
 cat > "$NEW/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -90,12 +91,12 @@ if [ "${1:-}" = "--screenshot" ]; then
   echo "› Rendering screenshot"
   # every app source except the @main entry point, which the snapshot tool replaces
   swiftc -parse-as-library -target "$(uname -m)-apple-macos$TARGET_MACOS" \
-    $(ls App/*.swift | grep -v PluginSorterApp.swift) tools/snapshot.swift -o build/snapshot
-  mkdir -p docs
-  build/snapshot docs/screenshot.png en main
-  build/snapshot docs/screenshot-expanded.png en main-expanded
-  build/snapshot docs/screenshot-cards.png en cards-panel
-  cp build/icon.png docs/icon.png
+    $(ls Sources/*.swift | grep -v PluginSorterApp.swift) tools/snapshot.swift -o build/snapshot
+  mkdir -p ../docs
+  build/snapshot ../docs/screenshot.png en main
+  build/snapshot ../docs/screenshot-expanded.png en main-expanded
+  build/snapshot ../docs/screenshot-cards.png en cards-panel
+  cp build/icon.png ../docs/icon.png
 fi
 
 rm -rf "$APP"

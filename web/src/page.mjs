@@ -9,7 +9,8 @@ const jsonLd = (obj) =>
 
 /** Every image the pages reference. A release build fails if one is missing. */
 export const RELEASE_IMAGES = [
-  "picker-before.webp", "picker-after.webp",
+  "picker-before.webp", "picker-before-800.webp", "picker-before-1200.webp",
+  "picker-after.webp", "picker-after-800.webp", "picker-after-1200.webp",
   "app.webp", "app-800.webp", "app-cards.webp", "app-cards-800.webp",
   "strip.webp", "icon.png", "og.png",
 ];
@@ -18,6 +19,9 @@ export const RELEASE_IMAGES = [
 const APP = { width: 1600, height: 1138 };
 const PICKER = { width: 1600, height: 1016 };
 const HERO = { width: 1800, height: 1280 };
+
+// On phones the shots zoom in to 185% of the column, so they need more pixels than the column is wide.
+const pickerShot = (name, alt) => `<img src="/assets/picker-${name}.webp" srcset="/assets/picker-${name}-800.webp 800w, /assets/picker-${name}-1200.webp 1200w, /assets/picker-${name}.webp 1600w" sizes="(max-width: 720px) 170vw, (max-width: 1400px) 46vw, 646px" alt="${esc(alt)}" width="${PICKER.width}" height="${PICKER.height}" loading="lazy" decoding="async">`;
 
 const svg = (body, attrs = "") =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${attrs}>${body}</svg>`;
@@ -99,7 +103,7 @@ export function page(copy, ctx) {
   };
 
   const before = hasBefore
-    ? `<img src="/assets/picker-before.webp" alt="${esc(copy.picker.beforeAlt)}" width="${PICKER.width}" height="${PICKER.height}" loading="lazy" decoding="async">`
+    ? pickerShot("before", copy.picker.beforeAlt)
     : `<div class="placeholder" role="img" aria-label="${esc(copy.picker.beforeAlt)}">
 <div class="placeholder-names" aria-hidden="true">${PLAIN_NAMES.map((n) => `<span>${esc(n)}</span>`).join("")}</div>
 <p class="placeholder-tag">${esc(copy.picker.placeholder)}</p>
@@ -137,17 +141,20 @@ export function page(copy, ctx) {
   const dialog = koFi
     ? `<dialog id="support-dialog" aria-labelledby="support-title">
 <button type="button" class="dlg-x" data-close aria-label="${esc(copy.dialog.close)}">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button>
+<div class="dlg-grid">
+<div class="dlg-side">
 <div data-variant="download">
 <h2 id="support-title">${esc(copy.dialog.title)}</h2>
 <p>${esc(copy.dialog.text)}</p>
-<p class="muted">${esc(copy.dialog.macNote)}</p>
+<p class="dlg-mac">${esc(copy.dialog.macNote)}</p>
 </div>
 <div data-variant="support" hidden>
 <h2>${esc(copy.dialog.supportTitle)}</h2>
 <p>${esc(copy.dialog.supportText)}</p>
 </div>
-<p class="dlg-fallback"><a class="btn-ghost" href="${esc(koFi)}" target="_blank" rel="noopener">${ICONS.heart}${esc(copy.dialog.fallback)}</a></p>
-${embed ? `<div class="kofi" data-embed-src="${esc(embed)}" data-embed-title="${esc(copy.dialog.supportTitle)}"></div>\n` : ""}<p class="muted dlg-note">${esc(copy.dialog.embedNote)}</p>
+<p class="dlg-foot"><span class="dlg-note">${esc(copy.dialog.embedNote)}</span> <a href="${esc(koFi)}" target="_blank" rel="noopener">${esc(copy.dialog.fallback)}</a></p>
+</div>
+${embed ? `<div class="kofi" data-embed-src="${esc(embed)}" data-embed-title="${esc(copy.dialog.supportTitle)}"></div>\n` : ""}</div>
 </dialog>
 <button type="button" id="support-fab" class="fab" data-support-open hidden>${ICONS.heart}<span>${esc(copy.dialog.fab)}</span></button>`
     : "";
@@ -210,7 +217,6 @@ ${dl(copy.nav.download, "btn btn-sm", "")}
 <main id="main">
 <section id="hero">
 <div class="wrap">
-<p class="badge"><span class="led"></span>${esc(copy.hero.badge)}</p>
 <h1>${headline}${copy.hero.titleEnd ? ` ${esc(copy.hero.titleEnd)}` : ""}</h1>
 <p class="hero-sub">${nb(copy.hero.subtitle)}</p>
 <p class="hero-cta">${dl()}</p>
@@ -230,7 +236,7 @@ ${dl(copy.nav.download, "btn btn-sm", "")}
 </div>
 <div class="pair">
 <figure class="before rise"><figcaption><span class="led"></span>${esc(copy.picker.beforeLabel)}</figcaption><div class="shot">${before}</div></figure>
-<figure class="after rise"><figcaption><span class="led"></span>${esc(copy.picker.afterLabel)}</figcaption><div class="shot"><img src="/assets/picker-after.webp" alt="${esc(copy.picker.afterAlt)}" width="${PICKER.width}" height="${PICKER.height}" loading="lazy" decoding="async"></div></figure>
+<figure class="after rise"><figcaption><span class="led"></span>${esc(copy.picker.afterLabel)}</figcaption><div class="shot">${pickerShot("after", copy.picker.afterAlt)}</div></figure>
 </div>
 <ul class="points">${copy.picker.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
 </div>

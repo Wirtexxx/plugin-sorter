@@ -1,24 +1,23 @@
-name: Site
+name: Web
 
 on:
   push:
     branches: [main, develop]
-    paths: ["site/**", ".github/workflows/site.yml"]
+    paths: ["web/**", ".github/workflows/web.yml"]
   pull_request:
-    paths: ["site/**", ".github/workflows/site.yml"]
+    paths: ["web/**", ".github/workflows/web.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
-        working-directory: site
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
 
@@ -26,7 +25,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: site/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - run: npm ci
 
@@ -40,6 +39,11 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main' && vars.SITE_LIVE == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -49,7 +53,7 @@ jobs:
       cancel-in-progress: false
     defaults:
       run:
-        working-directory: site
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +61,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: site/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - run: npm ci
 
@@ -65,7 +69,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site/dist
+          path: web/dist
 
       - id: deployment
         uses: actions/deploy-pages@v4

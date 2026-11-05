@@ -53,21 +53,9 @@
     opener = null;
   });
 
-  // The button shows once the hero has scrolled away, and steps aside near the page's own support and download blocks.
-  if (fab && "IntersectionObserver" in window) {
-    const seen = new Map();
-    const update = () => {
-      const heroGone = seen.get("hero") === false;
-      const nearEnd = ["support", "download"].some((id) => seen.get(id));
-      fab.hidden = !(heroGone && !nearEnd);
-    };
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) seen.set(e.target.id, e.isIntersecting);
-      update();
-    });
-    for (const id of ["hero", "support", "download"]) {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
-    }
+  // The button shows once the hero has scrolled away and stays until the visitor is back at the top.
+  const hero = document.getElementById("hero");
+  if (fab && hero && "IntersectionObserver" in window) {
+    new IntersectionObserver(([entry]) => { fab.hidden = entry.isIntersecting; }).observe(hero);
   }
 })();

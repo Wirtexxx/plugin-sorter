@@ -409,14 +409,14 @@ for (const [path, copyFile] of [["/", "en"], ["/ru/", "ru"]]) {
     await done();
   });
 
-  test(`${path} shows the plain Ko-fi link above the form, inside an 800px viewport`, async () => {
+  test(`${path} shows the plain Ko-fi link beside the form, inside an 800px viewport`, async () => {
     const { page, done } = await openStubbed(site, path, { viewport: { width: 1280, height: 800 } });
     await page.locator("#hero a[data-download]").click();
     const link = page.locator(`#support-dialog a[href="${CFG.koFiUrl}"]`);
     assert.equal(await link.getAttribute("target"), "_blank");
     assert.match(await link.getAttribute("rel"), /noopener/);
     const [l, f] = await Promise.all([link.boundingBox(), page.locator("#kofiframe").boundingBox()]);
-    assert.ok(l.y + l.height <= f.y + 1, "the link must come before the form");
+    assert.ok(l.x + l.width <= f.x + 1, "the link must sit beside the form");
     assert.ok(l.y >= 0 && l.y + l.height <= 800, `link ends at ${l.y + l.height}`);
     await done();
   });
@@ -466,14 +466,16 @@ test("the floating button appears after the hero and opens the dialog without a 
   }
 });
 
-test("the floating button hides while the support block is on screen", async () => {
+test("the floating button stays visible down to the end of the page", async () => {
   const { page, done } = await openStubbed(site);
   const fab = page.locator("#support-fab");
   await scrollPastHero(page);
   await fab.waitFor({ state: "visible" });
   await page.locator("#support").scrollIntoViewIfNeeded();
   await page.evaluate(() => document.querySelector("#support").scrollIntoView({ block: "center" }));
-  await fab.waitFor({ state: "hidden" });
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(200);
+  assert.equal(await fab.isVisible(), true);
   await done();
 });
 
@@ -518,7 +520,9 @@ for (const [path, viewport] of [["/", { width: 1280, height: 800 }], ["/ru/", { 
     const close = page.locator("#support-dialog [data-close]");
     const start = await close.boundingBox();
     await dialog.evaluate((d) => { d.scrollTop = d.scrollHeight; });
-    assert.ok(await dialog.evaluate((d) => d.scrollTop > 0));
+    // Wide screens fit the whole dialog, so only a phone has anything to scroll.
+    if (viewport.width <= 800) assert.ok(await dialog.evaluate((d) => d.scrollTop > 0));
+    else assert.equal(await dialog.evaluate((d) => d.scrollHeight <= d.clientHeight), true);
     const box = await close.boundingBox();
     const frame = await dialog.boundingBox();
     assert.ok(Math.abs(box.y - start.y) <= 1, `${start.y} then ${box.y}`);

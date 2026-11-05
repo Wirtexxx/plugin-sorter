@@ -123,11 +123,6 @@ h2 { font-size: clamp(32px, 4.6vw, 54px); font-weight: 800; line-height: 1.1; le
 
 /* Hero */
 #hero { padding-block: clamp(32px, 3.4vw, 48px) 0; text-align: center; }
-.badge {
-  display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
-  color: #d9d9e3; font-size: 14px; font-weight: 600;
-}
 h1 {
   max-width: 980px; margin: 20px auto 0;
   font-size: clamp(32px, 9.4vw, 70px); font-weight: 800; line-height: 1.06; letter-spacing: -0.03em;
@@ -302,6 +297,7 @@ tbody tr:last-child td:last-child { border-radius: 0 0 14px 14px; }
 .support { max-width: 760px; margin-inline: auto; text-align: center; }
 .support-links { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; margin-top: 30px; }
 .support-links a { justify-content: center; padding: 15px 18px; font-size: 16px; font-weight: 800; white-space: nowrap; }
+@media (max-width: 860px) { .support-links a { padding-inline: 10px; font-size: 15px; } }
 #download { padding-block: var(--section); text-align: center; }
 .finale {
   position: relative; overflow: hidden; padding: clamp(52px, 7vw, 92px) 24px; border-radius: 32px;
@@ -327,27 +323,39 @@ footer { padding-block: 34px 44px; border-top: 1px solid var(--line); color: var
 
 /* Support dialog and floating button */
 dialog {
-  width: min(520px, 100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain;
-  padding: 30px; border-radius: var(--radius);
+  width: min(880px, 100vw - 32px); max-height: calc(100dvh - 32px); overflow: hidden auto; overscroll-behavior: contain;
+  padding: 0; border-radius: var(--radius);
   background: var(--panel-hi); color: var(--text); border: 1px solid var(--line-hi);
   box-shadow: 0 0 90px rgba(150, 84, 255, 0.4);
 }
 dialog::backdrop { background: rgba(8, 8, 12, 0.72); }
-dialog h2 { font-size: 26px; padding-right: 36px; }
-dialog p { margin-top: 14px; color: var(--soft); }
-dialog .muted { color: var(--muted); font-size: 14.5px; }
 dialog [hidden] { display: none; }
-.dlg-x {
-  position: sticky; top: 14px; z-index: 1; margin: -16px -16px -24px auto; width: 40px; height: 40px; display: grid; place-items: center;
-  border-radius: 50%; background: var(--panel); border: 1px solid var(--line); color: var(--soft); cursor: pointer;
+.dlg-grid { display: grid; grid-template-columns: minmax(0, 1fr) 440px; }
+.dlg-side {
+  display: flex; flex-direction: column; padding: 40px 36px 30px;
+  background: radial-gradient(420px 320px at 0 0, rgba(150, 84, 255, 0.26), transparent 70%);
 }
-.dlg-x:hover { color: var(--text); border-color: var(--line-hi); }
-.dlg-x svg { width: 20px; height: 20px; }
-.kofi { margin-top: 20px; min-height: 712px; border-radius: 14px; background: #f9f9f9; }
-#kofiframe { display: block; width: 100%; height: 712px; border: 0; border-radius: 14px; background: #f9f9f9; }
-.dlg-fallback { text-align: center; }
-.dlg-fallback .btn-ghost { font-size: 15px; padding: 11px 20px; }
-.dlg-note { text-align: center; }
+.dlg-side h2 { font-size: 30px; line-height: 1.15; }
+.dlg-side p { margin-top: 16px; color: var(--soft); font-size: 16px; }
+.dlg-side .dlg-mac { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+.dlg-side .dlg-foot { margin-top: auto; padding-top: 26px; color: var(--muted); font-size: 13.5px; }
+.dlg-foot a { color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
+.dlg-foot a:hover { color: var(--text); }
+.dlg-x {
+  position: absolute; top: 12px; right: 12px; z-index: 1; width: 36px; height: 36px; display: grid; place-items: center;
+  border-radius: 50%; background: rgba(20, 20, 26, 0.86); border: 0; color: #fff; cursor: pointer;
+}
+.dlg-x:hover { background: #000; }
+.dlg-x svg { width: 18px; height: 18px; }
+.kofi { min-height: 600px; background: #f9f9f9; }
+#kofiframe { display: block; width: 100%; height: 600px; border: 0; background: #f9f9f9; }
+@media (max-width: 800px) {
+  .dlg-grid { grid-template-columns: minmax(0, 1fr); }
+  .dlg-side { padding: 28px 22px 22px; }
+  .dlg-side h2 { font-size: 25px; padding-right: 36px; }
+  .dlg-x { position: sticky; top: 10px; float: right; margin: 10px 10px -46px 0; }
+}
+
 .fab {
   position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 20;
   display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border: 0; border-radius: 999px;
@@ -365,14 +373,12 @@ dialog [hidden] { display: none; }
 /* Motion: slow, and only when it's welcome */
 @media (prefers-reduced-motion: no-preference) {
   .hero-media::before { animation: breathe 9s ease-in-out infinite alternate; }
-  .badge .led { animation: pulse 2.8s ease-in-out infinite; }
   .strip-in { animation: drift 90s linear infinite; will-change: transform; }
   .strip.is-paused .strip-in, .hero-media.is-paused::before { animation-play-state: paused; }
   @keyframes breathe {
     from { opacity: 0.78; transform: translate(-50%, -50%) scale(0.97); }
     to { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
   }
-  @keyframes pulse { 50% { opacity: 0.45; } }
   @keyframes drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
   @supports (animation-timeline: view()) {
     .rise { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 30%; }

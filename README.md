@@ -52,7 +52,7 @@ VST3/                                VST3/
 - ↩️ **One-click undo.** Every run writes a move log, and *Undo* puts everything back.
 - 📁 **Respects your folders.** Existing vendor folders are reused, whatever their letter case.
 - 🌊 **Leaves Waves alone.** WaveShells are managed by Waves Central and are skipped.
-- 🖼️ **Plugin pictures in FL Studio.** Screenshots of every plugin's interface for FL's
+- 🖼️ **Plugin pictures in FL Studio.** Screenshots of plugin interfaces for FL's
   browser and plugin picker, the way FL's own plugins look there.
 - 🗂️ **FL Studio categories in one click.** Favourites go under the picker's tabs (Dynamics,
   Filter, Delay reverb…) by the category each plugin reports about itself.
@@ -74,7 +74,7 @@ Third-party plugins finally look like FL's own: a real picture of each one, file
 of the plugin picker.
 
 <p align="center">
-  <img src="docs/screenshot-fl-picker.png" width="760" alt="FL Studio's plugin picker with a picture of every plugin, sorted into category tabs">
+  <img src="docs/screenshot-fl-picker.png" width="760" alt="FL Studio's plugin picker with plugin pictures, sorted into category tabs">
 </p>
 
 ## Install
@@ -97,7 +97,7 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`):
 
 ```bash
 git clone https://github.com/Wirtexxx/plugin-sorter.git
-cd plugin-sorter
+cd plugin-sorter/app
 ./build.sh --install
 ```
 
@@ -172,10 +172,10 @@ favourites removed from FL, exporting the list, and the settings (language, colo
 ### Command line
 
 ```bash
-./scripts/sort-plugins.sh                      # dry run: show what would move
-sudo ./scripts/sort-plugins.sh --apply         # move plugins, write ~/plugin-sort-<time>.log
-sudo ./scripts/sort-plugins.sh --undo ~/plugin-sort-20261102-193000.log
-sudo ./scripts/sort-plugins.sh --restore-au    # put AU sorted by 1.0 back into Components
+./app/scripts/sort-plugins.sh                      # dry run: show what would move
+sudo ./app/scripts/sort-plugins.sh --apply         # move plugins, write ~/plugin-sort-<time>.log
+sudo ./app/scripts/sort-plugins.sh --undo ~/plugin-sort-20261102-193000.log
+sudo ./app/scripts/sort-plugins.sh --restore-au    # put AU sorted by 1.0 back into Components
 ```
 
 | Variable              | Default                 | Purpose                         |
@@ -197,7 +197,7 @@ the domain parts and takes the first meaningful word as the developer:
 | `app.cradle.GodParticle`           | `Cradle`       |
 
 Pretty names for well-known developers live in `pretty_name()` in
-[`scripts/sort-plugins.sh`](scripts/sort-plugins.sh). Anything else keeps the name from its
+[`app/scripts/sort-plugins.sh`](app/scripts/sort-plugins.sh). Anything else keeps the name from its
 identifier. Missing your favourite developer? Pull requests are welcome.
 
 ## Good to know
@@ -213,24 +213,41 @@ identifier. Missing your favourite developer? Pull requests are welcome.
 ## Project structure
 
 ```
-App/            SwiftUI app: model, window, theme, translations
-Helper/         entry point of the helper that loads plugins, apart from the app
-scripts/        sort-plugins.sh: the engine, usable on its own
-Tests/          Swift Testing suite for the parsers, checks and the script
-tools/          icon and README screenshot renderers
-build.sh        builds a universal Plugin Sorter.app without Xcode
-Package.swift   test-only package around App/, without the @main entry point
+app/                macOS app
+  Sources/          SwiftUI app: model, window, theme, translations
+  Helper/           entry point of the helper that loads plugins, apart from the app
+  scripts/          sort-plugins.sh: the engine, usable on its own
+  Tests/            Swift Testing suite for the parsers, checks and the script
+  tools/            icon and README screenshot renderers
+  build.sh          builds a universal Plugin Sorter.app without Xcode
+  Package.swift     test-only package around Sources/, without the @main entry point
+web/                landing page: static English and Russian pages
+docs/               screenshots and the icon, used by the README and the site
 ```
 
 ## Development
 
-Everything works with just the Command Line Tools:
+The app needs only the Command Line Tools:
 
 ```bash
+cd app
 swift test                  # parsers, inventory, checks and sort-plugins.sh on temporary folders
 ./build.sh --install        # build and install the app
 ./build.sh --screenshot     # re-render the README screenshots
 ```
+
+The site needs Node 22:
+
+```bash
+cd web
+npm ci
+npm run preview             # build and serve on http://localhost:4173
+npm test                    # pages and search markup
+npm run test:browser        # layout and the download path in real browsers
+npm run audit               # Lighthouse
+```
+
+Publishing steps are in [`web/LAUNCH.md`](web/LAUNCH.md).
 
 Tests never touch `/Library/Audio/Plug-Ins` or FL Studio's database: the script runs against a
 temporary tree via `PLUGIN_SORT_ROOT`, and plugin bundles and `.fst` presets are generated on the fly.

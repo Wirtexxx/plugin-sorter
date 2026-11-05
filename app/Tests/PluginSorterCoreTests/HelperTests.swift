@@ -31,7 +31,7 @@ struct HelperTests {
 
     @Test func everyHelperGoesThroughOnePlace() throws {
         let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("App")
+            .deletingLastPathComponent().appendingPathComponent("Sources")
         for file in try FileManager.default.contentsOfDirectory(at: app, includingPropertiesForKeys: nil)
         where file.pathExtension == "swift" && file.lastPathComponent != "Helper.swift" {
             let text = try String(contentsOf: file, encoding: .utf8)
@@ -41,7 +41,7 @@ struct HelperTests {
 
     @Test func aHelperOutlivesNobody() throws {
         let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("App")
+            .deletingLastPathComponent().appendingPathComponent("Sources")
         var limits = 0
         for file in try FileManager.default.contentsOfDirectory(at: app, includingPropertiesForKeys: nil)
         where file.pathExtension == "swift" {
