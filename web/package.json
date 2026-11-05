@@ -1,0 +1,20 @@
+{
+  "name": "plugin-sorter-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/build.test.mjs",
+    "test:browser": "node --test --test-force-exit --test-timeout=60000 tests/browser.test.mjs tests/download.test.mjs",
+    "assets": "node scripts/assets.mjs",
+    "preview": "node scripts/preview.mjs",
+    "audit": "node tests/audit.mjs"
+  },
+  "devDependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
+    "chrome-launcher": "^1.2.2",
+    "lighthouse": "^13.6.0",
+    "playwright": "^1.64.1",
+    "sharp": "^0.35.5"
+  }
+}

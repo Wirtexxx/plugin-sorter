@@ -4,3 +4,5 @@ build/
 *.log.undone
 .build/
 .swiftpm/
+web/dist
+web/node_modules

@@ -1,6 +1,6 @@
 // swift-tools-version:6.0
 // Swift package for the tests only: the app itself is built by build.sh.
-// PluginSorterCore is everything in App/ but the @main entry point, which the tests must never start.
+// PluginSorterCore is everything in Sources/ but the @main entry point, which the tests must never start.
 import PackageDescription
 
 let package = Package(
@@ -9,7 +9,7 @@ let package = Package(
     targets: [
         .target(
             name: "PluginSorterCore",
-            path: "App",
+            path: "Sources",
             exclude: ["PluginSorterApp.swift"],
         ),
         .testTarget(

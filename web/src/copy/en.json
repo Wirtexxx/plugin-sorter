@@ -1,0 +1,304 @@
+{
+  "meta": {
+    "title": "Free FL Studio plugin manager for Mac | Plugin Sorter",
+    "description": "Free plugin manager for Mac: pictures in FL Studio's picker, VST plugins sorted by developer, checks and clean uninstall."
+  },
+  "nav": {
+    "skip": "Skip to content",
+    "label": "Page sections",
+    "picker": "Pictures",
+    "features": "Features",
+    "compare": "Compare",
+    "install": "Install",
+    "faq": "Questions",
+    "download": "Download",
+    "language": "Language"
+  },
+  "hero": {
+    "title": "The plugin manager",
+    "titleAccent": "FL Studio on Mac",
+    "titleEnd": "was missing",
+    "subtitle": "Fill FL Studio's picker with pictures of your plugins. Sort your VST3 and VST plugins by developer. Check, turn off and remove them, all in one window.",
+    "download": "Download for Mac",
+    "note": "Free and open source. For Mac with Apple Silicon or Intel, macOS 11 or later.",
+    "imageAlt": "Plugin Sorter window: a list of plugins with status lamps, formats, FL Studio favourites and categories, and three jobs at the bottom"
+  },
+  "picker": {
+    "eyebrow": "In FL Studio",
+    "title": "FL Studio plugin pictures, all at once",
+    "lead": "In FL Studio a thumbnail is a manual job, one plugin at a time, so many third-party plugins stay plain text in the picker. Plugin Sorter fills the plugin picker in one go, with a shot of the real interface wherever a plugin has an Audio Unit version. Your third-party plugins finally look like FL's own.",
+    "beforeLabel": "Before",
+    "afterLabel": "After",
+    "beforeAlt": "FL Studio plugin picker where some plugins have pictures and many third-party plugins are still plain text",
+    "afterAlt": "FL Studio plugin picker with plugin pictures, sorted into category tabs",
+    "placeholder": "Local placeholder: the real screenshot goes here",
+    "points": [
+      "One button takes the pictures. Plugins with an Audio Unit version pop up in the corner for a moment while it works.",
+      "A plugin with no Audio Unit version, or one that won't open, gets a neat card instead. You can also drop your own image on any plugin.",
+      "Favourites go under the picker's tabs: Dynamics, Filter, Delay reverb and the rest. Every job can be undone."
+    ]
+  },
+  "features": {
+    "eyebrow": "In your plugin folder",
+    "title": "Organize your VST plugins on Mac",
+    "lead": "After a few years of production the plugin folder turns into a flat wall of hundreds of files. Plugin Sorter is a VST plugin manager for Mac that works out who made each plugin and puts things in order.",
+    "sortAlt": "A flat VST3 folder on the left, and the same plugins sorted into developer folders on the right",
+    "checkAlt": "Three plugins with a green, an amber and a red status lamp",
+    "checkDemo": "Illustration. The plugins with warnings are made up.",
+    "cardsAlt": "Plugin Sorter in card view, with one plugin open in a panel on the right",
+    "skinsLabel": "Colour skins",
+    "skins": [
+      "Violet",
+      "Mint",
+      "Amber",
+      "Ice"
+    ],
+    "items": [
+      {
+        "id": "sort",
+        "title": "Sorted by developer",
+        "text": "VST3 and VST plugins move into one folder per developer. The name comes from the plugin itself, so OTT lands in Xfer Records. You see every move first, and one click undoes it."
+      },
+      {
+        "id": "check",
+        "title": "See what actually loads",
+        "text": "Every plugin gets a test load in the background. The lamps show what works, and a problem comes with plain words and often a one-click fix."
+      },
+      {
+        "id": "uninstall",
+        "title": "Clean uninstall",
+        "text": "A plugin leaves with its preferences, caches and installer receipts. A developer's folder is never ticked for you."
+      },
+      {
+        "id": "duplicates",
+        "title": "Find duplicates",
+        "text": "Old versions and extra copies are listed for you. Nothing is ticked until you decide."
+      },
+      {
+        "id": "off",
+        "title": "Turn off, don't delete",
+        "text": "Hide a plugin from every DAW without removing it. Turn it back on any time."
+      },
+      {
+        "id": "licenses",
+        "title": "Licenses in Keychain",
+        "text": "Keep licenses in the macOS Keychain, add tags and colours, export the list."
+      },
+      {
+        "id": "cards",
+        "title": "Cards and colour skins",
+        "text": "Flip the list into picture cards and pick a skin. Graphite panels and status lamps, like the plugins you already love. A tool you open every day should feel good."
+      }
+    ]
+  },
+  "compare": {
+    "eyebrow": "Side by side",
+    "title": "How it differs from FL Studio's Plugin Manager",
+    "lead": "Plugin Sorter works alongside FL Studio, not instead of it. FL still scans your plugins. Plugin Sorter takes on what its Plugin Manager leaves to you.",
+    "headers": [
+      "What you need",
+      "FL Studio Plugin Manager",
+      "Plugin Sorter"
+    ],
+    "rows": [
+      {
+        "label": "Scan plugins into FL Studio's database",
+        "fl": [
+          "yes",
+          "Yes"
+        ],
+        "ps": [
+          "no",
+          "No, FL Studio does this"
+        ]
+      },
+      {
+        "label": "Find and check installed plugins",
+        "fl": [
+          "yes",
+          "Yes"
+        ],
+        "ps": [
+          "yes",
+          "Yes, in plain words, with fixes"
+        ]
+      },
+      {
+        "label": "Picture for each plugin",
+        "fl": [
+          "part",
+          "By hand, one at a time"
+        ],
+        "ps": [
+          "yes",
+          "All plugins at once"
+        ]
+      },
+      {
+        "label": "Favourites under the picker's tabs",
+        "fl": [
+          "part",
+          "By hand"
+        ],
+        "ps": [
+          "yes",
+          "One click"
+        ]
+      },
+      {
+        "label": "Sort plugin files by developer",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes, with undo"
+        ]
+      },
+      {
+        "label": "Hide a plugin from every DAW",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes, and bring it back any time"
+        ]
+      },
+      {
+        "label": "Uninstall with preferences, caches and installer receipts",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes"
+        ]
+      },
+      {
+        "label": "Send old versions and extra copies to the Trash",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes"
+        ]
+      },
+      {
+        "label": "Keep licenses in the macOS Keychain",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes"
+        ]
+      },
+      {
+        "label": "Export the plugin list to Markdown, CSV or JSON",
+        "fl": [
+          "no",
+          "No"
+        ],
+        "ps": [
+          "yes",
+          "Yes"
+        ]
+      }
+    ]
+  },
+  "install": {
+    "eyebrow": "Three steps",
+    "title": "Install in a minute",
+    "steps": [
+      {
+        "title": "Download",
+        "text": "Get PluginSorter.dmg from the latest release."
+      },
+      {
+        "title": "Drag to Applications",
+        "text": "Open the file and drag Plugin Sorter onto the Applications folder."
+      },
+      {
+        "title": "Allow the first launch",
+        "text": "macOS refuses to open the app the first time. You only do this once.",
+        "paths": [
+          {
+            "label": "macOS 15 and later",
+            "text": "Open System Settings, Privacy & Security, and click Open Anyway."
+          },
+          {
+            "label": "Older macOS",
+            "text": "Right-click the app and choose Open."
+          }
+        ]
+      }
+    ],
+    "why": "The warning appears because the app is not notarized by Apple. The source code is open on GitHub, so you can read it or build it yourself."
+  },
+  "faqTitle": "Questions",
+  "faq": [
+    {
+      "q": "Is Plugin Sorter free?",
+      "a": "Yes. It is free and open source under the MIT license."
+    },
+    {
+      "q": "Does it run on Apple Silicon?",
+      "a": "Yes. It is a universal app for Apple Silicon and Intel Macs, macOS 11 or later."
+    },
+    {
+      "q": "Is it safe to move my plugins?",
+      "a": "You see every move before it happens, each run writes a log, and Undo puts everything back. DAWs identify plugins by their IDs, not their paths, so existing projects normally keep loading them, and if another plugin loads a moved bundle, a one-click fix puts it back. Sorting asks for an administrator password, and FL Studio needs a rescan afterwards."
+    },
+    {
+      "q": "Why does macOS warn me when I open it?",
+      "a": "The app is not notarized by Apple, so macOS stops the first launch. Allow it once. On macOS 15 and later that's in System Settings, Privacy & Security. On older versions right-click the app and choose Open."
+    },
+    {
+      "q": "What happens to Audio Units?",
+      "a": "They stay in the Components folder. macOS only registers Audio Units that sit directly in it, so Plugin Sorter never moves them into developer folders."
+    },
+    {
+      "q": "Does it replace FL Studio's Plugin Manager?",
+      "a": "No, they work side by side. FL Studio still scans your plugins. Plugin Sorter adds the pictures, the categories and the tidy folders."
+    },
+    {
+      "q": "Is it only for FL Studio?",
+      "a": "Pictures and categories are for FL Studio. Sorting, checks, turning off and clean uninstall deal with the plugin files, so they help whatever DAW you use."
+    }
+  ],
+  "support": {
+    "eyebrow": "From the author",
+    "title": "Support the project",
+    "text": "I made Plugin Sorter because my plugin folder was a mess and many plugins in my picker were plain text. If it helps you too, that's the best thanks. A star on GitHub helps other musicians find it.",
+    "kofi": "Support",
+    "star": "Star on GitHub",
+    "issues": "Found a bug?"
+  },
+  "cta": {
+    "title": "Your plugins, finally in order",
+    "note": "Mac only. Reading on a phone? Open this page on your Mac."
+  },
+  "footer": {
+    "independent": "Independent project. FL Studio is a trademark of Image-Line.",
+    "owners": "Plugin names and images belong to their owners.",
+    "license": "MIT license"
+  },
+  "dialog": {
+    "title": "Your download has started",
+    "text": "Plugin Sorter is free. If it saves you time, you can support it, but you don't have to.",
+    "fallback": "Open Ko-fi in a new tab",
+    "macNote": "The file is for Mac. If macOS warns you on launch, allow the app in Privacy & Security. On older macOS, right-click the app and choose Open.",
+    "supportTitle": "Support Plugin Sorter",
+    "supportText": "Plugin Sorter is free and its code is open. If it saves you time, you can support its development, but you don't have to.",
+    "embedNote": "The form is run by Ko-fi.",
+    "fab": "Support",
+    "close": "Close"
+  }
+}

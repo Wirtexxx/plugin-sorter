@@ -535,7 +535,7 @@ struct ScriptTests {
         let unsetLine = try #require(block.split(separator: "\n").first { $0.contains("unset ") })
         let dropped = Set(unsetLine.split(separator: " ").map(String.init).filter { $0.hasPrefix("PLUGIN_SORT_") })
         #expect(dropped == ["PLUGIN_SORT_ROOT", "PLUGIN_SORT_DATA_ROOTS", "PLUGIN_SORT_TRASH"])
-        let app = Self.script.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("App")
+        let app = Self.script.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Sources")
         var passed: Set<String> = []
         for file in ["Sorter.swift", "Shell.swift"] {
             let source = try String(contentsOf: app.appendingPathComponent(file), encoding: .utf8)
