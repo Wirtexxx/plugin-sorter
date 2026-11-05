@@ -242,11 +242,11 @@ ${dl(copy.nav.download, "btn btn-sm", "")}
 ${text(item.sort)}
 </article>
 <article class="card card-check rise">
-<ul class="lamps" role="img" aria-label="${esc(copy.features.checkAlt)}">
-<li><span class="lamp" style="--c:var(--mint)"></span><span><b>FabFilter Pro-Q 4</b><small>FabFilter</small></span></li>
-<li><span class="lamp" style="--c:var(--amber)"></span><span><b>kHs Chorus</b><small>Kilohearts</small></span></li>
-<li><span class="lamp" style="--c:var(--danger)"></span><span><b>OldReverb</b><small>Legacy Audio</small></span></li>
-</ul>
+<div class="lamps" role="img" aria-label="${esc(copy.features.checkAlt)}">
+<div class="lamp-row"><span class="lamp" style="--c:var(--mint)"></span><span><b>FabFilter Pro-Q 4</b><small>FabFilter</small></span></div>
+<div class="lamp-row"><span class="lamp" style="--c:var(--amber)"></span><span><b>kHs Chorus</b><small>Kilohearts</small></span></div>
+<div class="lamp-row"><span class="lamp" style="--c:var(--danger)"></span><span><b>OldReverb</b><small>Legacy Audio</small></span></div>
+</div>
 ${text(item.check)}
 </article>
 ${small("uninstall")}

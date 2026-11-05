@@ -63,6 +63,16 @@ for (const { path, lang, h1, title } of PAGES) {
         scroll: document.documentElement.scrollWidth, inner: window.innerWidth,
       }));
       assert.ok(scroll <= inner, `${scroll} > ${inner}`);
+      // scrollWidth can hide overflow that clipping parents cut off, so check the boxes themselves.
+      const over = await page.evaluate(() => {
+        const sel = "h1, [data-gradient], a.btn, a.btn-ghost, button, td, th";
+        return [...document.querySelectorAll(sel)]
+          .filter((el) => !el.closest("dialog, .hero-media") && el.getClientRects().length)
+          .map((el) => ({ el, right: el.getBoundingClientRect().right }))
+          .filter(({ right }) => right > innerWidth + 0.5)
+          .map(({ el, right }) => `${el.tagName}.${el.className} right=${right.toFixed(1)}`);
+      });
+      assert.deepEqual(over, []);
       await done();
     });
   }
@@ -378,6 +388,7 @@ test("Ko-fi is only requested when the dialog opens and the form stays after clo
   assert.equal(await page.locator("iframe").count(), 1);
   assert.equal(await frame.getAttribute("src"), CFG.koFiEmbedUrl);
   assert.equal(await frame.getAttribute("title"), "wirtex");
+  assert.equal(await frame.getAttribute("referrerpolicy"), "strict-origin-when-cross-origin");
   await page.frameLocator("#kofiframe").getByText("Ko-fi form (stub)").waitFor();
   assert.equal(kofiRequests().length, 1);
   await page.keyboard.press("Escape");
@@ -421,6 +432,17 @@ test("the floating button appears after the hero and opens the dialog without a 
     await fab.waitFor({ state: "hidden" });
     await done();
   }
+});
+
+test("the floating button hides while the support block is on screen", async () => {
+  const { page, done } = await openStubbed(site);
+  const fab = page.locator("#support-fab");
+  await scrollPastHero(page);
+  await fab.waitFor({ state: "visible" });
+  await page.locator("#support").scrollIntoViewIfNeeded();
+  await page.evaluate(() => document.querySelector("#support").scrollIntoView({ block: "center" }));
+  await fab.waitFor({ state: "hidden" });
+  await done();
 });
 
 test("the floating button stays on screen and out of the way at 320", async () => {

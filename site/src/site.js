@@ -4,7 +4,6 @@
   if (!dialog || typeof dialog.showModal !== "function") return;
   const fab = document.getElementById("support-fab");
   const variants = dialog.querySelectorAll("[data-variant]");
-  const labelled = dialog.querySelector("#support-title");
   let opener = null;
 
   // The Ko-fi form is added on the first open, so the page itself never talks to Ko-fi.
@@ -14,6 +13,7 @@
     const frame = document.createElement("iframe");
     frame.id = "kofiframe";
     frame.title = "wirtex";
+    frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
     frame.src = box.dataset.embedSrc;
     box.append(frame);
   };
