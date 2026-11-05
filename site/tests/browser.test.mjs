@@ -722,3 +722,101 @@ for (const width of [320, 393, 768]) {
     });
   }
 }
+
+for (const path of ["/", "/ru/"]) {
+  test(`${path} gives every image in the markup a real alt`, async () => {
+    const { page, done } = await open(path);
+    const alts = await page.$$eval("img", (imgs) => imgs.map((i) => [i.getAttribute("src"), i.getAttribute("alt")]));
+    for (const [src, alt] of alts) assert.ok(alt?.trim(), `${src} has no alt`);
+    const icons = alts.filter(([src]) => src.endsWith("icon.png"));
+    assert.ok(icons.length >= 2);
+    for (const [, alt] of icons) assert.equal(alt, "Plugin Sorter");
+    const name = await page.locator("header a.brand").evaluate((a) => a.getAttribute("aria-label"));
+    assert.equal(name, "Plugin Sorter", "the logo and its text are read once");
+    await done();
+  });
+}
+
+// ---- The moving strip ----
+test("the strip moves on one compositor layer, and nothing heavy sits on it", async () => {
+  const { page, done } = await open("/", { viewport: { width: 1440, height: 900 } });
+  const info = await page.evaluate(() => {
+    const strip = document.querySelector(".strip");
+    const inner = document.querySelector(".strip-in");
+    const animations = inner.getAnimations();
+    return {
+      count: animations.length,
+      keyframes: animations[0]?.effect.getKeyframes().map((k) => Object.keys(k).filter((n) => !["offset", "computedOffset", "easing", "composite"].includes(n))),
+      to: animations[0]?.effect.getKeyframes().at(-1).transform,
+      willChange: getComputedStyle(inner).willChange,
+      filter: getComputedStyle(inner).filter,
+      masks: [strip, inner].map((e) => getComputedStyle(e).maskImage),
+      blur: [strip, inner].map((e) => getComputedStyle(e).backdropFilter),
+      images: strip.querySelectorAll("img").length,
+    };
+  });
+  assert.equal(info.count, 1);
+  for (const props of info.keyframes) assert.deepEqual(props, ["transform"]);
+  assert.match(info.to, /translate3d\(-50%/);
+  assert.equal(info.willChange, "transform");
+  assert.equal(info.filter, "none");
+  assert.deepEqual(info.masks, ["none", "none"]);
+  assert.deepEqual(info.blur, ["none", "none"]);
+  assert.equal(info.images, 0, "one background layer, no duplicated images");
+  await done();
+});
+
+test("the strip is sharp at 2x and loops without a jump", async () => {
+  const { page, done } = await open("/", { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+  const { natural, cssHeight, width, tile } = await page.evaluate(async () => {
+    const inner = document.querySelector(".strip-in");
+    const style = getComputedStyle(inner);
+    const url = style.backgroundImage.match(/url\("(.+)"\)/)[1];
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const box = inner.getBoundingClientRect();
+    return {
+      natural: [img.naturalWidth, img.naturalHeight],
+      cssHeight: box.height,
+      width: box.width,
+      tile: (box.height * img.naturalWidth) / img.naturalHeight,
+    };
+  });
+  assert.ok(natural[1] >= cssHeight * 2 - 0.5, `${natural[1]}px file for ${cssHeight}px at 2x`);
+  assert.ok(Math.abs(width / 2 - tile) <= 0.5, `half the layer ${width / 2}, one picture ${tile}`);
+  await done();
+});
+
+test("the strip pauses off-screen and carries on when it comes back", async () => {
+  const { page, done } = await open("/", { viewport: { width: 1440, height: 900 } });
+  const state = () => page.locator(".strip-in").evaluate((e) => getComputedStyle(e).animationPlayState);
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; });
+  await page.evaluate(() => document.querySelector(".strip").scrollIntoView({ block: "center" }));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".strip-in")).animationPlayState === "running");
+  await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".strip-in")).animationPlayState === "paused");
+  assert.equal(await state(), "paused");
+  await page.evaluate(() => document.querySelector(".strip").scrollIntoView({ block: "center" }));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".strip-in")).animationPlayState === "running");
+  await done();
+});
+
+test("the strip stands still for reduced motion", async () => {
+  const { page, done } = await open("/", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+  assert.equal(await page.locator(".strip-in").evaluate((e) => e.getAnimations().length), 0);
+  await done();
+});
+
+test("the hero picture has every pixel of its source at 2x", async () => {
+  const { page, done } = await open("/", { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+  // naturalWidth of a srcset image is corrected for density, so measure the file itself.
+  const shown = await page.locator(".hero-media img").evaluate(async (i) => {
+    const file = new Image();
+    file.src = i.currentSrc;
+    await file.decode();
+    return [i.currentSrc.split("/").pop(), file.naturalWidth];
+  });
+  assert.deepEqual(shown, ["app.webp", 1800]);
+  await done();
+});

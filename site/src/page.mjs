@@ -17,7 +17,7 @@ export const RELEASE_IMAGES = [
 // Sizes of the files scripts/assets.mjs writes.
 const APP = { width: 1600, height: 1138 };
 const PICKER = { width: 1600, height: 1016 };
-const STRIP = { width: 2904, height: 66 };
+const HERO = { width: 1800, height: 1280 };
 
 const svg = (body, attrs = "") =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${attrs}>${body}</svg>`;
@@ -61,6 +61,9 @@ const PLAIN_NAMES = [
   "Simplon", "soothe2", "The God Particle", "Thermal", "Timeless 3", "trueBalance",
   "ValhallaDelay", "ValhallaPlate", "ValhallaRoom", "ValhallaShimmer", "ValhallaUberMod", "Volcano 3",
 ];
+
+// Inline, so it also runs on a page without site.js. Nothing moves while it can't be seen.
+const PAUSE_OFF_SCREEN = `if("IntersectionObserver"in window){const o=new IntersectionObserver(es=>{for(const e of es)e.target.classList.toggle("is-paused",!e.isIntersecting)});for(const e of document.querySelectorAll(".strip,.hero-media"))o.observe(e)}`;
 
 export function page(copy, ctx) {
   const { lang, config, hasBefore, otherUrl, url } = ctx;
@@ -150,7 +153,6 @@ ${embed ? `<div class="kofi" data-embed-src="${esc(embed)}" data-embed-title="${
     : "";
   const koFiLink = koFi ? `<a class="btn" href="${esc(koFi)}" rel="noopener">${ICONS.heart}${esc(copy.support.kofi)}</a>` : "";
 
-  const stripImg = `<img src="/assets/strip.webp" alt="" aria-hidden="true" width="${STRIP.width}" height="${STRIP.height}" loading="lazy" decoding="async">`;
   const langSwitch = (code, href, label) =>
     code === lang
       ? `<span aria-current="true">${label}</span>`
@@ -191,7 +193,7 @@ ${jsonLd(faq)}
 <a class="skip" href="#main">${esc(copy.nav.skip)}</a>
 <header class="top">
 <div class="wrap top-in">
-<a class="brand" href="${home}"><img src="/assets/icon.png" alt="" aria-hidden="true" width="256" height="256">Plugin Sorter</a>
+<a class="brand" href="${home}" aria-label="Plugin Sorter"><img src="/assets/icon.png" alt="Plugin Sorter" width="256" height="256">Plugin Sorter</a>
 <nav aria-label="${esc(copy.nav.label)}">
 <a href="#picker">${esc(copy.nav.picker)}</a>
 <a href="#features">${esc(copy.nav.features)}</a>
@@ -214,10 +216,10 @@ ${dl(copy.nav.download, "btn btn-sm", "")}
 <p class="hero-cta">${dl()}</p>
 <p class="hero-note">${esc(copy.hero.note)}</p>
 <div class="hero-media">
-<img src="/assets/app.webp" srcset="/assets/app-800.webp 800w, /assets/app.webp 1600w" sizes="(max-width: 720px) 150vw, (max-width: 1160px) calc(100vw - 32px), 1080px" alt="${esc(copy.hero.imageAlt)}" width="${APP.width}" height="${APP.height}" fetchpriority="high">
+<img src="/assets/app.webp" srcset="/assets/app-800.webp 800w, /assets/app.webp 1800w" sizes="(max-width: 1160px) calc(100vw - 32px), 1080px" alt="${esc(copy.hero.imageAlt)}" width="${HERO.width}" height="${HERO.height}" fetchpriority="high">
 </div>
 </div>
-<div class="strip" aria-hidden="true"><div class="strip-in">${stripImg}${stripImg}</div></div>
+<div class="strip" aria-hidden="true"><div class="strip-in"></div></div>
 </section>
 <section id="picker">
 <div class="wrap">
@@ -324,7 +326,7 @@ ${copy.faq.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p>
 <section id="download">
 <div class="wrap">
 <div class="finale rise">
-<img src="/assets/icon.png" alt="" aria-hidden="true" width="256" height="256" loading="lazy" decoding="async">
+<img src="/assets/icon.png" alt="Plugin Sorter" width="256" height="256" loading="lazy" decoding="async">
 <h2>${esc(copy.cta.title)}</h2>
 <div class="cta-row">${dl()}<p class="small-note">${esc(copy.cta.note)}</p></div>
 </div>
@@ -344,6 +346,7 @@ ${copy.faq.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p>
 </div>
 </footer>
 ${dialog}
+<script>${PAUSE_OFF_SCREEN}</script>
 </body>
 </html>
 `;

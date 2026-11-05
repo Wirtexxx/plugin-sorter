@@ -11,15 +11,18 @@ const out = join(site, "assets");
 const font = join(site, "node_modules/@fontsource-variable/manrope");
 const exists = (p) => access(p).then(() => true, () => false);
 
-const webp = (from, to, width, height) =>
+const webp = (from, to, width, height, options = {}) =>
   sharp(join(docs, from))
     .resize(width, height, { fit: "cover", position: "top" })
-    .webp({ quality: 82, alphaQuality: 90, effort: 6 })
+    .webp({ quality: 82, alphaQuality: 90, effort: 6, ...options })
     .toFile(join(out, to));
 
+// The hero is the page's first impression and full of small text, so it gets every pixel of the source.
+const SHARP = { quality: 90, smartSubsample: true };
+
 async function images() {
-  await webp("screenshot.png", "app.webp", 1600);
-  await webp("screenshot.png", "app-800.webp", 800);
+  await webp("screenshot.png", "app.webp", 1800, undefined, SHARP);
+  await webp("screenshot.png", "app-800.webp", 800, undefined, SHARP);
   await webp("screenshot-cards.png", "app-cards.webp", 1600);
   await webp("screenshot-cards.png", "app-cards-800.webp", 800);
   const after = await webp("screenshot-fl-picker.png", "picker-after.webp", 1600);
@@ -31,7 +34,9 @@ async function images() {
     .toFile(join(out, "icon.png"));
 }
 
-// Plugin thumbnails cut from the real picker for the moving strip: [left, top] in the source.
+// Plugin thumbnails cut from the real picker for the moving strip: [left, top] in
+// screenshot-fl-picker.png. They are cut from the full-size original of that shot at its own
+// resolution, so the strip is sharp at 2x with no resampling.
 const TILES = [
   [1175, 562], [62, 843], [1070, 652], [531, 83], [820, 843], [625, 562], [1323, 652], [440, 843],
   [186, 83], [1575, 652], [1498, 743], [945, 652], [322, 743], [314, 843], [1449, 652], [694, 843],
@@ -40,20 +45,24 @@ const TILES = [
 const TILE = { width: 110, height: 66, gap: 22 };
 
 async function strip() {
-  const source = join(docs, "screenshot-fl-picker.png");
-  const corners = Buffer.from(`<svg width="${TILE.width}" height="${TILE.height}"><rect width="${TILE.width}" height="${TILE.height}" rx="6"/></svg>`);
-  const step = TILE.width + TILE.gap;
+  const source = join(docs, "screenshot-fl-picker-full.png");
+  const scale = (await sharp(source).metadata()).width / (await sharp(join(docs, "screenshot-fl-picker.png")).metadata()).width;
+  const width = Math.round(TILE.width * scale);
+  const height = Math.round(TILE.height * scale);
+  const step = Math.round((TILE.width + TILE.gap) * scale);
+  const radius = Math.round(6 * scale);
+  const corners = Buffer.from(`<svg width="${width}" height="${height}"><rect width="${width}" height="${height}" rx="${radius}"/></svg>`);
   const composites = await Promise.all(TILES.map(async ([left, top], i) => ({
     left: i * step,
     top: 0,
     input: await sharp(source)
-      .extract({ left, top, width: TILE.width, height: TILE.height })
+      .extract({ left: Math.round(left * scale), top: Math.round(top * scale), width, height })
       .composite([{ input: corners, blend: "dest-in" }])
       .png().toBuffer(),
   })));
   await sharp({
-    create: { width: TILES.length * step, height: TILE.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-  }).composite(composites).webp({ quality: 88, alphaQuality: 90, effort: 6 }).toFile(join(out, "strip.webp"));
+    create: { width: TILES.length * step, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  }).composite(composites).webp({ quality: 90, alphaQuality: 90, effort: 6, smartSubsample: true }).toFile(join(out, "strip.webp"));
 }
 
 async function fonts() {

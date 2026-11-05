@@ -72,9 +72,7 @@ a { color: inherit; }
 /* Header */
 .top {
   position: sticky; top: 0; z-index: 20;
-  background: rgba(16, 16, 20, 0.78);
-  -webkit-backdrop-filter: saturate(150%) blur(16px);
-  backdrop-filter: saturate(150%) blur(16px);
+  background: rgba(16, 16, 20, 0.95);
   border-bottom: 1px solid transparent;
 }
 .top-in { display: flex; align-items: center; gap: 28px; height: 68px; }
@@ -155,12 +153,16 @@ h1 .h1-end .grad { display: inline; }
 
 /* Moving strip of real plugin pictures */
 .strip {
-  overflow: hidden; margin-top: clamp(52px, 6vw, 84px);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  /* 63.5px shows the 127px file pixel for pixel at 2x. */
+  --strip-h: clamp(54px, 5vw, 63.5px);
+  position: relative; overflow: hidden; height: var(--strip-h); margin-top: clamp(52px, 6vw, 84px);
 }
-.strip-in { display: flex; width: max-content; }
-.strip img { flex: none; width: auto; max-width: none; height: clamp(54px, 5vw, 66px); }
+/* Still fades on top of the strip: a mask on it would be recomposited on every frame. */
+.strip::before, .strip::after { content: ""; position: absolute; z-index: 1; top: 0; bottom: 0; width: 12%; pointer-events: none; }
+.strip::before { left: 0; background: linear-gradient(90deg, var(--bg), transparent); }
+.strip::after { right: 0; background: linear-gradient(270deg, var(--bg), transparent); }
+/* One layer, two pictures wide. Moving it by half lands exactly on the next repeat. */
+.strip-in { width: calc(var(--strip-h) * 5566 / 127 * 2); height: 100%; background: url("/assets/strip.webp") 0 0 / auto 100% repeat-x; }
 
 /* Soft light between the sections, so the page never goes flat */
 #features::before, #install::before {
@@ -364,13 +366,14 @@ dialog [hidden] { display: none; }
 @media (prefers-reduced-motion: no-preference) {
   .hero-media::before { animation: breathe 9s ease-in-out infinite alternate; }
   .badge .led { animation: pulse 2.8s ease-in-out infinite; }
-  .strip-in { animation: drift 90s linear infinite; }
+  .strip-in { animation: drift 90s linear infinite; will-change: transform; }
+  .strip.is-paused .strip-in, .hero-media.is-paused::before { animation-play-state: paused; }
   @keyframes breathe {
     from { opacity: 0.78; transform: translate(-50%, -50%) scale(0.97); }
     to { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
   }
   @keyframes pulse { 50% { opacity: 0.45; } }
-  @keyframes drift { to { transform: translateX(-50%); } }
+  @keyframes drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
   @supports (animation-timeline: view()) {
     .rise { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 30%; }
     @keyframes rise { from { translate: 0 26px; } }
