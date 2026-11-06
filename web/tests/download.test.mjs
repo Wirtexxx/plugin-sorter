@@ -10,7 +10,17 @@ const FORM_TEXT = "Ko-fi form (stub)";
 const browsers = {};
 
 before(async () => {
-  for (const [name, engine] of Object.entries(ENGINES)) browsers[name] = await engine.launch();
+  const site = await serveBuild();
+  for (const [name, engine] of Object.entries(ENGINES)) {
+    browsers[name] = await engine.launch();
+    // On a fresh machine, like CI, WebKit needs about 3 s for its first frames of this page, and a
+    // click waits for frames. Pay for them here, not out of the 5 s a test gives its first click.
+    const page = await browsers[name].newPage();
+    await page.goto(site.url, { waitUntil: "load" });
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await page.close();
+  }
+  await site.close();
 });
 after(() => Promise.all(Object.values(browsers).map((b) => b.close())));
 

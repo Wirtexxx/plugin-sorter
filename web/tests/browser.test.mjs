@@ -586,7 +586,12 @@ for (const [path, copyFile, labels] of [
     const links = page.locator("#support .support-links a");
     assert.equal(await links.count(), 3);
     await page.locator("#support").scrollIntoViewIfNeeded();
-    return Promise.all([0, 1, 2].map((i) => links.nth(i).boundingBox()));
+    // One read for all three: the page may still be scrolling, and separate reads would catch it
+    // at different moments.
+    return links.evaluateAll((all) => all.map((a) => {
+      const { x, y, width, height } = a.getBoundingClientRect();
+      return { x, y, width, height };
+    }));
   };
 
   test(`${path} shows the support buttons as one even row at 1440`, async () => {
