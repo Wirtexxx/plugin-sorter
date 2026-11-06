@@ -69,6 +69,28 @@ const PLAIN_NAMES = [
 // Inline, so it also runs on a page without site.js. Nothing moves while it can't be seen.
 const PAUSE_OFF_SCREEN = `if("IntersectionObserver"in window){const o=new IntersectionObserver(es=>{for(const e of es)e.target.classList.toggle("is-paused",!e.isIntersecting)});for(const e of document.querySelectorAll(".strip,.hero-media"))o.observe(e)}`;
 
+export function notFoundPage(copy, { lang, home, version }) {
+  return `<!doctype html>
+<html lang="${lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${esc(copy.notFound.title)} | Plugin Sorter</title>
+<link rel="icon" type="image/png" href="/assets/icon.png">
+<link rel="stylesheet" href="/assets/styles.css?v=${version}">
+</head>
+<body>
+<main class="not-found">
+<h1>${esc(copy.notFound.title)}</h1>
+<p>${esc(copy.notFound.text)}</p>
+<a class="btn" href="${home}">${esc(copy.notFound.home)}</a>
+</main>
+</body>
+</html>
+`;
+}
+
 export function page(copy, ctx) {
   const { lang, config, hasBefore, otherUrl, url } = ctx;
   const origin = `https://${config.domain}`;
@@ -180,8 +202,8 @@ ${embed ? `<div class="kofi" data-embed-src="${esc(embed)}" data-embed-title="${
 <link rel="icon" type="image/png" href="/assets/icon.png">
 <link rel="apple-touch-icon" href="/assets/icon.png">
 <link rel="preload" href="/assets/fonts/manrope-${lang === "ru" ? "cyrillic" : "latin"}.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/styles.css">
-${koFi ? '<script src="/assets/site.js" defer></script>\n' : ""}<meta property="og:type" content="website">
+<link rel="stylesheet" href="/assets/styles.css?v=${ctx.version}">
+${koFi ? `<script src="/assets/site.js?v=${ctx.version}" defer></script>\n` : ""}<meta property="og:type" content="website">
 <meta property="og:title" content="${esc(copy.meta.title)}">
 <meta property="og:description" content="${esc(copy.meta.description)}">
 <meta property="og:url" content="${esc(url)}">
