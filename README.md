@@ -252,6 +252,13 @@ Publishing steps are in [`web/LAUNCH.md`](web/LAUNCH.md).
 Tests never touch `/Library/Audio/Plug-Ins` or FL Studio's database: the script runs against a
 temporary tree via `PLUGIN_SORT_ROOT`, and plugin bundles and `.fst` presets are generated on the fly.
 
+## Contributing
+
+Bug reports and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+Please report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE) © Wirtex
+
+Independent project. FL Studio is a trademark of Image-Line. Plugin names and images belong to their owners.
