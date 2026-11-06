@@ -1,0 +1,61 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: input
+    id: app-version
+    attributes:
+      label: Plugin Sorter version
+      description: In the menu bar, Plugin Sorter → About Plugin Sorter.
+      placeholder: "1.2.0"
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      description: Apple menu → About This Mac.
+      placeholder: "15.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: mac
+    attributes:
+      label: Mac
+      description: Apple menu → About This Mac. M1 and newer are Apple Silicon.
+      options:
+        - Apple Silicon
+        - Intel
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Plugin Sorter
+        2. Click ...
+    validations:
+      required: true
+  - type: input
+    id: fl-version
+    attributes:
+      label: FL Studio version
+      description: Only if the problem involves FL Studio.
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin
+      description: Name and developer, if it's about one plugin.
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Drag an image here if it helps.

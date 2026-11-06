@@ -241,6 +241,7 @@ The site needs Node 22:
 ```bash
 cd web
 npm ci
+npx playwright install chromium firefox webkit   # once, for test:browser
 npm run preview             # build and serve on http://localhost:4173
 npm test                    # pages and search markup
 npm run test:browser        # layout and the download path in real browsers
@@ -252,6 +253,13 @@ Publishing steps are in [`web/LAUNCH.md`](web/LAUNCH.md).
 Tests never touch `/Library/Audio/Plug-Ins` or FL Studio's database: the script runs against a
 temporary tree via `PLUGIN_SORT_ROOT`, and plugin bundles and `.fst` presets are generated on the fly.
 
+## Contributing
+
+Bug reports and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+Please report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE) © Wirtex
+
+Independent project. FL Studio is a trademark of Image-Line. Plugin names and images belong to their owners.

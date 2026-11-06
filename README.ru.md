@@ -239,6 +239,7 @@ swift test                  # парсеры, опись, проверки и so
 ```bash
 cd web
 npm ci
+npx playwright install chromium firefox webkit   # один раз, для test:browser
 npm run preview             # собрать и открыть на http://localhost:4173
 npm test                    # страницы и разметка для поиска
 npm run test:browser        # вёрстка и скачивание в настоящих браузерах
@@ -250,6 +251,13 @@ npm run audit               # Lighthouse
 Тесты не трогают `/Library/Audio/Plug-Ins` и базу FL Studio: скрипт работает на временном дереве
 через `PLUGIN_SORT_ROOT`, а бандлы плагинов и `.fst`-пресеты генерируются на лету.
 
+## Участие в проекте
+
+Мы рады сообщениям об ошибках и pull request: подробности в [CONTRIBUTING.md](CONTRIBUTING.md).
+Об уязвимостях сообщайте приватно, как описано в [SECURITY.md](SECURITY.md).
+
 ## Лицензия
 
 [MIT](LICENSE) © Wirtex
+
+Независимый проект. FL Studio является товарным знаком Image-Line. Названия и изображения плагинов принадлежат их владельцам.
