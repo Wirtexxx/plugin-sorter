@@ -239,6 +239,7 @@ swift test                  # парсеры, опись, проверки и so
 ```bash
 cd web
 npm ci
+npx playwright install chromium firefox webkit   # один раз, для test:browser
 npm run preview             # собрать и открыть на http://localhost:4173
 npm test                    # страницы и разметка для поиска
 npm run test:browser        # вёрстка и скачивание в настоящих браузерах

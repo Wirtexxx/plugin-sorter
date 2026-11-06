@@ -16,8 +16,8 @@ Plugin Sorter is maintained by one person, so a reply can take up to 7 days.
 
 - **The app is not notarized.** It is ad-hoc signed, so macOS warns on first launch and can't
   vouch for who built it. Build from source if you want to check what you run.
-- **Administrator actions rely on a script your user account can change.** Moving plugins runs
-  `sort-plugins.sh` from inside the app with administrator rights, and an app in `/Applications`
+- **Administrator actions rely on a script your user account can change.** Actions that ask for your
+  password run `sort-plugins.sh` from inside the app with administrator rights, and an app in `/Applications`
   is usually writable by its owner. The risk is local: it needs a program already running under
   your account, and you still have to enter your password. Fixing this takes a Developer ID and
   a privileged helper, which the project doesn't have yet.

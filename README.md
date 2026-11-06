@@ -241,6 +241,7 @@ The site needs Node 22:
 ```bash
 cd web
 npm ci
+npx playwright install chromium firefox webkit   # once, for test:browser
 npm run preview             # build and serve on http://localhost:4173
 npm test                    # pages and search markup
 npm run test:browser        # layout and the download path in real browsers

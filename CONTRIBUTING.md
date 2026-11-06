@@ -15,8 +15,14 @@ Open pull requests against `develop`. A release is a pull request from `develop`
 ## Before you open a pull request
 
 ```bash
-cd app && swift test
-cd web && npm ci && npm test && npm run test:browser
+# app/
+swift test
+
+# web/
+npm ci
+npx playwright install chromium firefox webkit   # once, for test:browser
+npm test
+npm run test:browser
 ```
 
 Run the part you changed. The app needs only the Command Line Tools, the site needs Node 22.
