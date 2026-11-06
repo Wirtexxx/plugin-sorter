@@ -10,7 +10,7 @@ on:
     paths-ignore: ["web/**", "docs/**", "**.md"]
 
 permissions:
-  contents: write
+  contents: read
 
 # A push to develop with an open PR triggers both "push" and "pull_request" for the same code.
 # Group them by branch so only the newest one waits for a macOS runner; tags and main always finish.
@@ -44,9 +44,26 @@ jobs:
           name: PluginSorter
           path: app/build/PluginSorter.dmg
 
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+  # The only job allowed to write to the repository, and it runs none of the project's code.
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          files: app/build/PluginSorter.dmg
+          name: PluginSorter
+
+      - name: Add a checksum
+        run: shasum -a 256 PluginSorter.dmg > PluginSorter.dmg.sha256
+
+      - name: Publish release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: |
+            PluginSorter.dmg
+            PluginSorter.dmg.sha256
           generate_release_notes: true
