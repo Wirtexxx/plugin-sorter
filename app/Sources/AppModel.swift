@@ -511,21 +511,28 @@ final class AppModel: ObservableObject {
         return LocalPictures.targets(manager.plugins, skipping: pictures.localKeys.union(pictured).union(failed))
     }
 
+    /// Waves favourites a capture of everything photographs straight into FL, each through its own Audio Unit.
+    var wavesShots: [FLPlugin] { pictures.plugins.filter(\.needsWavesShot) }
+
     /// Plugins that wouldn't open last time and are left out of a capture until asked for.
     var failedShots: Int { pictures.failedKeys(among: manager.plugins).count }
 
     /// Asks first: the plugins' windows take over the screen for a while.
     func captureAllPictures() {
         let targets = shotTargets
-        guard !targets.isEmpty else { return }
+        let waves = wavesShots
+        guard !targets.isEmpty || !waves.isEmpty else { return }
         let t = L10n(lang: currentLanguage)
         let alert = NSAlert()
-        alert.messageText = t("capture.confirm", targets.count)
+        alert.messageText = t("capture.confirm", targets.count + waves.count)
         alert.informativeText = t("capture.confirmInfo")
         alert.addButton(withTitle: t("capture.start"))
         alert.addButton(withTitle: t("mgr.cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        pictures.captureAll(targets)
+        guard !waves.isEmpty else { return pictures.captureAll(targets) }
+        whenFLClosed {
+            self.pictures.captureAll(targets) { self.pictures.generate(waves, screenshots: true) }
+        }
     }
 
     func retryFailedPictures() {

@@ -15,10 +15,24 @@ enum PluginCapture {
     /// Finds the AU for an FL entry by plugin name, preferring the same developer.
     static func match(_ plugin: FLPlugin, in components: [AVAudioUnitComponent]) -> AVAudioUnitComponent? {
         let names = Set([plugin.info.name, plugin.title].map(normalize).filter { !$0.isEmpty })
+        let wavesNames = Set([plugin.info.name, plugin.title].flatMap(wavesAUNames).map(normalize))
         let vendor = normalize(plugin.info.vendor)
-        let candidates = components.filter { names.contains(normalize($0.name)) }
+        let candidates = components.filter {
+            let name = normalize($0.name)
+            return names.contains(name) || (normalize($0.manufacturerName) == "waves" && wavesNames.contains(name))
+        }
         return candidates.first { vendor.isEmpty || normalize($0.manufacturerName) == vendor }
             ?? (candidates.count == 1 ? candidates[0] : nil)
+    }
+
+    /// What a Waves plugin is called as an Audio Unit: FL's "CLA-76 Stereo" is "CLA-76 (s)" there,
+    /// and a stereo instrument is "CR8 Sampler (0->2)".
+    static func wavesAUNames(_ name: String) -> [String] {
+        for (suffix, forms) in [(" Mono-Stereo", ["(m->s)"]), (" Stereo", ["(s)", "(0->2)"]), (" Mono", ["(m)"])]
+        where name.hasSuffix(suffix) {
+            return forms.map { name.dropLast(suffix.count) + " " + $0 }
+        }
+        return []
     }
 
     /// Finds the AU of an installed plugin: by its code, or by name as with FL's favourites.

@@ -272,7 +272,7 @@ struct MainView: View {
                 Button(t("gear.stopPictures")) { model.pictures.stopCapture() }
             } else {
                 Button(t("gear.allPictures")) { model.captureAllPictures() }
-                    .disabled(model.pictures.busy || model.shotTargets.isEmpty)
+                    .disabled(model.pictures.busy || (model.shotTargets.isEmpty && model.wavesShots.isEmpty))
                 if model.failedShots > 0 {
                     Button(t("gear.retryPictures", model.failedShots)) { model.retryFailedPictures() }
                         .disabled(model.pictures.busy)
