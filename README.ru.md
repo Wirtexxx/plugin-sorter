@@ -5,7 +5,7 @@
 <h1 align="center">Plugin Sorter</h1>
 
 <p align="center">
-  <b>Раскладывает VST3 и VST плагины по папкам разработчиков — в один клик.</b>
+  <b>Бесплатный менеджер плагинов для macOS: раскладывает VST3 и VST по папкам разработчиков, проверяет каждый плагин, убирает дубли и добавляет картинки плагинов в FL Studio.</b>
 </p>
 
 <p align="center">
@@ -52,7 +52,7 @@ VST3/                                VST3/
 - ↩️ **Откат в один клик.** Каждый запуск пишет лог, и кнопка *Откатить* возвращает всё назад.
 - 📁 **Уважает ваши папки.** Существующие папки разработчиков используются повторно, независимо от регистра.
 - 🌊 **Не трогает Waves.** WaveShell управляется Waves Central и пропускается.
-- 🖼️ **Картинки плагинов в FL Studio.** Скриншоты интерфейса каждого плагина для браузера
+- 🖼️ **Картинки плагинов в FL Studio.** Скриншоты интерфейсов плагинов для браузера
   и плагин-пикера FL — как у стоковых плагинов FL.
 - 🗂️ **Категории FL Studio одним нажатием.** Избранное раскладывается по вкладкам пикера (Dynamics,
   Filter, Delay reverb…) по категории, которую сообщает сам плагин.
@@ -73,7 +73,7 @@ VST3/                                VST3/
 по вкладкам плагин-пикера.
 
 <p align="center">
-  <img src="docs/screenshot-fl-picker.png" width="760" alt="Плагин-пикер FL Studio с картинкой у каждого плагина, разложенными по вкладкам категорий">
+  <img src="docs/screenshot-fl-picker.png" width="760" alt="Плагин-пикер FL Studio с картинками плагинов, разложенными по вкладкам категорий">
 </p>
 
 ## Установка
@@ -96,7 +96,7 @@ VST3/                                VST3/
 
 ```bash
 git clone https://github.com/Wirtexxx/plugin-sorter.git
-cd plugin-sorter
+cd plugin-sorter/app
 ./build.sh --install
 ```
 
@@ -170,10 +170,10 @@ cd plugin-sorter
 ### Командная строка
 
 ```bash
-./scripts/sort-plugins.sh                      # пробный запуск: что будет перемещено
-sudo ./scripts/sort-plugins.sh --apply         # переместить, лог в ~/plugin-sort-<время>.log
-sudo ./scripts/sort-plugins.sh --undo ~/plugin-sort-20261102-193000.log
-sudo ./scripts/sort-plugins.sh --restore-au    # вернуть AU, разложенные версией 1.0, в Components
+./app/scripts/sort-plugins.sh                      # пробный запуск: что будет перемещено
+sudo ./app/scripts/sort-plugins.sh --apply         # переместить, лог в ~/plugin-sort-<время>.log
+sudo ./app/scripts/sort-plugins.sh --undo ~/plugin-sort-20261102-193000.log
+sudo ./app/scripts/sort-plugins.sh --restore-au    # вернуть AU, разложенные версией 1.0, в Components
 ```
 
 | Переменная            | По умолчанию            | Назначение                      |
@@ -195,7 +195,7 @@ Plugin Sorter пропускает доменные части и берёт п�
 | `app.cradle.GodParticle`           | `Cradle`       |
 
 Красивые имена известных разработчиков задаются в `pretty_name()` в
-[`scripts/sort-plugins.sh`](scripts/sort-plugins.sh). Остальные получают имя из идентификатора.
+[`app/scripts/sort-plugins.sh`](app/scripts/sort-plugins.sh). Остальные получают имя из идентификатора.
 Нет вашего любимого разработчика? Присылайте pull request.
 
 ## Полезно знать
@@ -211,28 +211,53 @@ Plugin Sorter пропускает доменные части и берёт п�
 ## Структура проекта
 
 ```
-App/            SwiftUI-приложение: модель, окно, тема, переводы
-Helper/         точка входа помощника, который загружает плагины отдельно от приложения
-scripts/        sort-plugins.sh — движок, работает и сам по себе
-Tests/          тесты на Swift Testing: парсеры, проверки и сам скрипт
-tools/          генераторы иконки и скриншота для README
-build.sh        собирает универсальный Plugin Sorter.app без Xcode
-Package.swift   пакет только для тестов вокруг App/, без точки входа @main
+app/                приложение для macOS
+  Sources/          SwiftUI-приложение: модель, окно, тема, переводы
+  Helper/           точка входа помощника, который загружает плагины отдельно от приложения
+  scripts/          sort-plugins.sh — движок, работает и сам по себе
+  Tests/            тесты на Swift Testing: парсеры, проверки и сам скрипт
+  tools/            генераторы иконки и скриншотов для README
+  build.sh          собирает универсальный Plugin Sorter.app без Xcode
+  Package.swift     пакет только для тестов вокруг Sources/, без точки входа @main
+web/                сайт: статические страницы на английском и русском
+docs/               скриншоты и иконка для README и сайта
 ```
 
 ## Разработка
 
-Всё работает с одними Command Line Tools:
+Для приложения достаточно Command Line Tools:
 
 ```bash
+cd app
 swift test                  # парсеры, опись, проверки и sort-plugins.sh на временных папках
 ./build.sh --install        # собрать и установить приложение
 ./build.sh --screenshot     # перерисовать скриншоты для README
 ```
 
+Для сайта нужен Node 22:
+
+```bash
+cd web
+npm ci
+npx playwright install chromium firefox webkit   # один раз, для test:browser
+npm run preview             # собрать и открыть на http://localhost:4173
+npm test                    # страницы и разметка для поиска
+npm run test:browser        # вёрстка и скачивание в настоящих браузерах
+npm run audit               # Lighthouse
+```
+
+Шаги публикации описаны в [`web/LAUNCH.md`](web/LAUNCH.md).
+
 Тесты не трогают `/Library/Audio/Plug-Ins` и базу FL Studio: скрипт работает на временном дереве
 через `PLUGIN_SORT_ROOT`, а бандлы плагинов и `.fst`-пресеты генерируются на лету.
+
+## Участие в проекте
+
+Мы рады сообщениям об ошибках и pull request: подробности в [CONTRIBUTING.md](CONTRIBUTING.md).
+Об уязвимостях сообщайте приватно, как описано в [SECURITY.md](SECURITY.md).
 
 ## Лицензия
 
 [MIT](LICENSE) © Wirtex
+
+Независимый проект. FL Studio является товарным знаком Image-Line. Названия и изображения плагинов принадлежат их владельцам.
