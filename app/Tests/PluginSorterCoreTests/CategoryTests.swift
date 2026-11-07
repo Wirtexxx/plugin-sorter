@@ -114,4 +114,15 @@ struct CategoryTests {
         #expect(journal.moves.isEmpty)
         #expect(dir.exists("Plugin database/Effects/OTT.fst"))
     }
+
+    @Test func anotherFormatUnderATakenNameIsNamedAfterItsFormat() throws {
+        _ = try favorite("Effects/Effect/Portal")
+        let plain = try favorite("Effects/Portal")
+        let entry = InstalledEntry(fst: plain.fst, section: "Effects", format: "AudioUnit",
+                                   name: "Portal", vendor: "Output", files: [])
+        let au = Favorite(fst: plain.fst, title: plain.title, section: plain.section, entry: entry)
+
+        let moved = try FLCategories.move(au, to: "Effect", root: db, journal: journal, pictures: pictures)
+        #expect(moved.lastPathComponent == "Portal (AU).fst")
+    }
 }

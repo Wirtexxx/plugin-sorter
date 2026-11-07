@@ -102,7 +102,9 @@ struct L10n {
         case .idle:               return ""
         case .removed(let n):     return self("fav.status.removed", n)
         case .restored(let n):    return self("fav.status.restored", n)
-        case .sorted(let n):      return self("fav.status.sorted", n)
+        case .sorted(let n, let duplicates):
+            let sorted = self("fav.status.sorted", n)
+            return duplicates == 0 ? sorted : sorted + ". " + self("fav.status.duplicates", duplicates)
         case .unsorted(let n):    return self("fav.status.unsorted", n)
         case .failed(let error):  return self("status.failed", error)
         }
@@ -151,6 +153,12 @@ struct L10n {
             .ru: "Разложено по категориям: %d. Перезапустите FL Studio",
             .uk: "Розкладено за категоріями: %d. Перезапустіть FL Studio",
             .de: "In Kategorien sortiert: %d. Starte FL Studio neu",
+        ]
+        t["fav.status.duplicates"] = [
+            .en: "Duplicates removed: %d",
+            .ru: "Убрано дублей: %d",
+            .uk: "Прибрано дублів: %d",
+            .de: "Duplikate entfernt: %d",
         ]
         t["fav.status.unsorted"] = [.en: "Back where they were: %d", .ru: "Возвращено на место: %d", .uk: "Повернено на місце: %d", .de: "Zurück an alter Stelle: %d"]
         t["fav.reading"] = [.en: "Reading categories", .ru: "Читаю категории", .uk: "Читаю категорії", .de: "Lese Kategorien"]

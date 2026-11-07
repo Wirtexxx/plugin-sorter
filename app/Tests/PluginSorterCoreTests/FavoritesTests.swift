@@ -147,6 +147,38 @@ struct FavoritesTests {
         #expect(try Data(contentsOf: ott.fst) == Data("new".utf8))
         #expect(backup.records.count == 1)  // still restorable later
     }
+
+    @Test func aCopyOfASortedFavouriteIsADuplicate() throws {
+        try favorite("Effects/VST3/OTT", as: "Effects/Dynamics/OTT")
+        let favorites = FLFavorites.favorites(root: db, installed: entries)
+        let unsorted = favorites.filter { FLCategories.folder(of: $0, root: db) == nil }
+
+        let duplicates = FLFavorites.duplicates(in: unsorted, among: favorites)
+        #expect(duplicates.map { $0.fst.deletingLastPathComponent().lastPathComponent + "/" + $0.title } == ["Effects/OTT"])
+    }
+
+    @Test func anotherFormatOfAPluginIsNotADuplicate() throws {
+        try favorite("Effects/AudioUnit/OTT", as: "Effects/Dynamics/OTT")
+        let favorites = FLFavorites.favorites(root: db, installed: entries)
+        let unsorted = favorites.filter { FLCategories.folder(of: $0, root: db) == nil }
+
+        #expect(FLFavorites.duplicates(in: unsorted, among: favorites).isEmpty)
+    }
+
+    @Test func oneOfTwoUnsortedCopiesStays() throws {
+        try favorite("Effects/VST3/OTT", as: "Effects/OTT again")
+        let favorites = FLFavorites.favorites(root: db, installed: entries)
+        let unsorted = favorites.filter { FLCategories.folder(of: $0, root: db) == nil }
+
+        #expect(FLFavorites.duplicates(in: unsorted, among: favorites).count == 1)
+    }
+
+    @Test func aFavouriteWithNoScanIsNeverADuplicate() throws {
+        let lost = { (name: String) in
+            Favorite(fst: db.appendingPathComponent("Effects/\(name).fst"), title: name, section: "Effects", entry: nil)
+        }
+        #expect(FLFavorites.duplicates(in: [lost("One")], among: [lost("One"), lost("Two")]).isEmpty)
+    }
 }
 
 @Suite("Undo records read from the window")

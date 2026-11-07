@@ -164,6 +164,17 @@ enum FLFavorites {
         return favorites
     }
 
+    /// The unsorted favourites that repeat a scan already among the favourites:
+    /// the same plugin can come back at the top of the section while its sorted copy is still in a category.
+    static func duplicates(in unsorted: [Favorite], among all: [Favorite]) -> [Favorite] {
+        let waiting = Set(unsorted.map(\.id))
+        var seen = Set(all.filter { !waiting.contains($0.id) }.compactMap(\.entry?.id))
+        return unsorted.filter { favorite in
+            guard let id = favorite.entry?.id else { return false }
+            return !seen.insert(id).inserted
+        }
+    }
+
     /// Whether a scanned plugin is still installed.
     /// - Parameters:
     ///   - bundleNames: file names of every plugin bundle found in the plugin folders.
