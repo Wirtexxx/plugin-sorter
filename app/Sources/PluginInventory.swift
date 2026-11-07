@@ -65,6 +65,8 @@ struct ManagedPlugin: Identifiable {
     var isDisabled: Bool { !bundles.isEmpty && bundles.allSatisfy(\.isDisabled) }
     /// The files hosts can see: the only ones worth checking and registering.
     var activeBundles: [PluginBundle] { bundles.filter { !$0.isDisabled } }
+    /// One file holding every Waves plugin: FL lists each of them as a plugin of its own.
+    var isWaveShell: Bool { name.hasPrefix("WaveShell") }
 }
 
 enum PluginInventory {

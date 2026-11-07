@@ -64,9 +64,10 @@ final class LocalPictures {
     }
 
     /// What a capture can take: only an Audio Unit that's turned on can be opened for a screenshot.
+    /// A WaveShell isn't one: its plugins are photographed as favourites, each under its own name.
     static func targets(_ plugins: [ManagedPlugin], skipping keys: Set<String>) -> [ManagedPlugin] {
         plugins.filter { plugin in
-            !keys.contains(plugin.key) && plugin.activeBundles.contains { $0.format == .au }
+            !keys.contains(plugin.key) && !plugin.isWaveShell && plugin.activeBundles.contains { $0.format == .au }
         }
     }
 }

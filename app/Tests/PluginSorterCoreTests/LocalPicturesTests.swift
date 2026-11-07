@@ -107,6 +107,41 @@ struct FailedShotsTests {
         await wait { !library.busy }
         #expect(library.localKeys.count < 50)
     }
+
+    @Test func aWaveShellIsNotOnePluginToPhotograph() {
+        let shell = ManagedPlugin(key: "shell", name: "WaveShell1-AU 17.1", vendor: "Waves", bundles: plugin("shell").bundles)
+        let targets = LocalPictures.targets([shell, plugin("au")], skipping: [])
+        #expect(targets.map(\.key) == ["au"])
+    }
+
+    @Test @MainActor func whatComesNextRunsAfterTheCapture() async {
+        let library = FLLibrary(demo: true, local: LocalPictures(directory: dir.path("p")), shooter: { _ in Data([1]) })
+        var next = 0
+        library.captureAll([plugin("a")]) { next += 1 }
+        await wait { next == 1 }
+        #expect(!library.busy)
+        #expect(library.localKeys == ["a"])
+    }
+
+    @Test @MainActor func whatComesNextRunsWithNothingToCapture() async {
+        let library = FLLibrary(demo: true, local: LocalPictures(directory: dir.path("p")), shooter: { _ in Data([1]) })
+        var next = 0
+        library.captureAll([]) { next += 1 }
+        await wait { next == 1 }
+        #expect(library.status == .idle)
+    }
+
+    @Test @MainActor func aStopCancelsWhatComesNext() async {
+        let library = FLLibrary(demo: true, local: LocalPictures(directory: dir.path("p")), shooter: { _ in
+            Thread.sleep(forTimeInterval: 0.05)
+            return Data([1])
+        })
+        var next = 0
+        library.captureAll((0..<50).map { plugin("p\($0)") }) { next += 1 }
+        library.stopCapture()
+        await wait { !library.busy }
+        #expect(next == 0)
+    }
 }
 
 @Suite("Audio Unit codes")
@@ -159,5 +194,42 @@ struct PictureLoaderTests {
         private var seen: [URL] = []
         var urls: [URL] { lock.lock(); defer { lock.unlock() }; return seen }
         func add(_ url: URL) { lock.lock(); seen.append(url); lock.unlock() }
+    }
+}
+
+@Suite("Waves names")
+struct WavesNameTests {
+    @Test func flNamesBecomeTheNamesOfTheirAudioUnits() {
+        #expect(PluginCapture.wavesAUNames("CLA-76 Stereo") == ["CLA-76 (s)", "CLA-76 (0->2)"])
+        #expect(PluginCapture.wavesAUNames("CLA-76 Mono") == ["CLA-76 (m)"])
+        #expect(PluginCapture.wavesAUNames("H-Delay Mono-Stereo") == ["H-Delay (m->s)"])
+        #expect(PluginCapture.wavesAUNames("CR8 Sampler Stereo") == ["CR8 Sampler (s)", "CR8 Sampler (0->2)"])
+    }
+
+    @Test func otherNamesHaveNoWavesForm() {
+        #expect(PluginCapture.wavesAUNames("Portal").isEmpty)
+    }
+}
+
+@Suite("Waves favourites to photograph")
+struct WavesShotTests {
+    private func favorite(vendor: String = "Waves", hasPicture: Bool, source: FLPlugin.Source?) -> FLPlugin {
+        FLPlugin(fst: URL(fileURLWithPath: "/db/Effects/CLA-76 Stereo.fst"), title: "CLA-76 Stereo",
+                 info: FSTInfo(name: "WaveShell1-VST3 17.1", vendor: vendor, path: ""), hasPicture: hasPicture, source: source)
+    }
+
+    @Test func aCardOrNoPictureIsWorthAShot() {
+        #expect(favorite(hasPicture: true, source: .card).needsWavesShot)
+        #expect(favorite(hasPicture: false, source: nil).needsWavesShot)
+    }
+
+    @Test func aRealPictureStays() {
+        #expect(!favorite(hasPicture: true, source: .screenshot).needsWavesShot)
+        #expect(!favorite(hasPicture: true, source: .custom).needsWavesShot)
+        #expect(!favorite(hasPicture: true, source: nil).needsWavesShot)
+    }
+
+    @Test func otherVendorsAreNotTouched() {
+        #expect(!favorite(vendor: "FabFilter", hasPicture: true, source: .card).needsWavesShot)
     }
 }

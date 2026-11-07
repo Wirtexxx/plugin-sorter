@@ -160,4 +160,29 @@ struct CatalogTests {
         #expect(row.entries.map(\.name) == ["Ozone 11 Clarity"])
         #expect(!all.contains { $0.isStale && $0.name == "Ozone 11 Clarity" })
     }
+
+    @Test func everyWavesPluginInAShellGetsItsOwnRow() throws {
+        let shell = plugins.appendingPathComponent("VST3/WaveShell1-VST3 17.1.vst3")
+        try makeBundle(shell, id: "com.WavesAudio.WaveShell1-VST3.17.1")
+        try installed("Effects/VST3/CLA-76 Stereo", name: "CLA-76 Stereo", vendor: "Waves", files: [shell.path])
+        try installed("Effects/VST3/SSLComp Stereo", name: "SSLComp Stereo", vendor: "Waves", files: [shell.path])
+        try favorite("Effects/VST3/CLA-76 Stereo", as: "Effects/Dynamics/CLA-76 Stereo")
+        try favorite("Effects/VST3/SSLComp Stereo", as: "Effects/Dynamics/SSLComp Stereo")
+
+        let cla = try row("CLA-76 Stereo")
+        #expect(cla.entries.map(\.name) == ["CLA-76 Stereo"])
+        #expect(cla.favorites.map(\.title) == ["CLA-76 Stereo"])
+        #expect(!cla.isStale)
+        #expect(try row("SSLComp Stereo").favorites.map(\.title) == ["SSLComp Stereo"])
+        #expect(try row("WaveShell1-VST3 17.1").entries.isEmpty)
+    }
+
+    @Test func twoNamesInAnOrdinaryBundleStayOnePlugin() throws {
+        let serum = plugins.appendingPathComponent("VST3/Serum2.vst3")
+        try makeBundle(serum, id: "com.xfer.serum2")
+        try installed("Generators/VST3/Serum 2", name: "Serum 2", vendor: "Xfer Records", files: [serum.path])
+        try installed("Effects/VST3/Serum 2 FX", name: "Serum 2 FX", vendor: "Xfer Records", files: [serum.path])
+
+        #expect(try row("Serum2").entries.count == 2)
+    }
 }

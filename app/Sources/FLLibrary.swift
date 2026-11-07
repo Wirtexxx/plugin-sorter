@@ -83,8 +83,10 @@ final class FLLibrary: ObservableObject {
 
     /// Screenshots for the app's own collection, whether or not the plugins are favourites.
     /// FL's files stay as they are.
-    func captureAll(_ targets: [ManagedPlugin]) {
-        guard !busy, !targets.isEmpty else { return }
+    /// - Parameter next: runs once the capture is over, unless it was stopped.
+    func captureAll(_ targets: [ManagedPlugin], then next: (() -> Void)? = nil) {
+        guard !busy else { return }
+        guard !targets.isEmpty else { next?(); return }
         busy = true
         capture = CheckProgress(done: 0, total: targets.count, current: "")
         stopRequested = false
@@ -113,6 +115,7 @@ final class FLLibrary: ObservableObject {
                 self.capture = nil
                 self.current = ""
                 self.status = .captured(shots: shots, failed: failed.map(\.name))
+                if !self.stopRequested { next?() }
             }
         }
     }

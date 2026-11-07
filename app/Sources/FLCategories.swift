@@ -125,7 +125,7 @@ enum FLCategories {
     // MARK: - Moving
 
     /// Moves a favourite with its .nfo and picture into `folder` (nil: back to the top of its section).
-    /// A name already taken there gets a number, the way Finder does it.
+    /// A name already taken there gets the plugin's format, then a number, the way Finder does it.
     @discardableResult
     static func move(_ favorite: Favorite, to folder: String?, root: URL = FLDatabase.root,
                      journal: CategoryJournal, pictures: PictureManifest) throws -> URL {
@@ -135,7 +135,7 @@ enum FLCategories {
             return favorite.fst
         }
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let destination = freeName(for: favorite.fst, in: dir)
+        let destination = freeName(for: favorite, in: dir)
         try relocate(favorite.fst, to: destination, pictures: pictures)
         try journal.record(from: favorite.fst, to: destination)
         return destination
@@ -189,11 +189,16 @@ enum FLCategories {
         }
     }
 
-    private static func freeName(for fst: URL, in dir: URL) -> URL {
-        let base = fst.deletingPathExtension().lastPathComponent
-        var candidate = dir.appendingPathComponent(fst.lastPathComponent)
+    private static func freeName(for favorite: Favorite, in dir: URL) -> URL {
+        let fm = FileManager.default
+        let base = favorite.fst.deletingPathExtension().lastPathComponent
+        var candidate = dir.appendingPathComponent(favorite.fst.lastPathComponent)
+        guard fm.fileExists(atPath: candidate.path) else { return candidate }
+        if let format = favorite.entry?.shortFormat {
+            candidate = dir.appendingPathComponent("\(base) (\(format)).fst")
+        }
         var n = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
+        while fm.fileExists(atPath: candidate.path) {
             candidate = dir.appendingPathComponent("\(base) \(n).fst")
             n += 1
         }

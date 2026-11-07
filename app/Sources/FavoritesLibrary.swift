@@ -17,7 +17,7 @@ enum FavoritesStatus: Equatable {
     case idle
     case removed(Int)
     case restored(Int)
-    case sorted(Int)
+    case sorted(Int, duplicates: Int = 0)
     case unsorted(Int)
     case failed(String)
 }
@@ -145,10 +145,17 @@ final class FavoritesLibrary: ObservableObject {
 
     /// One click: each unsorted favourite goes into the FL category its plugin reports, or its name suggests.
     func sortByCategory() {
-        let targets = unsorted
-        guard !targets.isEmpty else { return }
+        let waiting = unsorted
+        guard !waiting.isEmpty else { return }
         let entries = self.entries
+        let all = favorites
         perform {
+            // A repeat of a sorted favourite goes to the backup: moving it would only add "Name 2" to the folder
+            let duplicates = FLFavorites.duplicates(in: waiting, among: all)
+            for duplicate in duplicates { try FLFavorites.remove(duplicate, backup: self.backup) }
+            let repeated = Set(duplicates.map(\.id))
+            let targets = waiting.filter { !repeated.contains($0.id) }
+
             // Plugins are loaded in helper processes, a few at a time; each favourite needs one read at most
             let bundles = Array(Set(targets.compactMap { self.taggedBundle(for: $0, in: entries) }))
             var found: [URL: [String]] = [:]
@@ -171,7 +178,7 @@ final class FavoritesLibrary: ObservableObject {
                 try FLCategories.move(favorite, to: folder, journal: self.journal, pictures: .shared)
                 moved += 1
             }
-            return .sorted(moved)
+            return moved == 0 ? .removed(duplicates.count) : .sorted(moved, duplicates: duplicates.count)
         }
     }
 

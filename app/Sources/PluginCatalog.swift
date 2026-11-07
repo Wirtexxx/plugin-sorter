@@ -42,7 +42,8 @@ enum PluginCatalog {
         // A bundle path FL loads is the surest link; vendor and name catch the AU, which FL lists without one
         var byPath: [String: ManagedPlugin] = [:]
         var byName: [String: ManagedPlugin] = [:]
-        for plugin in plugins {
+        // A WaveShell holds every Waves plugin, and each of them is a plugin of its own in FL
+        for plugin in plugins where !plugin.isWaveShell {
             // A turned-off plugin is still found where FL last saw it
             for bundle in plugin.bundles {
                 byPath[bundle.url.standardizedFileURL.path] = plugin
