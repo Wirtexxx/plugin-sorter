@@ -131,3 +131,23 @@ struct PictureFetchTests {
         #expect(next == 0)
     }
 }
+
+@Suite("Pictures from the database that may have changed")
+struct DownloadedRefreshTests {
+    private let dir: TempDir
+    init() throws { dir = try TempDir() }
+
+    private func plugin(_ key: String) -> ManagedPlugin {
+        ManagedPlugin(key: key, name: key, vendor: "V", bundles: [])
+    }
+
+    @Test func downloadedPicturesAreCheckedAgainButOwnOnesAreNot() throws {
+        let local = LocalPictures(directory: dir.path("p"))
+        try local.saveDownloaded(Data([1]), for: "a|v", sha256: "s")
+        try local.save(Data([2]), for: "b|v")
+        try local.saveDownloaded(Data([3]), for: PictureKey.waves("CLA-76 Stereo"), sha256: "s")
+        let library = FLLibrary(demo: true, local: local)
+        let wanted = library.downloadedPictures(among: [plugin("a|v"), plugin("b|v"), plugin("c|v")])
+        #expect(wanted == ["a|v": ["a|v"], "waves|cla76stereo": ["waves|cla76stereo"]])
+    }
+}

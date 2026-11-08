@@ -521,6 +521,7 @@ final class AppModel: ObservableObject {
     func captureAllPictures() {
         var wanted = Dictionary(shotTargets.map { ($0.key, $0.pictureKeys) }, uniquingKeysWith: { a, _ in a })
         for waves in wavesShots { wanted[PictureKey.waves(waves.title)] = [PictureKey.waves(waves.title)] }
+        wanted.merge(pictures.downloadedPictures(among: manager.plugins)) { a, _ in a }
         guard !wanted.isEmpty else { return }
         pictures.fetchFromDatabase(wanted) { self.captureRemainingPictures() }
     }
@@ -596,6 +597,7 @@ final class AppModel: ObservableObject {
         for plugin in missingPictures where FLFavorites.normalize(plugin.info.vendor) == "waves" {
             wanted[PictureKey.waves(plugin.title)] = [PictureKey.waves(plugin.title)]
         }
+        wanted.merge(pictures.downloadedPictures(among: manager.plugins)) { a, _ in a }
         pictures.fetchFromDatabase(wanted) { self.addPicturesToFL() }
     }
 

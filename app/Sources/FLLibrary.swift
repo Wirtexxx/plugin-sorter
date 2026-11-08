@@ -222,6 +222,17 @@ final class FLLibrary: ObservableObject {
         }
     }
 
+    /// Pictures that came from the database, to look up again: the author may have replaced them.
+    /// Reads the disk. Plugins' own screenshots are left out, the database never replaces those.
+    func downloadedPictures(among plugins: [ManagedPlugin]) -> [String: [String]] {
+        var wanted: [String: [String]] = [:]
+        for plugin in plugins where local.downloadedSHA(of: plugin.key) != nil { wanted[plugin.key] = plugin.pictureKeys }
+        for key in local.keys where key.hasPrefix(PictureKey.waves("")) && local.downloadedSHA(of: key) != nil {
+            wanted[key] = [key]
+        }
+        return wanted
+    }
+
     static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
