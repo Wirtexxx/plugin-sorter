@@ -13,3 +13,6 @@ updates:
     target-branch: develop
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
