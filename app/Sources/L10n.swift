@@ -487,6 +487,7 @@ struct L10n {
             .uk: "Завис під час перевірки",
             .de: "Hing während der Prüfung",
         ]
+        t["gear.exportPictures"] = [.en: "Export pictures for the database…", .ru: "Выгрузить картинки для базы…", .uk: "Вивантажити картинки для бази…", .de: "Bilder für die Datenbank exportieren…"]
         t["gear.allPictures"] = [.en: "Capture pictures of all plugins", .ru: "Снять картинки всех плагинов", .uk: "Зняти картинки всіх плагінів", .de: "Bilder aller Plugins aufnehmen"]
         t["gear.stopPictures"] = [.en: "Stop capturing", .ru: "Остановить съёмку", .uk: "Зупинити зйомку", .de: "Aufnahme stoppen"]
         t["fl.noPicture"] = [.en: "no picture: %d", .ru: "без картинки: %d", .uk: "без картинки: %d", .de: "ohne Bild: %d"]

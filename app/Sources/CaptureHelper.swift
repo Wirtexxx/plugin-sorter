@@ -7,12 +7,21 @@ import CoreAudioKit
 enum CaptureHelper {
     private static var window: NSWindow?
     private static var viewController: NSViewController?
+    /// The longest side a capture may have.
+    private static var size = Thumbnail.captureSize
 
-    /// Entry point for `--capture type subtype manufacturer out.png`. Exit code 0 means a PNG was written.
+    /// An optional sixth argument asks for a larger longest side: the author's shots for the database.
+    static func box(_ args: [String]) -> CGSize {
+        guard args.count >= 6, let side = Int(args[5]), side > 0 else { return Thumbnail.captureSize }
+        return CGSize(width: side, height: side)
+    }
+
+    /// Entry point for `--capture type subtype manufacturer out.png [longest side]`. Exit code 0 means a PNG was written.
     static func run(_ args: [String]) -> Never {
         alarm(Helper.timeLimit)
         guard args.count >= 5, let type = UInt32(args[1]), let sub = UInt32(args[2]), let man = UInt32(args[3]) else { _exit(1) }
         let out = URL(fileURLWithPath: args[4])
+        size = box(args)
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
@@ -135,11 +144,11 @@ enum CaptureHelper {
            let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber),
                                                [.boundsIgnoreFraming, .bestResolution]),
            !Thumbnail.isBlank(image) {
-            return Thumbnail.png(image, fitting: Thumbnail.captureSize)
+            return Thumbnail.png(image, fitting: size)
         }
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
         view.cacheDisplay(in: view.bounds, to: rep)
         guard let image = rep.cgImage, !Thumbnail.isBlank(image) else { return nil }
-        return Thumbnail.png(image, fitting: Thumbnail.captureSize)
+        return Thumbnail.png(image, fitting: size)
     }
 }

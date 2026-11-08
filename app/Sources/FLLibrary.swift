@@ -175,6 +175,53 @@ final class FLLibrary: ObservableObject {
         }
     }
 
+    /// The author's tool: full-size shots of the plugins the database in `folder` lacks, written there
+    /// with an updated index. Opens plugins like a capture of everything, and can be stopped the same way.
+    func exportForDatabase(_ plugins: [ManagedPlugin], waves: [FLPlugin], into folder: URL) {
+        guard !busy else { return }
+        busy = true
+        stopRequested = false
+        progress = 0
+        queue.async {
+            let have = (try? Data(contentsOf: folder.appendingPathComponent("index.json"))).flatMap(PictureIndex.parse)
+            let components = PluginCapture.components()
+            var jobs: [(name: String, keys: [String], component: AVAudioUnitComponent?)] = []
+            for plugin in plugins where have?.entry(for: plugin.pictureKeys) == nil {
+                jobs.append((plugin.name, plugin.pictureKeys, PluginCapture.match(plugin, in: components)))
+            }
+            for plugin in waves where have?.entry(for: [PictureKey.waves(plugin.title)]) == nil {
+                jobs.append((plugin.title, [PictureKey.waves(plugin.title)], PluginCapture.match(plugin, in: components)))
+            }
+            var shots: [(keys: [String], png: Data)] = []
+            var failed: [String] = []
+            for (n, job) in jobs.enumerated() {
+                if DispatchQueue.main.sync(execute: { self.stopRequested }) { break }
+                DispatchQueue.main.async {
+                    self.current = job.name
+                    self.progress = Double(n) / Double(jobs.count)
+                    self.capture = CheckProgress(done: n, total: jobs.count, current: job.name)
+                }
+                let size = Int(Thumbnail.databaseSize.width)
+                if let component = job.component, let png = PluginCapture.capture(component, maxSide: size) {
+                    shots.append((job.keys, png))
+                } else {
+                    failed.append(job.name)
+                }
+            }
+            // Written even after a stop: what was shot so far is worth keeping
+            let result = Result { try PictureExport.export(shots, into: folder) }
+            DispatchQueue.main.async {
+                self.busy = false
+                self.capture = nil
+                self.current = ""
+                switch result {
+                case .success(let written): self.status = .captured(shots: written, failed: failed)
+                case .failure(let error):   self.status = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
     static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }

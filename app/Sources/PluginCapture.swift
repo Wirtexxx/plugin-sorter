@@ -61,13 +61,14 @@ enum PluginCapture {
     }
 
     /// Returns a thumbnail PNG, or nil if the plugin couldn't be shown or captured in time.
-    static func capture(_ component: AVAudioUnitComponent, timeout: TimeInterval = 25) -> Data? {
+    static func capture(_ component: AVAudioUnitComponent, timeout: TimeInterval = 25,
+                        maxSide: Int = Int(Thumbnail.captureSize.width)) -> Data? {
         let out = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".png")
         defer { try? FileManager.default.removeItem(at: out) }
 
         let d = component.audioComponentDescription
         guard let helper = Helper.process(["--capture", "\(d.componentType)", "\(d.componentSubType)",
-                                           "\(d.componentManufacturer)", out.path]) else { return nil }
+                                           "\(d.componentManufacturer)", out.path, "\(maxSide)"]) else { return nil }
         helper.standardOutput = FileHandle.nullDevice
         helper.standardError = FileHandle.nullDevice
         let ended = DispatchSemaphore(value: 0)

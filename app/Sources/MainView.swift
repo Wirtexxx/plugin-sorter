@@ -277,6 +277,10 @@ struct MainView: View {
                 Button(t("gear.allPictures")) { model.captureAllPictures() }
                     .help(t("pictures.networkHint"))
                     .disabled(model.pictures.busy || (model.shotTargets.isEmpty && model.wavesShots.isEmpty))
+                if model.showsAuthorTools {
+                    Button(t("gear.exportPictures")) { model.exportPicturesForDatabase() }
+                        .disabled(model.pictures.busy)
+                }
                 if model.failedShots > 0 {
                     Button(t("gear.retryPictures", model.failedShots)) { model.retryFailedPictures() }
                         .disabled(model.pictures.busy)

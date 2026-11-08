@@ -71,9 +71,11 @@ final class LocalPictures {
     }
 
     /// Plugin keys hold any character, so the file name is percent-encoded: nothing can leave the folder.
-    func url(for key: String) -> URL {
-        let name = key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
-        return directory.appendingPathComponent(name).appendingPathExtension("png")
+    func url(for key: String) -> URL { directory.appendingPathComponent(Self.fileName(for: key)) }
+
+    /// Also the name in the shared database, so a key finds the same file in both.
+    static func fileName(for key: String) -> String {
+        (key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString) + ".png"
     }
 
     /// Keys of the plugins with a screenshot. Reads the disk.

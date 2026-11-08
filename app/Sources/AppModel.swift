@@ -558,6 +558,22 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Shown only with `defaults write io.github.wirtexxx.plugin-sorter authorTools -bool YES`.
+    var showsAuthorTools: Bool { UserDefaults.standard.bool(forKey: "authorTools") }
+
+    /// The author fills the shared picture database: pick the local copy of its repository.
+    func exportPicturesForDatabase() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = L10n(lang: currentLanguage)("gear.exportPictures")
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        let plugins = LocalPictures.targets(manager.plugins, skipping: [])
+        let waves = pictures.plugins.filter { FLFavorites.normalize($0.info.vendor) == "waves" }
+        pictures.exportForDatabase(plugins, waves: waves, into: folder)
+    }
+
     func retryFailedPictures() {
         pictures.forgetFailedShots()
         captureAllPictures()
