@@ -147,7 +147,10 @@ struct MainView: View {
                 progressLine(t("main.checking", checking.done + 1, checking.total, checking.current), checking)
             }
             if let capture = model.pictures.capture {
-                progressLine(t("main.capturing", capture.done + 1, capture.total, capture.current), capture) {
+                let label = model.pictures.downloading
+                    ? t("main.downloading", capture.done + 1, capture.total)
+                    : t("main.capturing", capture.done + 1, capture.total, capture.current)
+                progressLine(label, capture) {
                     let stopping = model.pictures.stopRequested
                     Button(t(stopping ? "main.stopping" : "gear.stopPictures")) { model.pictures.stopCapture() }
                         .buttonStyle(PillButtonStyle(compact: true))
@@ -272,6 +275,7 @@ struct MainView: View {
                 Button(t("gear.stopPictures")) { model.pictures.stopCapture() }
             } else {
                 Button(t("gear.allPictures")) { model.captureAllPictures() }
+                    .help(t("pictures.networkHint"))
                     .disabled(model.pictures.busy || (model.shotTargets.isEmpty && model.wavesShots.isEmpty))
                 if model.failedShots > 0 {
                     Button(t("gear.retryPictures", model.failedShots)) { model.retryFailedPictures() }

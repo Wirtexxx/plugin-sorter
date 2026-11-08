@@ -206,6 +206,14 @@ struct L10n {
         t["col.category"] = [.en: "FL category", .ru: "Категория FL", .uk: "Категорія FL", .de: "FL-Kategorie"]
         t["col.size"] = [.en: "Size", .ru: "Размер", .uk: "Розмір", .de: "Größe"]
         t["main.checking"] = [.en: "Checking %d of %d · %@", .ru: "Проверяю %d из %d · %@", .uk: "Перевіряю %d з %d · %@", .de: "Prüfe %d von %d · %@"]
+        t["main.downloading"] = [.en: "Downloading pictures %d of %d", .ru: "Скачиваю картинки %d из %d", .uk: "Завантажую картинки %d з %d", .de: "Lade Bilder %d von %d"]
+        t["pictures.downloading"] = [.en: "Downloading pictures", .ru: "Скачиваю картинки", .uk: "Завантажую картинки", .de: "Lade Bilder"]
+        t["pictures.networkHint"] = [
+            .en: "Pictures come from the shared database on GitHub first; only the missing ones are captured. GitHub sees your IP address and which pictures are asked for.",
+            .ru: "Сначала картинки берутся из общей базы на GitHub, снимаются только недостающие. GitHub видит ваш IP-адрес и какие картинки запрошены.",
+            .uk: "Спершу картинки беруться із загальної бази на GitHub, знімаються лише відсутні. GitHub бачить вашу IP-адресу і які картинки запитано.",
+            .de: "Bilder kommen zuerst aus der gemeinsamen Datenbank auf GitHub, nur fehlende werden aufgenommen. GitHub sieht deine IP-Adresse und welche Bilder abgerufen werden.",
+        ]
         t["main.capturing"] = [.en: "Capturing %d of %d · %@", .ru: "Снимаю %d из %d · %@", .uk: "Знімаю %d з %d · %@", .de: "Aufnahme %d von %d · %@"]
         t["main.stopping"] = [.en: "Stopping…", .ru: "Останавливаю…", .uk: "Зупиняю…", .de: "Wird gestoppt…"]
         t["main.empty"] = [.en: "Nothing matches", .ru: "Ничего не найдено", .uk: "Нічого не знайдено", .de: "Keine Treffer"]
