@@ -75,3 +75,18 @@ enum PictureKey {
     /// Waves plugins share one WaveShell, so they're keyed by the name FL gives each favourite.
     static func waves(_ title: String) -> String { "waves|" + FLFavorites.normalize(title) }
 }
+
+enum DatabaseAction: Equatable {
+    /// `key` is the one the index knows the picture by, which may differ from the plugin's own.
+    case download(key: String, entry: PictureIndex.Entry)
+    case skip
+}
+
+extension PictureDatabase {
+    /// A plugin's own screenshot is never replaced; a picture from the database is, once the author changes it.
+    static func action(candidates: [String], hasLocal: Bool, downloadedSHA: String?, index: PictureIndex?) -> DatabaseAction {
+        guard let found = index?.entry(for: candidates) else { return .skip }
+        if hasLocal && (downloadedSHA == nil || downloadedSHA == found.entry.sha256) { return .skip }
+        return .download(key: found.key, entry: found.entry)
+    }
+}

@@ -80,3 +80,33 @@ struct PictureDatabaseTests {
         #expect(PictureKey.waves("CLA-76 Stereo") == "waves|cla76stereo")
     }
 }
+
+@Suite("When to fetch from the database")
+struct DatabaseActionTests {
+    private func index(sha: String) -> PictureIndex {
+        PictureIndex(version: 1, pictures: ["a|v": .init(file: "pictures/a.png", sha256: sha, width: 1, height: 1, aliases: nil)])
+    }
+
+    @Test func aPluginWithoutAPictureIsDownloaded() {
+        #expect(PictureDatabase.action(candidates: ["a|v"], hasLocal: false, downloadedSHA: nil, index: index(sha: "a"))
+                == .download(key: "a|v", entry: index(sha: "a").pictures["a|v"]!))
+    }
+
+    @Test func aPluginMissingFromTheDatabaseIsSkipped() {
+        #expect(PictureDatabase.action(candidates: ["b|v"], hasLocal: false, downloadedSHA: nil, index: index(sha: "a")) == .skip)
+        #expect(PictureDatabase.action(candidates: ["a|v"], hasLocal: false, downloadedSHA: nil, index: nil) == .skip)
+    }
+
+    @Test func anOwnScreenshotIsNeverReplaced() {
+        #expect(PictureDatabase.action(candidates: ["a|v"], hasLocal: true, downloadedSHA: nil, index: index(sha: "a")) == .skip)
+    }
+
+    @Test func anUnchangedDownloadStays() {
+        #expect(PictureDatabase.action(candidates: ["a|v"], hasLocal: true, downloadedSHA: "a", index: index(sha: "a")) == .skip)
+    }
+
+    @Test func aChangedDownloadIsFetchedAgain() {
+        #expect(PictureDatabase.action(candidates: ["a|v"], hasLocal: true, downloadedSHA: "a", index: index(sha: "b"))
+                == .download(key: "a|v", entry: index(sha: "b").pictures["a|v"]!))
+    }
+}

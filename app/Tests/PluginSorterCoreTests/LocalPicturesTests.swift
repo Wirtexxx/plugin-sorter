@@ -233,3 +233,31 @@ struct WavesShotTests {
         #expect(!favorite(vendor: "FabFilter", hasPicture: true, source: .card).needsWavesShot)
     }
 }
+
+@Suite("Pictures from the shared database")
+struct DownloadedPicturesTests {
+    private let dir: TempDir
+    init() throws { dir = try TempDir() }
+
+    @Test func aDownloadIsRememberedAcrossLaunches() throws {
+        try LocalPictures(directory: dir.path("p")).saveDownloaded(Data([1]), for: "a|v", sha256: "s1")
+        let again = LocalPictures(directory: dir.path("p"))
+        #expect(again.downloadedSHA(of: "a|v") == "s1")
+        #expect(again.keys == ["a|v"])
+    }
+
+    @Test func anOwnScreenshotIsNoLongerFromTheDatabase() throws {
+        let pictures = LocalPictures(directory: dir.path("p"))
+        try pictures.saveDownloaded(Data([1]), for: "a|v", sha256: "s1")
+        try pictures.save(Data([2]), for: "a|v")
+        #expect(pictures.downloadedSHA(of: "a|v") == nil)
+        #expect(LocalPictures(directory: dir.path("p")).downloadedSHA(of: "a|v") == nil)
+    }
+
+    @Test func aRemovedPictureForgetsItsDownload() throws {
+        let pictures = LocalPictures(directory: dir.path("p"))
+        try pictures.saveDownloaded(Data([1]), for: "a|v", sha256: "s1")
+        pictures.remove("a|v")
+        #expect(pictures.downloadedSHA(of: "a|v") == nil)
+    }
+}
