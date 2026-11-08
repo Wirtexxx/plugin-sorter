@@ -63,3 +63,21 @@ struct PictureExportTests {
         #expect(CaptureHelper.box(["--capture", "1", "2", "3", "/o.png", "junk"]) == Thumbnail.captureSize)
     }
 }
+
+@Suite("Credits in the picture database")
+struct PictureCreditTests {
+    private let dir: TempDir
+    init() throws { dir = try TempDir() }
+
+    @Test func anExportKeepsTheCreditsOfEntriesAlreadyThere() throws {
+        let repo = dir.path("repo")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        try Data("""
+        {"version": 1, "pictures": {"waves|cla76stereo": {"file": "pictures/waves%7Ccla76stereo.png", "sha256": "x",
+         "width": 1, "height": 1, "credit": "https://www.waves.com/plugins/cla-76-compressor-limiter"}}}
+        """.utf8).write(to: repo.appendingPathComponent("index.json"))
+        _ = try PictureExport.export([], into: repo)
+        let index = try #require(PictureIndex.parse(Data(contentsOf: repo.appendingPathComponent("index.json"))))
+        #expect(index.pictures["waves|cla76stereo"]?.credit == "https://www.waves.com/plugins/cla-76-compressor-limiter")
+    }
+}

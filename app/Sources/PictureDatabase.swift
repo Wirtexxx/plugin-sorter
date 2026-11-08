@@ -10,6 +10,8 @@ struct PictureIndex: Codable, Equatable {
         let height: Int
         /// Other keys the same plugin gets on other Macs.
         var aliases: [String]?
+        /// Where the picture comes from, when its owner asks for a link back (Waves' graphic library does).
+        var credit: String? = nil
     }
 
     static let version = 1
