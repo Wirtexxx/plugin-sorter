@@ -155,9 +155,13 @@ Three jobs sit at the bottom, each showing what's left:
   the bottom of FL's plugin picker work for them too. The category comes from the plugin itself (VST3
   sub-categories, CLAP features), then from its name, and falls back to *Effect*.
 - **Pictures in FL** — FL shows a picture next to its own plugins but not next to third-party ones.
-  This opens each plugin's Audio Unit editor for a moment, takes a screenshot and saves it where FL
-  keeps its own pictures; plugins that can't be opened get a card. Drop any image on a plugin's
-  picture to use your own.
+  **Add** first takes ready-made pictures from the shared
+  [plugin-sorter-pictures](https://github.com/Wirtexxx/plugin-sorter-pictures) repository, then opens
+  the Audio Unit editor of each plugin still missing one for a moment, takes a screenshot and saves it
+  where FL keeps its own pictures; plugins that can't be opened get a card. Drop any image on a
+  plugin's picture to use your own. The app only reads from the database, and only when you press the
+  button: GitHub sees your IP address and which pictures are asked for. Plugin pictures belong to
+  their developers and are taken down on request.
 
 Once all three are done they fold into a small strip; click it to open them again. Every job can be
 undone. If FL Studio is open while the app changes its plugin database, it asks first:

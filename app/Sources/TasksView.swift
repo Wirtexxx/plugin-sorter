@@ -80,10 +80,11 @@ struct TasksView: View {
         let library = model.pictures
         let remaining = model.missingPictures.count
         return TaskCard(title: t("task.pictures"),
-                        detail: library.busy ? "\(t("fl.capturing")) · \(library.current)" : t("task.pictures.left", remaining),
+                        detail: library.downloading ? t("pictures.downloading")
+                            : library.busy ? "\(t("fl.capturing")) · \(library.current)" : t("task.pictures.left", remaining),
                         remaining: remaining, total: max(model.pictureTargets.count, remaining),
                         progress: library.busy ? library.progress : nil, busy: library.busy,
-                        action: t("task.add"), run: { model.addMissingPictures() },
+                        action: t("task.add"), actionHelp: t("pictures.networkHint"), run: { model.addMissingPictures() },
                         canUndo: !library.mine.isEmpty, undo: { model.whenFLClosed { library.remove(library.mine) } }, t: t)
     }
 }
@@ -96,6 +97,7 @@ private struct TaskCard: View {
     let progress: Double?
     let busy: Bool
     let action: String
+    var actionHelp: String? = nil
     let run: () -> Void
     let canUndo: Bool
     let undo: () -> Void
@@ -116,6 +118,7 @@ private struct TaskCard: View {
                     if remaining > 0 || busy {
                         Button(action, action: run)
                             .buttonStyle(PillButtonStyle(primary: true, compact: true))
+                            .help(actionHelp ?? "")
                             .disabled(busy)
                     }
                     if canUndo || (remaining == 0 && !busy) {

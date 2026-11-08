@@ -3,6 +3,8 @@ import AppKit
 enum Thumbnail {
     /// Captures are handed from the helper to the app at this size, plenty for a 160 px card.
     static let captureSize = CGSize(width: 640, height: 640)
+    /// Full-size shots for the shared picture database.
+    static let databaseSize = CGSize(width: 2000, height: 2000)
 
     static func png(_ image: CGImage, fitting box: CGSize) -> Data? {
         let w = CGFloat(image.width), h = CGFloat(image.height)
