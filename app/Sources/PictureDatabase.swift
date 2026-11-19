@@ -110,7 +110,11 @@ extension CatalogRow {
     /// A plugin on disk by its own keys; a Waves plugin, which lives in a WaveShell, by the name FL gives it.
     var pictureKeys: [String] {
         if let plugin = plugin { return plugin.isWaveShell ? [] : plugin.pictureKeys }
-        return FLFavorites.normalize(vendor) == "waves" ? [PictureKey.waves(name)] : []
+        guard FLFavorites.normalize(vendor) == "waves" else { return [] }
+        if variants.isEmpty { return [PictureKey.waves(name)] }
+        // Joined channel versions: the Stereo one's picture first, the others' if only they have one
+        return variants.sorted { ChannelVariant.rank($0) < ChannelVariant.rank($1) }
+            .map { PictureKey.waves(name + " " + $0) }
     }
 }
 

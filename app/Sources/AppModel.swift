@@ -640,7 +640,10 @@ final class AppModel: ObservableObject {
     private func preferred(_ row: CatalogRow) -> InstalledEntry? {
         let usable = row.entries.filter { favorites.availability[$0.id] != .removed }
         let rank = { (entry: InstalledEntry) in Self.preference.firstIndex(of: entry.format) ?? Self.preference.count }
-        return (usable.isEmpty ? row.entries : usable).min { rank($0) < rank($1) }
+        // A joined Mono/Stereo row stars its Stereo version, then the best format of it
+        return (usable.isEmpty ? row.entries : usable).min {
+            (ChannelVariant.rank($0), rank($0)) < (ChannelVariant.rank($1), rank($1))
+        }
     }
 
     private func observeStatuses() {
