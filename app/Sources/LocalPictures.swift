@@ -14,6 +14,9 @@ final class LocalPictures {
     /// Pictures that came from the shared database, with the sha256 they had there: an author's fix replaces them.
     private let downloadStore: JSONStore<[String: String]>
     private var downloads: [String: String]
+    /// Favourites (by .fst path) whose card of ours was already looked up in the database.
+    private let checkedStore: JSONStore<[String]>
+    private var checked: Set<String>
     private let lock = NSLock()
 
     init(directory: URL = LocalPictures.defaultDirectory) {
@@ -22,6 +25,21 @@ final class LocalPictures {
         failures = failureStore.load() ?? [:]
         downloadStore = JSONStore(url: directory.appendingPathComponent("database.json"))
         downloads = downloadStore.load() ?? [:]
+        checkedStore = JSONStore(url: directory.appendingPathComponent("checked-cards.json"))
+        checked = Set(checkedStore.load() ?? [])
+    }
+
+    func isChecked(_ id: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return checked.contains(id)
+    }
+
+    func markChecked(_ ids: [String]) {
+        lock.lock()
+        defer { lock.unlock() }
+        checked.formUnion(ids)
+        try? checkedStore.save(checked.sorted())   // at worst the cards are looked up again
     }
 
     func downloadedSHA(of key: String) -> String? {

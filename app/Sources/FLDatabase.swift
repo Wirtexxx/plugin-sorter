@@ -107,6 +107,8 @@ struct FLPlugin: Identifiable {
     var picture: URL { fst.deletingPathExtension().appendingPathExtension("png") }
     var nfo: URL { fst.deletingPathExtension().appendingPathExtension("nfo") }
     var isStock: Bool { hasPicture && source == nil }
+    /// A card we drew stands in for a picture: one from the database replaces it.
+    var isPlaceholder: Bool { hasPicture && source == .card }
     /// A Waves favourite with only a generated card, or nothing, to show in FL.
     var needsWavesShot: Bool {
         FLFavorites.normalize(info.vendor) == "waves" && (!hasPicture || source == .card)

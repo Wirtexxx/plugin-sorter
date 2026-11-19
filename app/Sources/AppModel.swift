@@ -421,6 +421,10 @@ final class AppModel: ObservableObject {
     /// Third-party favourites that are FL's plugin picks; stock ones aren't ours to sort or picture.
     var pictureTargets: [FLPlugin] { pictures.plugins.filter { !$0.isStock } }
     var missingPictures: [FLPlugin] { pictures.missing.filter { !$0.isStock } }
+    /// Cards of ours the database may have a real picture for: part of the task until looked up once.
+    var replaceableCards: [FLPlugin] { pictures.uncheckedCards }
+    /// What the pictures task still has to do: favourites with no picture and cards not yet looked up.
+    var picturesLeft: Int { missingPictures.count + replaceableCards.count }
     var categoryTotal: Int { favorites.favorites.filter { !$0.isStock }.count }
 
     /// Nothing left in any task. False until everything is read: every count is 0 before that.
@@ -428,7 +432,7 @@ final class AppModel: ObservableObject {
     var tasksAllDone: Bool {
         guard sorter.loaded, sorter.applied || sorter.moves.isEmpty else { return false }
         guard usesFL else { return true }
-        return favorites.loaded && pictures.loaded && favorites.unsorted.isEmpty && missingPictures.isEmpty
+        return favorites.loaded && pictures.loaded && favorites.unsorted.isEmpty && picturesLeft == 0
             && !favorites.busy && !pictures.busy
     }
 
@@ -589,25 +593,33 @@ final class AppModel: ObservableObject {
     /// The pictures task: the shared database first, then favourites with a picture of ours get it
     /// without opening the plugin, and only the rest are opened.
     func addMissingPictures() {
-        let missing = Set(missingPictures.map(\.id))
+        let cards = replaceableCards
+        let asked = missingPictures + cards
+        let ids = Set(asked.map(\.id))
         var wanted: [String: [String]] = [:]
-        for row in allRows where row.favorites.contains(where: { missing.contains($0.id) }) {
+        for row in allRows where row.favorites.contains(where: { ids.contains($0.id) }) {
             if let plugin = row.plugin, !plugin.isWaveShell { wanted[plugin.key] = plugin.pictureKeys }
         }
-        for plugin in missingPictures where FLFavorites.normalize(plugin.info.vendor) == "waves" {
+        for plugin in asked where FLFavorites.normalize(plugin.info.vendor) == "waves" {
             wanted[PictureKey.waves(plugin.title)] = [PictureKey.waves(plugin.title)]
         }
         wanted.merge(pictures.downloadedPictures(among: manager.plugins)) { a, _ in a }
-        pictures.fetchFromDatabase(wanted) { self.addPicturesToFL() }
+        pictures.fetchFromDatabase(wanted) {
+            // Looked up only when the database answered; offline they stay in the task for next time
+            if !self.pictures.databaseUnreachable { self.pictures.markChecked(cards) }
+            self.addPicturesToFL(cards: cards)
+        }
     }
 
-    private func addPicturesToFL() {
-        let targets = missingPictures
-        var shots = wavesPictures(targets)
+    /// Cards are replaced only by a picture we have; they're never opened for a screenshot here.
+    private func addPicturesToFL(cards: [FLPlugin]) {
+        let missing = missingPictures
+        var shots = wavesPictures(missing + cards)
         for row in allRows {
             guard let shot = row.plugin.flatMap({ pictures.localPicture(of: $0.key) }) else { continue }
             for favorite in row.favorites { shots[favorite.id] = shot }
         }
+        let targets = PictureTargets.add(missing: missing, cards: cards, shots: shots)
         whenFLClosed { self.pictures.generate(targets, screenshots: true, local: shots) }
     }
 
@@ -663,6 +675,7 @@ final class AppModel: ObservableObject {
             guard let self = self, status != .idle else { return }
             var isError = false
             if case .failed = status { isError = true }
+            if status == .databaseUnreachable { isError = true }
             if case .captured(_, let failed) = status {
                 isError = !failed.isEmpty   // stays up: it names the plugins
                 self.scheduleRefresh()

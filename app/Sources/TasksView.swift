@@ -78,7 +78,7 @@ struct TasksView: View {
 
     private var pictures: some View {
         let library = model.pictures
-        let remaining = model.missingPictures.count
+        let remaining = model.picturesLeft
         return TaskCard(title: t("task.pictures"),
                         detail: library.downloading ? t("pictures.downloading")
                             : library.busy ? "\(t("fl.capturing")) · \(library.current)" : t("task.pictures.left", remaining),

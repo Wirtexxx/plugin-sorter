@@ -11,6 +11,8 @@ enum FLStatus: Equatable {
     case captured(shots: Int, failed: [String])
     case removed(Int)
     case failed(String)
+    /// The picture database's index couldn't be downloaded: offline, blocked by a firewall or GitHub is down.
+    case databaseUnreachable
 }
 
 /// State of the FL Studio tab: favourites in FL's plugin database and their pictures.
@@ -55,6 +57,18 @@ final class FLLibrary: ObservableObject {
     }
 
     func failedKeys(among plugins: [ManagedPlugin]) -> Set<String> { local.failedKeys(among: plugins) }
+
+    /// Set by the last database lookup when its index couldn't be downloaded.
+    @Published private(set) var databaseUnreachable = false
+
+    /// Cards of ours not yet looked up in the database: a picture there may replace them.
+    var uncheckedCards: [FLPlugin] { plugins.filter { $0.isPlaceholder && !local.isChecked($0.id) } }
+
+    func markChecked(_ cards: [FLPlugin]) {
+        guard !cards.isEmpty else { return }
+        local.markChecked(cards.map(\.id))
+        objectWillChange.send()
+    }
 
     /// Gives every plugin that wouldn't open another try.
     func forgetFailedShots() {
@@ -147,7 +161,8 @@ final class FLLibrary: ObservableObject {
         stopRequested = false
         progress = 0
         queue.async {
-            let index = self.fetch(PictureDatabase.indexURL).flatMap(PictureIndex.parse)
+            let indexData = self.fetch(PictureDatabase.indexURL)
+            let index = indexData.flatMap(PictureIndex.parse)
             let have = self.local.keys
             let plan: [(key: String, entry: PictureIndex.Entry)] = wanted.sorted { $0.key < $1.key }.compactMap { key, candidates in
                 let action = PictureDatabase.action(candidates: candidates, hasLocal: have.contains(key),
@@ -170,6 +185,9 @@ final class FLLibrary: ObservableObject {
                 self.busy = false
                 self.downloading = false
                 self.capture = nil
+                // Said out loud: a silent fallback to capturing looked like the database had nothing
+                self.databaseUnreachable = indexData == nil
+                if indexData == nil { self.status = .databaseUnreachable }
                 if !self.stopRequested { next() }
             }
         }

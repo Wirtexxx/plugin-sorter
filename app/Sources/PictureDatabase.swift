@@ -78,6 +78,13 @@ enum PictureKey {
     static func waves(_ title: String) -> String { "waves|" + FLFavorites.normalize(title) }
 }
 
+enum PictureTargets {
+    /// What Add puts into FL: every favourite without a picture, and cards of ours that now have a real one.
+    static func add(missing: [FLPlugin], cards: [FLPlugin], shots: [String: URL]) -> [FLPlugin] {
+        missing + cards.filter { shots[$0.id] != nil }
+    }
+}
+
 enum DatabaseAction: Equatable {
     /// `key` is the one the index knows the picture by, which may differ from the plugin's own.
     case download(key: String, entry: PictureIndex.Entry)

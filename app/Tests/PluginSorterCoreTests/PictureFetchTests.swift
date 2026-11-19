@@ -67,7 +67,7 @@ struct PictureFetchTests {
         #expect(local.keys.isEmpty)
     }
 
-    @Test @MainActor func noIndexMeansNoErrorAndTheCaptureGoesOn() async {
+    @Test @MainActor func anUnreachableDatabaseIsReportedAndTheCaptureGoesOn() async {
         let server = Server([:], sha: Self.sha)
         server.files = [:]
         let (library, local) = library(server)
@@ -75,7 +75,31 @@ struct PictureFetchTests {
         library.fetchFromDatabase(["a|v": ["a|v"]]) { next += 1 }
         await wait { next == 1 }
         #expect(local.keys.isEmpty)
+        #expect(library.status == .databaseUnreachable)
+        #expect(library.databaseUnreachable)
+    }
+
+    @Test @MainActor func aBrokenIndexIsNoConnectionError() async {
+        let (library, _) = library(Server([:], index: Data("<html>".utf8), sha: Self.sha))
+        var next = 0
+        library.fetchFromDatabase(["a|v": ["a|v"]]) { next += 1 }
+        await wait { next == 1 }
         #expect(library.status == .idle)
+        #expect(!library.databaseUnreachable)
+    }
+
+    @Test @MainActor func aSuccessfulFetchClearsAnEarlierConnectionError() async {
+        let server = Server([:], sha: Self.sha)
+        let index = server.files
+        server.files = [:]
+        let (library, _) = library(server)
+        var next = 0
+        library.fetchFromDatabase(["a|v": ["a|v"]]) { next += 1 }
+        await wait { next == 1 }
+        server.files = index
+        library.fetchFromDatabase(["a|v": ["a|v"]]) { next += 1 }
+        await wait { next == 2 }
+        #expect(!library.databaseUnreachable)
     }
 
     @Test @MainActor func aFileThatDoesntMatchItsHashIsNotSaved() async {

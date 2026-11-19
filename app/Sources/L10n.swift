@@ -65,6 +65,7 @@ struct L10n {
             return self("fl.captured", shots, failed.count) + (failed.isEmpty ? "" : "\n" + failed.joined(separator: ", "))
         case .removed(let n):               return self("fl.removed", n)
         case .failed(let error):            return self("status.failed", error)
+        case .databaseUnreachable:          return self("pictures.unreachable")
         }
     }
 
@@ -208,6 +209,12 @@ struct L10n {
         t["main.checking"] = [.en: "Checking %d of %d · %@", .ru: "Проверяю %d из %d · %@", .uk: "Перевіряю %d з %d · %@", .de: "Prüfe %d von %d · %@"]
         t["main.downloading"] = [.en: "Downloading pictures %d of %d", .ru: "Скачиваю картинки %d из %d", .uk: "Завантажую картинки %d з %d", .de: "Lade Bilder %d von %d"]
         t["pictures.downloading"] = [.en: "Downloading pictures", .ru: "Скачиваю картинки", .uk: "Завантажую картинки", .de: "Lade Bilder"]
+        t["pictures.unreachable"] = [
+            .en: "Couldn't reach the picture database on GitHub. Check the internet or your firewall.",
+            .ru: "Не удалось подключиться к базе картинок на GitHub. Проверьте интернет или файрвол.",
+            .uk: "Не вдалося підключитися до бази картинок на GitHub. Перевірте інтернет або файрвол.",
+            .de: "Die Bilddatenbank auf GitHub ist nicht erreichbar. Prüfe das Internet oder deine Firewall.",
+        ]
         t["pictures.networkHint"] = [
             .en: "Pictures come from the shared database on GitHub first; only the missing ones are captured. GitHub sees your IP address and which pictures are asked for.",
             .ru: "Сначала картинки берутся из общей базы на GitHub, снимаются только недостающие. GitHub видит ваш IP-адрес и какие картинки запрошены.",
