@@ -29,6 +29,31 @@ struct PictureCardsTests {
         #expect(targets.map(\.id) == [missing.id, found.id])
     }
 
+    private func row(_ name: String, vendor: String, plugin: ManagedPlugin? = nil) -> CatalogRow {
+        CatalogRow(id: name, name: name, vendor: vendor, plugin: plugin, entries: [], favorites: [], isStale: false)
+    }
+
+    @Test func aWavesPluginWithoutAFavouriteIsLookedUpByItsName() {
+        #expect(row("C4 Mono", vendor: "Waves").pictureKeys == ["waves|c4mono"])
+    }
+
+    @Test func aPluginOnDiskIsLookedUpByItsOwnKeys() {
+        let plugin = ManagedPlugin(key: "ott|xfer", name: "OTT", vendor: "Xfer", bundles: [])
+        #expect(row("OTT", vendor: "Xfer", plugin: plugin).pictureKeys == ["ott|xfer"])
+    }
+
+    @Test func anotherPluginOnlyFLKnowsHasNothingToLookUp() {
+        #expect(row("Gone", vendor: "Xfer").pictureKeys.isEmpty)
+    }
+
+    @Test func theDatabaseIsAskedForEveryRowWithoutAPicture() {
+        let plugin = ManagedPlugin(key: "ott|xfer", name: "OTT", vendor: "Xfer", bundles: [])
+        let rows = [row("C4 Mono", vendor: "Waves"), row("OTT", vendor: "Xfer", plugin: plugin),
+                    row("CLA-76 Stereo", vendor: "Waves"), row("Gone", vendor: "Xfer")]
+        let wanted = PictureTargets.database(rows) { $0.name == "CLA-76 Stereo" }
+        #expect(wanted == ["waves|c4mono": ["waves|c4mono"], "ott|xfer": ["ott|xfer"]])
+    }
+
     @Test @MainActor func aCheckedCardIsNoLongerWaitingAndStaysChecked() {
         let local = LocalPictures(directory: dir.path("p"))
         let library = FLLibrary(demo: true, local: local)

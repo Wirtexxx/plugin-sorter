@@ -83,6 +83,24 @@ enum PictureTargets {
     static func add(missing: [FLPlugin], cards: [FLPlugin], shots: [String: URL]) -> [FLPlugin] {
         missing + cards.filter { shots[$0.id] != nil }
     }
+
+    /// Every row without a picture, favourite or not, by the key its picture is kept under and the keys to look it up by.
+    static func database(_ rows: [CatalogRow], pictured: (CatalogRow) -> Bool) -> [String: [String]] {
+        var wanted: [String: [String]] = [:]
+        for row in rows where !pictured(row) {
+            let keys = row.pictureKeys
+            if let key = keys.first, wanted[key] == nil { wanted[key] = keys }
+        }
+        return wanted
+    }
+}
+
+extension CatalogRow {
+    /// A plugin on disk by its own keys; a Waves plugin, which lives in a WaveShell, by the name FL gives it.
+    var pictureKeys: [String] {
+        if let plugin = plugin { return plugin.isWaveShell ? [] : plugin.pictureKeys }
+        return FLFavorites.normalize(vendor) == "waves" ? [PictureKey.waves(name)] : []
+    }
 }
 
 enum DatabaseAction: Equatable {

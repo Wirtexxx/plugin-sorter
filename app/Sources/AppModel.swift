@@ -493,17 +493,27 @@ final class AppModel: ObservableObject {
 
     /// Hands the plugin's screenshot to its new favourite, when the app has one.
     private func adoptShot(of row: CatalogRow) -> ((URL) -> Void)? {
-        guard let shot = row.plugin.flatMap({ pictures.localPicture(of: $0.key) }) else { return nil }
+        guard let shot = localShot(of: row) else { return nil }
         return { [weak self] fst in self?.pictures.adopt(shot, for: fst) }
     }
 
     /// What the card shows: FL's picture, or our screenshot, which beats a generated card in FL.
     func artwork(of row: CatalogRow) -> (url: URL, hasHeader: Bool)? {
-        let shot = row.plugin.flatMap { pictures.localPicture(of: $0.key) }
+        let shot = localShot(of: row)
         if let picture = picture(of: row), picture.hasPicture, picture.source != .card || shot == nil {
             return (picture.picture, picture.source != nil)
         }
         return shot.map { ($0, false) }
+    }
+
+    /// The app's own picture of the row: a screenshot, or one from the database (Waves ones too, by FL's name).
+    private func localShot(of row: CatalogRow) -> URL? {
+        row.pictureKeys.first.flatMap { pictures.localPicture(of: $0) }
+    }
+
+    /// Rows the database may have a picture for: every one without, not only FL's favourites.
+    private var databaseWanted: [String: [String]] {
+        PictureTargets.database(allRows) { artwork(of: $0) != nil }
     }
 
     /// Plugins still without a real picture, which a capture of everything would open.
@@ -525,6 +535,7 @@ final class AppModel: ObservableObject {
     func captureAllPictures() {
         var wanted = Dictionary(shotTargets.map { ($0.key, $0.pictureKeys) }, uniquingKeysWith: { a, _ in a })
         for waves in wavesShots { wanted[PictureKey.waves(waves.title)] = [PictureKey.waves(waves.title)] }
+        wanted.merge(databaseWanted) { a, _ in a }
         wanted.merge(pictures.downloadedPictures(among: manager.plugins)) { a, _ in a }
         guard !wanted.isEmpty else { return }
         pictures.fetchFromDatabase(wanted) { self.captureRemainingPictures() }
@@ -603,6 +614,7 @@ final class AppModel: ObservableObject {
         for plugin in asked where FLFavorites.normalize(plugin.info.vendor) == "waves" {
             wanted[PictureKey.waves(plugin.title)] = [PictureKey.waves(plugin.title)]
         }
+        wanted.merge(databaseWanted) { a, _ in a }
         wanted.merge(pictures.downloadedPictures(among: manager.plugins)) { a, _ in a }
         pictures.fetchFromDatabase(wanted) {
             // Looked up only when the database answered; offline they stay in the task for next time
