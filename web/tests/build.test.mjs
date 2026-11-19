@@ -82,6 +82,15 @@ test("has valid structured data", async () => {
     const faq = blocks.find((b) => b["@type"] === "FAQPage");
     assert.ok(app);
     assert.equal(app.offers.price, "0");
+    assert.equal(app.image, "https://pluginsorter.com/assets/icon.png");
+    assert.equal(app.screenshot.url, "https://pluginsorter.com/assets/app.webp");
+    assert.equal(app.author.name, "Wirtex");
+    assert.equal(app.isAccessibleForFree, true);
+    const site = blocks.find((b) => b["@type"] === "WebSite");
+    assert.ok(site);
+    assert.equal(site.name, "Plugin Sorter");
+    assert.equal(site.url, copyFile === "ru" ? "https://pluginsorter.com/ru/" : "https://pluginsorter.com/");
+    assert.equal(site.inLanguage, copyFile);
     assert.ok(faq);
     assert.equal(faq.mainEntity.length, copy.faq.length);
   }
