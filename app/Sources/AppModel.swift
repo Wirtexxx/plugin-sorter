@@ -421,6 +421,10 @@ final class AppModel: ObservableObject {
     /// Third-party favourites that are FL's plugin picks; stock ones aren't ours to sort or picture.
     var pictureTargets: [FLPlugin] { pictures.plugins.filter { !$0.isStock } }
     var missingPictures: [FLPlugin] { pictures.missing.filter { !$0.isStock } }
+    /// Cards of ours the database may have a real picture for: part of the task until looked up once.
+    var replaceableCards: [FLPlugin] { pictures.uncheckedCards }
+    /// What the pictures task still has to do: favourites with no picture and cards not yet looked up.
+    var picturesLeft: Int { missingPictures.count + replaceableCards.count }
     var categoryTotal: Int { favorites.favorites.filter { !$0.isStock }.count }
 
     /// Nothing left in any task. False until everything is read: every count is 0 before that.
@@ -428,7 +432,7 @@ final class AppModel: ObservableObject {
     var tasksAllDone: Bool {
         guard sorter.loaded, sorter.applied || sorter.moves.isEmpty else { return false }
         guard usesFL else { return true }
-        return favorites.loaded && pictures.loaded && favorites.unsorted.isEmpty && missingPictures.isEmpty
+        return favorites.loaded && pictures.loaded && favorites.unsorted.isEmpty && picturesLeft == 0
             && !favorites.busy && !pictures.busy
     }
 
@@ -489,17 +493,23 @@ final class AppModel: ObservableObject {
 
     /// Hands the plugin's screenshot to its new favourite, when the app has one.
     private func adoptShot(of row: CatalogRow) -> ((URL) -> Void)? {
-        guard let shot = row.plugin.flatMap({ pictures.localPicture(of: $0.key) }) else { return nil }
+        guard let shot = localShot(of: row) else { return nil }
         return { [weak self] fst in self?.pictures.adopt(shot, for: fst) }
     }
 
     /// What the card shows: FL's picture, or our screenshot, which beats a generated card in FL.
     func artwork(of row: CatalogRow) -> (url: URL, hasHeader: Bool)? {
-        let shot = row.plugin.flatMap { pictures.localPicture(of: $0.key) }
-        if let picture = picture(of: row), picture.hasPicture, picture.source != .card || shot == nil {
-            return (picture.picture, picture.source != nil)
-        }
-        return shot.map { ($0, false) }
+        PictureChoice.artwork(fl: picture(of: row), shot: localShot(of: row))
+    }
+
+    /// The app's own picture of the row: a screenshot, or one from the database (Waves ones too, by FL's name).
+    private func localShot(of row: CatalogRow) -> URL? {
+        row.pictureKeys.first.flatMap { pictures.localPicture(of: $0) }
+    }
+
+    /// Rows the database may have a picture for: every one without, not only FL's favourites.
+    private var databaseWanted: [String: [String]] {
+        PictureTargets.database(allRows) { artwork(of: $0) != nil }
     }
 
     /// Plugins still without a real picture, which a capture of everything would open.
@@ -517,22 +527,63 @@ final class AppModel: ObservableObject {
     /// Plugins that wouldn't open last time and are left out of a capture until asked for.
     var failedShots: Int { pictures.failedKeys(among: manager.plugins).count }
 
-    /// Asks first: the plugins' windows take over the screen for a while.
+    /// The shared database first, then a capture of whatever it didn't have.
     func captureAllPictures() {
+        var wanted = Dictionary(shotTargets.map { ($0.key, $0.pictureKeys) }, uniquingKeysWith: { a, _ in a })
+        for waves in wavesShots { wanted[PictureKey.waves(waves.title)] = [PictureKey.waves(waves.title)] }
+        wanted.merge(databaseWanted) { a, _ in a }
+        wanted.merge(pictures.downloadedPictures(among: manager.plugins)) { a, _ in a }
+        guard !wanted.isEmpty else { return }
+        pictures.fetchFromDatabase(wanted) { self.captureRemainingPictures() }
+    }
+
+    /// Waves favourites with a picture of ours, by favourite: they go into FL without opening a plugin.
+    private func wavesPictures(_ waves: [FLPlugin]) -> [String: URL] {
+        var shots: [String: URL] = [:]
+        for plugin in waves where FLFavorites.normalize(plugin.info.vendor) == "waves" {
+            shots[plugin.id] = pictures.localPicture(of: PictureKey.waves(plugin.title))
+        }
+        return shots
+    }
+
+    /// Asks first: the plugins' windows take over the screen for a while.
+    private func captureRemainingPictures() {
         let targets = shotTargets
         let waves = wavesShots
-        guard !targets.isEmpty || !waves.isEmpty else { return }
+        let wavesLocal = wavesPictures(waves)
+        let wavesToOpen = waves.filter { wavesLocal[$0.id] == nil }
+        guard !targets.isEmpty || !wavesToOpen.isEmpty else {
+            // Everything came from the database: nothing to open, only FL to fill
+            if !waves.isEmpty { whenFLClosed { self.pictures.generate(waves, screenshots: false, local: wavesLocal) } }
+            return
+        }
         let t = L10n(lang: currentLanguage)
         let alert = NSAlert()
-        alert.messageText = t("capture.confirm", targets.count + waves.count)
+        alert.messageText = t("capture.confirm", targets.count + wavesToOpen.count)
         alert.informativeText = t("capture.confirmInfo")
         alert.addButton(withTitle: t("capture.start"))
         alert.addButton(withTitle: t("mgr.cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         guard !waves.isEmpty else { return pictures.captureAll(targets) }
         whenFLClosed {
-            self.pictures.captureAll(targets) { self.pictures.generate(waves, screenshots: true) }
+            self.pictures.captureAll(targets) { self.pictures.generate(waves, screenshots: true, local: wavesLocal) }
         }
+    }
+
+    /// Shown only with `defaults write io.github.wirtexxx.plugin-sorter authorTools -bool YES`.
+    var showsAuthorTools: Bool { UserDefaults.standard.bool(forKey: "authorTools") }
+
+    /// The author fills the shared picture database: pick the local copy of its repository.
+    func exportPicturesForDatabase() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = L10n(lang: currentLanguage)("gear.exportPictures")
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        let plugins = LocalPictures.targets(manager.plugins, skipping: [])
+        let waves = pictures.plugins.filter { FLFavorites.normalize($0.info.vendor) == "waves" }
+        pictures.exportForDatabase(plugins, waves: waves, into: folder)
     }
 
     func retryFailedPictures() {
@@ -546,14 +597,37 @@ final class AppModel: ObservableObject {
         manager.uninstall(plugin, leftovers: leftovers, receipts: receipts)
     }
 
-    /// The pictures task: favourites with a screenshot of ours get it without opening the plugin.
+    /// The pictures task: the shared database first, then favourites with a picture of ours get it
+    /// without opening the plugin, and only the rest are opened.
     func addMissingPictures() {
-        var shots: [String: URL] = [:]
+        let cards = replaceableCards
+        let asked = missingPictures + cards
+        let ids = Set(asked.map(\.id))
+        var wanted: [String: [String]] = [:]
+        for row in allRows where row.favorites.contains(where: { ids.contains($0.id) }) {
+            if let plugin = row.plugin, !plugin.isWaveShell { wanted[plugin.key] = plugin.pictureKeys }
+        }
+        for plugin in asked where FLFavorites.normalize(plugin.info.vendor) == "waves" {
+            wanted[PictureKey.waves(plugin.title)] = [PictureKey.waves(plugin.title)]
+        }
+        wanted.merge(databaseWanted) { a, _ in a }
+        wanted.merge(pictures.downloadedPictures(among: manager.plugins)) { a, _ in a }
+        pictures.fetchFromDatabase(wanted) {
+            // Looked up only when the database answered; offline they stay in the task for next time
+            if !self.pictures.databaseUnreachable { self.pictures.markChecked(cards) }
+            self.addPicturesToFL(cards: cards)
+        }
+    }
+
+    /// Cards are replaced only by a picture we have; they're never opened for a screenshot here.
+    private func addPicturesToFL(cards: [FLPlugin]) {
+        let missing = missingPictures
+        var shots = wavesPictures(missing + cards)
         for row in allRows {
             guard let shot = row.plugin.flatMap({ pictures.localPicture(of: $0.key) }) else { continue }
             for favorite in row.favorites { shots[favorite.id] = shot }
         }
-        let targets = missingPictures
+        let targets = PictureTargets.add(missing: missing, cards: cards, shots: shots)
         whenFLClosed { self.pictures.generate(targets, screenshots: true, local: shots) }
     }
 
@@ -566,7 +640,10 @@ final class AppModel: ObservableObject {
     private func preferred(_ row: CatalogRow) -> InstalledEntry? {
         let usable = row.entries.filter { favorites.availability[$0.id] != .removed }
         let rank = { (entry: InstalledEntry) in Self.preference.firstIndex(of: entry.format) ?? Self.preference.count }
-        return (usable.isEmpty ? row.entries : usable).min { rank($0) < rank($1) }
+        // A joined Mono/Stereo row stars its Stereo version, then the best format of it
+        return (usable.isEmpty ? row.entries : usable).min {
+            (ChannelVariant.rank($0), rank($0)) < (ChannelVariant.rank($1), rank($1))
+        }
     }
 
     private func observeStatuses() {
@@ -609,6 +686,7 @@ final class AppModel: ObservableObject {
             guard let self = self, status != .idle else { return }
             var isError = false
             if case .failed = status { isError = true }
+            if status == .databaseUnreachable { isError = true }
             if case .captured(_, let failed) = status {
                 isError = !failed.isEmpty   // stays up: it names the plugins
                 self.scheduleRefresh()

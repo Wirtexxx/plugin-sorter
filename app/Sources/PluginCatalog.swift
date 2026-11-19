@@ -15,6 +15,36 @@ struct CatalogRow: Identifiable {
     var isFavorite: Bool { !favorites.isEmpty }
     /// Deleted from disk but still an FL favourite.
     let isStale: Bool
+    /// Channel versions FL lists as plugins of their own ("C4 Mono", "C4 Stereo"), joined here: Mono, Stereo, Mono-Stereo.
+    var variants: [String] = []
+}
+
+/// Waves (and a few others) ship each plugin as Mono, Stereo and Mono-Stereo, which FL lists one by one.
+enum ChannelVariant {
+    static let order = ["Mono", "Stereo", "Mono-Stereo"]
+
+    /// "C4 Mono" is ("C4", "Mono"); a name with no channel at its end comes back whole.
+    static func split(_ name: String) -> (base: String, variant: String?) {
+        for (suffix, variant) in [("Mono-Stereo", "Mono-Stereo"), ("Mono/Stereo", "Mono-Stereo"),
+                                  ("Mono", "Mono"), ("Stereo", "Stereo")] {
+            let tail = " " + suffix
+            if name.count > tail.count, name.lowercased().hasSuffix(tail.lowercased()) {
+                return (String(name.dropLast(tail.count)), variant)
+            }
+        }
+        return (name, nil)
+    }
+
+    /// Which version a star adds and whose picture the row shows: Stereo, then Mono-Stereo, then Mono.
+    static func rank(_ entry: InstalledEntry) -> Int { rank(split(entry.name).variant) }
+
+    static func rank(_ variant: String?) -> Int {
+        switch variant {
+        case "Mono-Stereo": return 1
+        case "Mono":        return 2
+        default:            return 0
+        }
+    }
 }
 
 /// What a click on the star does. The star never turns its click down: a disabled button would pass it
@@ -78,15 +108,40 @@ enum PluginCatalog {
             return CatalogRow(id: plugin.key, name: plugin.name, vendor: plugin.vendor, plugin: plugin,
                               entries: group, favorites: favoritesOf(group), isStale: false)
         }
-        for orphan in orphans {
+        for orphan in joinChannels(orphans) {
             let gone = orphan.entries.allSatisfy { removed.contains($0.id) }
             let favored = favoritesOf(orphan.entries)
             // A deleted plugin is only worth a row while it still clutters FL's favourites
             guard !gone || !favored.isEmpty, let first = orphan.entries.first else { continue }
-            rows.append(CatalogRow(id: "fl|" + orphan.key, name: first.name, vendor: first.vendor, plugin: nil,
-                                   entries: orphan.entries, favorites: favored, isStale: gone))
+            rows.append(CatalogRow(id: "fl|" + orphan.key, name: orphan.name ?? first.name, vendor: first.vendor,
+                                   plugin: nil, entries: orphan.entries, favorites: favored, isStale: gone,
+                                   variants: orphan.variants))
         }
         return rows.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// FL-only plugins that are channel versions of one another become one: two or more versions, same vendor and name.
+    private static func joinChannels(_ orphans: [(key: String, entries: [InstalledEntry])])
+        -> [(key: String, entries: [InstalledEntry], name: String?, variants: [String])] {
+        var clusters: [String: [(key: String, entries: [InstalledEntry], variant: String?, base: String)]] = [:]
+        var order: [String] = []
+        for orphan in orphans {
+            guard let first = orphan.entries.first else { continue }
+            let (base, variant) = ChannelVariant.split(first.name)
+            let cluster = variant == nil ? orphan.key : key(first.vendor, base) + "|channels"
+            if clusters[cluster] == nil { order.append(cluster) }
+            clusters[cluster, default: []].append((orphan.key, orphan.entries, variant, base))
+        }
+        return order.flatMap { cluster -> [(key: String, entries: [InstalledEntry], name: String?, variants: [String])] in
+            let members = clusters[cluster] ?? []
+            let variants = Set(members.compactMap(\.variant))
+            guard variants.count > 1, let first = members.first else {
+                return members.map { ($0.key, $0.entries, nil, []) }
+            }
+            let entries = members.flatMap(\.entries)
+            return [(key(first.entries[0].vendor, first.base), entries, first.base,
+                     ChannelVariant.order.filter(variants.contains))]
+        }
     }
 
     private static func key(_ vendor: String, _ name: String) -> String {

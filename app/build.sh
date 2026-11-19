@@ -33,6 +33,7 @@ lipo -create build/PluginSorter-arm64 build/PluginSorter-x86_64 -output "$NEW/Co
 lipo -create build/PluginSorterHelper-arm64 build/PluginSorterHelper-x86_64 -output "$HELPER/Contents/MacOS/PluginSorterHelper"
 
 cp scripts/sort-plugins.sh "$NEW/Contents/Resources/sort-plugins.sh"
+cp Resources/halftone.png "$NEW/Contents/Resources/halftone.png"
 
 echo "› Drawing icon"
 swiftc tools/icon.swift -o build/icon && build/icon build/icon.png

@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import AVFoundation
+import CryptoKit
 
 enum FLStatus: Equatable {
     case idle
@@ -10,6 +11,8 @@ enum FLStatus: Equatable {
     case captured(shots: Int, failed: [String])
     case removed(Int)
     case failed(String)
+    /// The picture database's index couldn't be downloaded: offline, blocked by a firewall or GitHub is down.
+    case databaseUnreachable
 }
 
 /// State of the FL Studio tab: favourites in FL's plugin database and their pictures.
@@ -27,12 +30,16 @@ final class FLLibrary: ObservableObject {
     /// How far a job that opens plugins one by one has got. These can be stopped.
     @Published private(set) var capture: CheckProgress?
     var capturingAll: Bool { capture != nil }
+    /// The running job reads the shared database rather than opening plugins.
+    @Published private(set) var downloading = false
     /// Asked to stop; the plugin open now still finishes. Only touched on the main thread.
     @Published private(set) var stopRequested = false
 
     private let local: LocalPictures
     /// A screenshot of a plugin; the real one opens it in a helper.
     private let shooter: ((ManagedPlugin) -> Data?)?
+    /// Reads a file of the shared picture database; nil on any failure. Runs off the main thread.
+    private let fetch: (URL) -> Data?
     /// Pictures of single plugins don't wait behind a capture of everything.
     private let writes = DispatchQueue(label: "plugin-sorter.fl-writes", qos: .userInitiated)
     private let scans = ScanGate()
@@ -40,14 +47,28 @@ final class FLLibrary: ObservableObject {
     private let queue = DispatchQueue(label: "plugin-sorter.fl", qos: .userInitiated)
     private let demo: Bool
 
-    init(demo: Bool = false, local: LocalPictures = LocalPictures(), shooter: ((ManagedPlugin) -> Data?)? = nil) {
+    init(demo: Bool = false, local: LocalPictures = LocalPictures(), shooter: ((ManagedPlugin) -> Data?)? = nil,
+         fetch: ((URL) -> Data?)? = nil) {
         self.demo = demo
         self.local = local
         self.shooter = shooter
+        self.fetch = fetch ?? Self.download
         if !demo { localKeys = local.keys }
     }
 
     func failedKeys(among plugins: [ManagedPlugin]) -> Set<String> { local.failedKeys(among: plugins) }
+
+    /// Set by the last database lookup when its index couldn't be downloaded.
+    @Published private(set) var databaseUnreachable = false
+
+    /// Cards of ours not yet looked up in the database: a picture there may replace them.
+    var uncheckedCards: [FLPlugin] { plugins.filter { $0.isPlaceholder && !local.isChecked($0.id) } }
+
+    func markChecked(_ cards: [FLPlugin]) {
+        guard !cards.isEmpty else { return }
+        local.markChecked(cards.map(\.id))
+        objectWillChange.send()
+    }
 
     /// Gives every plugin that wouldn't open another try.
     func forgetFailedShots() {
@@ -127,6 +148,129 @@ final class FLLibrary: ObservableObject {
 
     /// Stops after the plugin being opened now.
     func stopCapture() { stopRequested = true }
+
+    /// Pictures from the shared database for plugins that have none, so fewer plugins need opening.
+    /// Anything that goes wrong just leaves the plugin to the capture that follows; nothing is reported.
+    /// - Parameter wanted: the key a picture is kept under, and the keys to look it up by in the index.
+    /// - Parameter next: runs once the downloads are over, unless they were stopped.
+    func fetchFromDatabase(_ wanted: [String: [String]], then next: @escaping () -> Void) {
+        guard !busy else { return }
+        guard !wanted.isEmpty else { next(); return }
+        busy = true
+        downloading = true
+        stopRequested = false
+        progress = 0
+        queue.async {
+            let indexData = self.fetch(PictureDatabase.indexURL)
+            let index = indexData.flatMap(PictureIndex.parse)
+            let have = self.local.keys
+            let plan: [(key: String, entry: PictureIndex.Entry)] = wanted.sorted { $0.key < $1.key }.compactMap { key, candidates in
+                let action = PictureDatabase.action(candidates: candidates, hasLocal: have.contains(key),
+                                                    downloadedSHA: self.local.downloadedSHA(of: key), index: index)
+                guard case .download(_, let entry) = action else { return nil }
+                return (key, entry)
+            }
+            for (n, item) in plan.enumerated() {
+                if DispatchQueue.main.sync(execute: { self.stopRequested }) { break }
+                DispatchQueue.main.async {
+                    self.progress = Double(n) / Double(plan.count)
+                    self.capture = CheckProgress(done: n, total: plan.count, current: "")
+                }
+                guard let url = PictureDatabase.url(of: item.entry), let data = self.fetch(url),
+                      Self.sha256(data) == item.entry.sha256, NSImage(data: data) != nil,
+                      (try? self.local.saveDownloaded(data, for: item.key, sha256: item.entry.sha256)) != nil else { continue }
+                DispatchQueue.main.async { self.localKeys.insert(item.key) }
+            }
+            DispatchQueue.main.async {
+                self.busy = false
+                self.downloading = false
+                self.capture = nil
+                // Said out loud: a silent fallback to capturing looked like the database had nothing
+                self.databaseUnreachable = indexData == nil
+                if indexData == nil { self.status = .databaseUnreachable }
+                if !self.stopRequested { next() }
+            }
+        }
+    }
+
+    /// The author's tool: full-size shots of the plugins the database in `folder` lacks, written there
+    /// with an updated index. Opens plugins like a capture of everything, and can be stopped the same way.
+    func exportForDatabase(_ plugins: [ManagedPlugin], waves: [FLPlugin], into folder: URL) {
+        guard !busy else { return }
+        busy = true
+        stopRequested = false
+        progress = 0
+        queue.async {
+            let have = (try? Data(contentsOf: folder.appendingPathComponent("index.json"))).flatMap(PictureIndex.parse)
+            let components = PluginCapture.components()
+            var jobs: [(name: String, keys: [String], component: AVAudioUnitComponent?)] = []
+            for plugin in plugins where have?.entry(for: plugin.pictureKeys) == nil {
+                jobs.append((plugin.name, plugin.pictureKeys, PluginCapture.match(plugin, in: components)))
+            }
+            for plugin in waves where have?.entry(for: [PictureKey.waves(plugin.title)]) == nil {
+                jobs.append((plugin.title, [PictureKey.waves(plugin.title)], PluginCapture.match(plugin, in: components)))
+            }
+            var shots: [(keys: [String], png: Data)] = []
+            var failed: [String] = []
+            for (n, job) in jobs.enumerated() {
+                if DispatchQueue.main.sync(execute: { self.stopRequested }) { break }
+                DispatchQueue.main.async {
+                    self.current = job.name
+                    self.progress = Double(n) / Double(jobs.count)
+                    self.capture = CheckProgress(done: n, total: jobs.count, current: job.name)
+                }
+                let size = Int(Thumbnail.databaseSize.width)
+                if let component = job.component, let png = PluginCapture.capture(component, maxSide: size) {
+                    shots.append((job.keys, png))
+                } else {
+                    failed.append(job.name)
+                }
+            }
+            // Written even after a stop: what was shot so far is worth keeping
+            let result = Result { try PictureExport.export(shots, into: folder) }
+            DispatchQueue.main.async {
+                self.busy = false
+                self.capture = nil
+                self.current = ""
+                switch result {
+                case .success(let written): self.status = .captured(shots: written, failed: failed)
+                case .failure(let error):   self.status = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// Pictures that came from the database, to look up again: the author may have replaced them.
+    /// Reads the disk. Plugins' own screenshots are left out, the database never replaces those.
+    func downloadedPictures(among plugins: [ManagedPlugin]) -> [String: [String]] {
+        var wanted: [String: [String]] = [:]
+        for plugin in plugins where local.downloadedSHA(of: plugin.key) != nil { wanted[plugin.key] = plugin.pictureKeys }
+        for key in local.keys where key.hasPrefix(PictureKey.waves("")) && local.downloadedSHA(of: key) != nil {
+            wanted[key] = [key]
+        }
+        return wanted
+    }
+
+    static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Plain HTTPS without cookies or a cache of its own; gives up after 15 seconds.
+    private static func download(_ url: URL) -> Data? {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 15
+        let session = URLSession(configuration: config)
+        defer { session.finishTasksAndInvalidate() }
+        var result: Data?
+        let done = DispatchSemaphore(value: 0)
+        session.dataTask(with: url) { data, response, _ in
+            if (response as? HTTPURLResponse)?.statusCode == 200 { result = data }
+            done.signal()
+        }.resume()
+        done.wait()
+        return result
+    }
 
     /// A plugin just became a favourite: its screenshot goes into FL, unless a picture is already there.
     func adopt(_ shot: URL, for fst: URL) {

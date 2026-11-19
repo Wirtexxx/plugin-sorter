@@ -12,9 +12,14 @@ struct FLCard: View {
     static let scale: CGFloat = 2
     static let header: CGFloat = 17
 
+    /// Behind screenshots that don't fill the picture area. Shipped in the app, nil outside it.
+    static let background: NSImage? = Bundle.main.url(forResource: "halftone", withExtension: "png")
+        .flatMap { NSImage(contentsOf: $0) }
+
     let title: String
     let vendor: String
     var shot: NSImage?
+    var background: NSImage? = FLCard.background
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,11 +46,28 @@ struct FLCard: View {
             .frame(height: Self.header)
 
             ZStack {
-                if let shot = shot {
+                if let shot = shot, CardLayout.mode(for: shot.size) == .fill {
                     Image(nsImage: shot)
                         .resizable()
                         .interpolation(.high)
                         .aspectRatio(contentMode: .fill)
+                } else if let shot = shot {
+                    ZStack {
+                        if let background = background {
+                            Image(nsImage: background)
+                                .resizable()
+                                .interpolation(.high)
+                                .aspectRatio(contentMode: .fill)
+                        }
+                        Image(nsImage: shot)
+                            .resizable()
+                            .interpolation(.high)
+                            .aspectRatio(contentMode: .fit)
+                            .shadow(color: Color.black.opacity(0.7), radius: 1.5, y: 1)
+                            .padding(2)
+                    }
+                    .frame(width: CardLayout.pictureArea.width, height: CardLayout.pictureArea.height)
+                    .clipped()
                 } else {
                     WaveBars(levels: levels, mirrored: false)
                         .fill(LinearGradient(gradient: Gradient(colors: [Color.accentHot, Color.accent.opacity(0.4)]),

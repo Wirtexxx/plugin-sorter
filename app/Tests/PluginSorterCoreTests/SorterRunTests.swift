@@ -121,6 +121,9 @@ struct DebouncerTests {
         await MainActor.run {
             for _ in 0..<5 { debouncer.schedule { calls.add() } }
         }
+        // Waits for the call rather than a fixed time: on a busy CI runner the main queue can lag behind
+        await wait { calls.value >= 1 }
+        // …then long enough for any extra call of the burst to land
         try? await Task.sleep(nanoseconds: 100_000_000)
         #expect(calls.value == 1)
     }
