@@ -112,7 +112,26 @@ export function page(copy, ctx) {
     downloadUrl: config.downloadUrl,
     license: "https://opensource.org/licenses/MIT",
     inLanguage: lang,
+    image: `${origin}/assets/icon.png`,
+    screenshot: {
+      "@type": "ImageObject",
+      url: `${origin}/assets/app.webp`,
+      width: HERO.width,
+      height: HERO.height,
+      caption: copy.hero.imageAlt,
+    },
+    author: { "@type": "Person", name: "Wirtex", url: "https://github.com/Wirtexxx" },
+    isAccessibleForFree: true,
+    sameAs: [config.repoUrl],
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  };
+  // Lets Google show "Plugin Sorter" as the site name in results.
+  const site = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Plugin Sorter",
+    url,
+    inLanguage: lang,
   };
   const faq = {
     "@context": "https://schema.org",
@@ -215,6 +234,7 @@ ${koFi ? `<script src="/assets/site.js?v=${ctx.version}" defer></script>\n` : ""
 <meta name="twitter:title" content="${esc(copy.meta.title)}">
 <meta name="twitter:description" content="${esc(copy.meta.description)}">
 <meta name="twitter:image" content="${esc(image)}">
+${jsonLd(site)}
 ${jsonLd(app)}
 ${jsonLd(faq)}
 </head>

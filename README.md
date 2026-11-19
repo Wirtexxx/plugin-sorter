@@ -17,6 +17,10 @@
 </p>
 
 <p align="center">
+  <a href="https://pluginsorter.com"><b>pluginsorter.com</b></a> · <a href="https://github.com/Wirtexxx/plugin-sorter/releases/latest/download/PluginSorter.dmg">Download for Mac</a>
+</p>
+
+<p align="center">
   English · <a href="README.ru.md">Русский</a>
 </p>
 
