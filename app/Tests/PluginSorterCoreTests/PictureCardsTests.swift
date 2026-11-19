@@ -54,6 +54,25 @@ struct PictureCardsTests {
         #expect(wanted == ["waves|c4mono": ["waves|c4mono"], "ott|xfer": ["ott|xfer"]])
     }
 
+    @Test func theAppShowsItsFullPictureOverFLsSmallOne() {
+        let shot = URL(fileURLWithPath: "/p/full.png")
+        for source: FLPlugin.Source? in [.screenshot, .card, nil] {
+            let fl = favorite("A", source: source)
+            #expect(PictureChoice.artwork(fl: fl, shot: shot)?.url == shot)
+        }
+    }
+
+    @Test func aPictureTheUserChoseWins() {
+        let fl = favorite("A", source: .custom)
+        #expect(PictureChoice.artwork(fl: fl, shot: URL(fileURLWithPath: "/p/full.png"))?.url == fl.picture)
+    }
+
+    @Test func withoutAFullPictureFLsIsShown() {
+        let fl = favorite("A", source: .screenshot)
+        #expect(PictureChoice.artwork(fl: fl, shot: nil)?.url == fl.picture)
+        #expect(PictureChoice.artwork(fl: favorite("B", hasPicture: false, source: nil), shot: nil) == nil)
+    }
+
     @Test @MainActor func aCheckedCardIsNoLongerWaitingAndStaysChecked() {
         let local = LocalPictures(directory: dir.path("p"))
         let library = FLLibrary(demo: true, local: local)

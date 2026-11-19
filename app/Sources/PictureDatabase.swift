@@ -95,6 +95,17 @@ enum PictureTargets {
     }
 }
 
+enum PictureChoice {
+    /// What a card in the app shows. FL holds a 208×128 copy; the app's own picture is the full one,
+    /// so it wins over anything in FL except a picture the user chose.
+    static func artwork(fl: FLPlugin?, shot: URL?) -> (url: URL, hasHeader: Bool)? {
+        if let fl = fl, fl.hasPicture, fl.source == .custom || shot == nil {
+            return (fl.picture, fl.source != nil)
+        }
+        return shot.map { ($0, false) }
+    }
+}
+
 extension CatalogRow {
     /// A plugin on disk by its own keys; a Waves plugin, which lives in a WaveShell, by the name FL gives it.
     var pictureKeys: [String] {

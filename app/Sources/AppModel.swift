@@ -499,11 +499,7 @@ final class AppModel: ObservableObject {
 
     /// What the card shows: FL's picture, or our screenshot, which beats a generated card in FL.
     func artwork(of row: CatalogRow) -> (url: URL, hasHeader: Bool)? {
-        let shot = localShot(of: row)
-        if let picture = picture(of: row), picture.hasPicture, picture.source != .card || shot == nil {
-            return (picture.picture, picture.source != nil)
-        }
-        return shot.map { ($0, false) }
+        PictureChoice.artwork(fl: picture(of: row), shot: localShot(of: row))
     }
 
     /// The app's own picture of the row: a screenshot, or one from the database (Waves ones too, by FL's name).
