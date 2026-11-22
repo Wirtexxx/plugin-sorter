@@ -576,7 +576,7 @@ struct PluginDetailsView: View {
                 ForEach(row.entries) { entry in
                     let on = model.isFavorite(entry)
                     Button { model.toggle(entry) } label: {
-                        FormatPill(text: entry.shortFormat, level: nil, filled: on)
+                        FormatPill(text: pillText(entry), level: nil, filled: on)
                     }
                     .buttonStyle(PointerButtonStyle())
                     .disabled(model.favorites.busy)
@@ -584,6 +584,12 @@ struct PluginDetailsView: View {
             }
             .help(t("row.formatsHint"))
         }
+    }
+
+    /// A joined Mono/Stereo row names the channel; the format only matters when there's more than one.
+    private func pillText(_ entry: InstalledEntry) -> String {
+        guard !row.variants.isEmpty, let variant = ChannelVariant.split(entry.name).variant else { return entry.shortFormat }
+        return Set(row.entries.map(\.format)).count > 1 ? variant + " · " + entry.shortFormat : variant
     }
 
     @ViewBuilder private func vendorData(_ plugin: ManagedPlugin) -> some View {

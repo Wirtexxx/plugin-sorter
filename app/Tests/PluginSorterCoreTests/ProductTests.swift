@@ -280,6 +280,22 @@ private func plugin(_ bundles: [PluginBundle]) -> ManagedPlugin {
     @Test func tasksDontWaitForFL() {
         #expect(model().tasksAllDone)
     }
+
+    @Test @MainActor func aCardOfOursIsAPictureLeftUntilLookedUp() {
+        let pictures = FLLibrary(demo: true, local: LocalPictures(directory: dir.path("p")))
+        let model = AppModel(sorter: Sorter(demo: true), manager: ManagerLibrary(demo: true, cache: CheckCache(url: dir.path("c.json"))),
+                             favorites: FavoritesLibrary(demoEntries: [], favorites: [], storage: dir.path("fav")),
+                             pictures: pictures, known: KnownPlugins(url: dir.path("k.json")),
+                             labels: UserLabels(url: dir.path("l.json")), vault: LicenseVault(store: NoSecrets()))
+        let card = FLPlugin(fst: URL(fileURLWithPath: "/db/Effects/CLA-76 Stereo.fst"), title: "CLA-76 Stereo",
+                            info: FSTInfo(name: "WaveShell1-VST3 17.1", vendor: "Waves", path: ""), hasPicture: true, source: .card)
+        let none = FLPlugin(fst: URL(fileURLWithPath: "/db/Effects/OTT.fst"), title: "OTT",
+                            info: FSTInfo(name: "OTT", vendor: "Xfer", path: ""), hasPicture: false, source: nil)
+        pictures.plugins = [card, none]
+        #expect(model.picturesLeft == 2)
+        pictures.markChecked([card])
+        #expect(model.picturesLeft == 1)
+    }
 }
 
 @Suite("Colours people can read")

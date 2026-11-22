@@ -97,14 +97,24 @@ struct PluginCardView: View, Equatable {
                     .background(Circle().fill(Color.chassis.opacity(0.75)))
                     .padding(4), alignment: .topLeading)
                 .overlay(Group { if model.isNew(row) { NewBadge(t: t).padding(6) } }, alignment: .bottomLeading)
-            Text(row.name)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(row.isStale ? .label : .text)
-                .lineLimit(1)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(row.name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(row.isStale ? .label : .text)
+                    .lineLimit(1)
+                if !row.variants.isEmpty {
+                    Text(row.variants.joined(separator: " · "))
+                        .font(.system(size: 10))
+                        .foregroundColor(.label)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // A card with its channel versions under the name is taller: the others in its row grow to match
+        .frame(maxHeight: .infinity, alignment: .top)
         .opacity(row.plugin?.isDisabled == true ? 0.45 : 1)
         .background(hovered || isSelected ? Color.raised : Color.inset)
         .overlay(LabelStripe(color: model.labelColor(of: row)), alignment: .leading)
@@ -156,7 +166,8 @@ struct PluginDetailPanel: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(row.isStale ? .label : .text)
                         .lineLimit(2)
-                    Text(row.vendor).font(.system(size: 12)).foregroundColor(.label).lineLimit(1)
+                    Text(row.variants.isEmpty ? row.vendor : row.vendor + " · " + row.variants.joined(separator: " · "))
+                        .font(.system(size: 12)).foregroundColor(.label).lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 Button {
